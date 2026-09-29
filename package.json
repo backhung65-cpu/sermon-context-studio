@@ -1,0 +1,13 @@
+{
+  "name": "sermon-context-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node scripts/build_site.mjs",
+    "preview": "node server.mjs dist",
+    "test": "node --test src/reference.test.js src/notes.test.js",
+    "audit:coverage": "node scripts/audit_coverage.mjs"
+  }
+}
