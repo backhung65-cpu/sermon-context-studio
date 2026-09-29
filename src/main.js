@@ -277,7 +277,9 @@ function renderHeroMap() {
 }
 
 function renderHeroPreview(places, reference) {
-  heroPlaces = places.filter((place) => place.coordinate);
+  const firstMention = (place) => Math.min(...place.references.map(({ chapter, verse }) => chapter * 1000 + verse));
+  heroPlaces = places.filter((place) => place.coordinate).sort((a, b) =>
+    firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   heroActiveIndex = 0;
   document.querySelector('#visual-title').textContent = reference.label;
   document.querySelector('#visual-place-count').textContent = heroPlaces.length
