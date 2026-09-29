@@ -2,6 +2,8 @@
 
 설교 본문 주소를 입력해 성경 지명을 지도와 근거 링크로 살펴보는 첫 단계 웹앱입니다. 제공된 **목회 AI 연구소 원본 로고 이미지**를 파일 그대로 연결하고, `MINISTRY_AI_LAB_DESIGN_SYSTEM_v2.0_SOFT_FUSION`을 시각 참고 자료로 적용했습니다. 모든 절에 지도 지점이 있는 것은 아닙니다. [전수 검증 결과](COVERAGE_AUDIT.md)를 먼저 확인해 주세요.
 
+배포 주소: [sermon-context-studio.vercel.app](https://sermon-context-studio.vercel.app)
+
 ## 실행
 
 ```powershell
@@ -46,6 +48,8 @@ npm start
 - 지도 배경: [OpenFreeMap](https://openfreemap.org/) / [OpenStreetMap](https://www.openstreetmap.org/copyright/). 지도 하단에 제공 서비스의 저작자 표시가 나옵니다.
 - 지도 라이브러리: MapLibre GL JS 6.11.2. 배포 파일은 `public/vendor/`에 있으며 라이선스는 `MAPLIBRE-LICENSE.txt`입니다.
 - 로고: 사용자가 제공한 원본 PNG 파일을 수정하지 않고 `public/assets/ministry-ai-lab-original.png`로 복사했습니다.
+- 브라우저 탭 아이콘: `public/favicon.svg`에 같은 색상과 A+ 형태를 작은 크기에 맞게 표현했습니다.
+- 링크 미리보기: `index.html`의 Open Graph·Twitter 카드 메타데이터에서 원본 로고 PNG를 사용합니다. 이미지는 공개 GitHub 저장소의 원본 파일로 연결됩니다.
 - 장·절 수 검증: [Free Use Bible API의 KJV 목록](https://bible.helloao.org/api/eng_kjv/books.json)의 장별 절 수만 `src/verse-counts.js`에 보관합니다. 한국어 역본과 장절 차이가 있으면 확인이 필요합니다.
 - 성경 본문 전체 텍스트는 앱에 포함하지 않습니다. 대한성서공회 성경 읽기 링크를 제공합니다.
 
