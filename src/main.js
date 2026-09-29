@@ -1,5 +1,6 @@
-import { BOOKS, bibleReadingUrl, collectPlaceOccurrences, findPlaces, parseReference } from './reference.js';
-import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, noteMarkdown, parseBackup } from './notes.js';
+import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, localizedBookName, parseReference } from './reference.js';
+import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from './notes.js';
+import { LOCALES, t } from './i18n.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['행 16:6-15', '창 12:1-9', '눅 10:25-37', '마 2:1-12'];
@@ -28,20 +29,24 @@ const KOREAN_PLACES = {
 };
 
 const TYPE_LABELS = {
-  settlement: '도시·마을', region: '지역', river: '강', mountain: '산',
-  'body of water': '수역', 'natural area': '자연 지역', road: '도로',
-  'mountain range': '산지', island: '섬', valley: '골짜기',
+  settlement: 'typeSettlement', region: 'typeRegion', river: 'typeRiver', mountain: 'typeMountain',
+  'body of water': 'typeWater', 'natural area': 'typeNatural', road: 'typeRoad',
+  'mountain range': 'typeRange', island: 'typeIsland', valley: 'typeValley',
 };
+
+const requestedLocale = new URLSearchParams(location.search).get('lang');
+let locale = Object.hasOwn(LOCALES, requestedLocale) ? requestedLocale : 'ko';
+const translate = (key, variables) => t(locale, key, variables);
 
 const app = document.querySelector('#app');
 app.innerHTML = `
   <header class="site-header">
     <div class="shell header-inner">
-      <a class="brand" href="/" aria-label="목회 AI 연구소 본문의 장소 처음으로">
-        <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" alt="목회 AI 연구소 AI와 십자가 로고" /></span>
-        <span class="brand-text"><strong>목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
+      <a class="brand" href="/" data-i18n-aria-label="brandHome" aria-label="목회 AI 연구소 본문의 장소 처음으로">
+        <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" data-i18n-alt="logoAlt" alt="목회 AI 연구소 AI와 십자가 로고" /></span>
+        <span class="brand-text"><strong data-i18n="brand">목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
       </a>
-      <span class="header-edition">성경 배경 연구 도구 <span>01</span></span>
+      <div class="header-tools"><label class="sr-only" for="language-select">Language</label><select id="language-select" aria-label="Language">${Object.entries(LOCALES).map(([code, name]) => `<option value="${code}">${name}</option>`).join('')}</select><span class="header-edition"><span data-i18n="edition">성경 배경 연구 도구</span> <span>01</span></span></div>
     </div>
   </header>
 
@@ -49,38 +54,38 @@ app.innerHTML = `
     <section class="hero shell" aria-labelledby="page-title">
       <div class="hero-copy">
         <div class="eyebrow"><span class="eyebrow-line"></span> SERMON CONTEXT STUDIO</div>
-        <h1 id="page-title">본문이 지나간 장소를<br /><em>한눈에 살펴보세요.</em></h1>
-        <p class="hero-lead">설교 본문 주소를 입력하면 연결된 지명을 찾아 지도와 근거를 함께 보여줍니다. 준비의 첫 장면을 더 분명하게 시작하세요.</p>
+        <h1 id="page-title"><span data-i18n="hero1">본문이 지나간 장소를</span><br /><em data-i18n="hero2">한눈에 살펴보세요.</em></h1>
+        <p class="hero-lead" data-i18n="lead">설교 본문 주소를 입력하면 연결된 지명을 찾아 지도와 근거를 함께 보여줍니다. 준비의 첫 장면을 더 분명하게 시작하세요.</p>
         <form id="reference-form" class="search-form" novalidate>
-          <label for="reference-input">성경 본문</label>
+          <label for="reference-input" data-i18n="reference">성경 본문</label>
           <div class="search-row">
-            <input id="reference-input" name="reference" type="text" value="행 16:6-15" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
-            <button type="submit"><span>장소 찾기</span><span aria-hidden="true">↗</span></button>
+            <input id="reference-input" name="reference" type="text" value="행 16:6-15" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
+            <button type="submit"><span data-i18n="search">장소 찾기</span><span aria-hidden="true">↗</span></button>
           </div>
           <p id="search-error" class="search-error" role="alert" hidden></p>
         </form>
-        <div class="example-row"><span>바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
+        <div class="example-row"><span data-i18n="examples">바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
       </div>
       <aside class="hero-visual" aria-labelledby="visual-title">
         <div id="hero-map" class="visual-map" aria-hidden="true"></div>
         <div class="visual-map-wash" aria-hidden="true"></div>
         <div class="visual-topline">
-          <span class="visual-live"><i aria-hidden="true"></i> PASSAGE MAP</span>
-          <span id="visual-place-count" class="visual-count">지명 확인 중</span>
+          <span class="visual-live"><i aria-hidden="true"></i> <span data-i18n="mapBadge">본문 지도</span></span>
+          <span id="visual-place-count" class="visual-count" data-i18n="checking">지명 확인 중</span>
         </div>
-        <div class="visual-intro"><span>지금 살펴보는 본문</span><strong id="visual-title">행 16:6–15</strong><p>본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
-        <p id="hero-map-fallback" class="visual-map-fallback">본문 지도를 불러오고 있습니다.</p>
+        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">행 16:6–15</strong><p data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
+        <p id="hero-map-fallback" class="visual-map-fallback" data-i18n="previewLoading">본문 지도를 불러오고 있습니다.</p>
         <div class="visual-bottom">
           <div id="hero-focus" class="visual-focus">
-            <div class="visual-focus-copy"><span id="hero-focus-kicker">본문 속 장소</span><strong id="hero-focus-name">지명 확인 중</strong><small id="hero-focus-detail">지도를 준비하고 있습니다.</small></div>
+            <div class="visual-focus-copy"><span id="hero-focus-kicker" data-i18n="focusPlace">본문 속 장소</span><strong id="hero-focus-name" data-i18n="checking">지명 확인 중</strong><small id="hero-focus-detail" data-i18n="focusLoading">지도를 준비하고 있습니다.</small></div>
             <div class="visual-focus-navigation">
-              <button id="hero-prev" type="button" aria-label="이전 장소" hidden>←</button>
+              <button id="hero-prev" type="button" data-i18n-aria-label="previous" aria-label="이전 장소" hidden>←</button>
               <span id="hero-position">—</span>
-              <button id="hero-next" type="button" aria-label="다음 장소" hidden>→</button>
+              <button id="hero-next" type="button" data-i18n-aria-label="next" aria-label="다음 장소" hidden>→</button>
             </div>
             <span class="visual-progress" aria-hidden="true"><span id="hero-progress-fill"></span></span>
           </div>
-          <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button">전체 결과 보기 ↗</button></div></div>
+          <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button"><span data-i18n="allResults">전체 결과 보기</span> ↗</button></div></div>
         </div>
       </aside>
     </section>
@@ -89,38 +94,38 @@ app.innerHTML = `
       <div class="shell">
         <div class="section-topline"></div>
         <div class="results-heading">
-          <div><div class="section-kicker">본문 연구 · 지명</div><h2 id="results-title">본문 속 장소</h2><p id="results-description">공개 성경 지리 데이터에서 지명을 불러오는 중입니다.</p></div>
-          <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled>인쇄하기 <span aria-hidden="true">↗</span></button></div>
+          <div><div class="section-kicker" data-i18n="sectionKicker">본문 연구 · 지명</div><h2 id="results-title" data-i18n="placesTitle">본문 속 장소</h2><p id="results-description" data-i18n="resultsLoading">공개 성경 지리 데이터에서 지명을 불러오는 중입니다.</p></div>
+          <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
 
         <div class="workspace">
           <div class="map-pane">
-            <div class="pane-head"><div><span class="pane-index">01</span><strong>지도로 보기</strong></div><span id="map-caption">성경 세계</span></div>
-            <div class="map-frame"><div id="map" class="map" role="img" aria-label="본문과 연결된 지명 지도"></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong>이 본문에 연결된 지도 지점이 없습니다.</strong><p>지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
-            <p class="map-footnote">핀은 선택된 대표 좌표입니다. 지역·강 또는 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.</p>
+            <div class="pane-head"><div><span class="pane-index">01</span><strong data-i18n="mapView">지도로 보기</strong></div><span id="map-caption" data-i18n="bibleWorld">성경 세계</span></div>
+            <div class="map-frame"><div id="map" class="map" role="img" data-i18n-aria-label="mapView" aria-label="본문과 연결된 지명 지도"></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong data-i18n="mapEmptyTitle">이 본문에 연결된 지도 지점이 없습니다.</strong><p data-i18n="mapEmptyDesc">지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
+            <p class="map-footnote" data-i18n="mapFootnote">핀은 선택된 대표 좌표입니다. 지역·강 또는 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.</p>
           </div>
           <div class="places-pane">
-            <div class="pane-head"><div><span class="pane-index">02</span><strong>지명과 근거</strong></div><span id="places-caption">검색 결과</span></div>
-            <div id="place-list" class="place-list" aria-live="polite"><div class="empty-state">자료를 불러오는 중입니다.</div></div>
+            <div class="pane-head"><div><span class="pane-index">02</span><strong data-i18n="placesEvidence">지명과 근거</strong></div><span id="places-caption" data-i18n="searchResults">검색 결과</span></div>
+            <div id="place-list" class="place-list" aria-live="polite"><div class="empty-state" data-i18n="dataLoading">자료를 불러오는 중입니다.</div></div>
           </div>
         </div>
 
         <div class="lower-grid">
           <div class="note-panel">
-            <div class="note-title"><span class="pane-index">03</span><h3>설교 준비 메모</h3></div>
-            <p>본문을 읽으며 떠오른 관찰과 확인할 질문을 적어 두세요.</p>
-            <label class="sr-only" for="sermon-note">설교 준비 메모</label><textarea id="sermon-note" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
-            <span id="note-status" class="note-save" role="status">입력하면 이 브라우저에 자동 저장됩니다.</span>
-            <div class="note-actions"><button id="download-note" type="button" disabled>이 메모 파일로 저장 ↗</button><button id="backup-notes" type="button" disabled>전체 메모 백업 ↗</button><button id="import-trigger" type="button">백업 불러오기 ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
-            <div class="saved-notes"><strong>이 브라우저에 저장된 본문</strong><div id="saved-note-list">저장된 메모가 없습니다.</div></div>
+            <div class="note-title"><span class="pane-index">03</span><h3 data-i18n="noteTitle">설교 준비 메모</h3></div>
+            <p data-i18n="noteIntro">본문을 읽으며 떠오른 관찰과 확인할 질문을 적어 두세요.</p>
+            <label class="sr-only" for="sermon-note" data-i18n="noteTitle">설교 준비 메모</label><textarea id="sermon-note" data-i18n-placeholder="notePlaceholder" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
+            <span id="note-status" class="note-save" role="status" data-i18n="noteAuto">입력하면 이 브라우저에 자동 저장됩니다.</span>
+            <div class="note-actions"><button id="download-note" type="button" disabled><span data-i18n="noteDownload">이 메모 파일로 저장</span> ↗</button><button id="backup-notes" type="button" disabled><span data-i18n="noteBackup">전체 메모 백업</span> ↗</button><button id="import-trigger" type="button"><span data-i18n="noteImport">백업 불러오기</span> ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
+            <div class="saved-notes"><strong data-i18n="savedPassages">이 브라우저에 저장된 본문</strong><div id="saved-note-list" data-i18n="noNotes">저장된 메모가 없습니다.</div></div>
           </div>
-          <aside class="source-panel"><div class="source-top">자료 출처와 사용 범위</div><h3>근거를 따라가며 살펴보세요.</h3><p>지명과 좌표는 OpenBible.info의 성경 지리 공개 자료를 사용합니다. 모든 절에 지명이 있는 것은 아니며, 영어 역본 기반 색인이므로 한국어 본문의 표현과 다를 수 있습니다. 장소별 원자료에서 위치 후보와 근거를 확인해 주세요. 현재 지역 사진은 이용 조건이 확인된 Wikimedia Commons 자료만 표시하며, 고대 현장의 모습을 재현한 사진은 아닙니다. 본문 전체 텍스트는 제공하지 않습니다.</p><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer">대한성서공회 성경 읽기 ↗</a></div></aside>
+          <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="site-footer"><div class="shell footer-inner"><span>© 목회 AI 연구소</span><span>Geographic data: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info</a> · CC BY 4.0</span></div></footer>
+  <footer class="site-footer"><div class="shell footer-inner"><span data-i18n="copyright">© 목회 AI 연구소</span><span><span data-i18n="footerData">지리 자료</span>: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info</a> · CC BY 4.0</span></div></footer>
 `;
 
 const input = document.querySelector('#reference-input');
@@ -162,7 +167,12 @@ const heroFallback = document.querySelector('#hero-map-fallback');
 const heroFocus = document.querySelector('#hero-focus');
 const heroMotionToggle = document.querySelector('#hero-motion-toggle');
 
-document.querySelector('#examples').innerHTML = EXAMPLES.map((example) => `<button type="button" data-example="${example}">${example}</button>`).join('');
+function renderExamples() {
+  document.querySelector('#examples').innerHTML = EXAMPLES.map((example) => {
+    const localized = formatReference(parseReference(example), locale);
+    return `<button type="button" data-example="${escapeHtml(example)}">${escapeHtml(localized)}</button>`;
+  }).join('');
+}
 document.querySelector('#examples').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-example]');
   if (!button) return;
@@ -181,15 +191,49 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function displayName(place) {
-  return KOREAN_PLACES[place.name] || place.name;
+function applyLanguage() {
+  document.documentElement.lang = locale;
+  document.title = translate('title');
+  document.querySelector('meta[name="description"]').content = translate('description');
+  document.querySelector('.brand').href = locale === 'ko' ? '/' : `/?lang=${encodeURIComponent(locale)}`;
+  document.querySelector('#language-select').value = locale;
+  for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = translate(element.dataset.i18n);
+  for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
+  for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
+  for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  renderExamples();
+  if (currentReference && data) {
+    input.value = formatReference(currentReference, locale);
+    renderPlaces(currentPlaces, currentReference);
+    setNoteStatus(translate(note.value ? 'noteRestored' : 'noteNew'));
+    renderSavedNotes();
+  } else if (!location.hash) {
+    input.value = formatReference(parseReference(EXAMPLES[0]), locale);
+  }
 }
 
-const bookByCode = new Map(BOOKS.map((book) => [book.code, book]));
+document.querySelector('#language-select').addEventListener('change', (event) => {
+  locale = event.target.value;
+  const url = new URL(location.href);
+  url.searchParams.set('lang', locale);
+  if (currentReference) url.hash = encodeURIComponent(formatReference(currentReference, locale));
+  history.replaceState(null, '', url);
+  applyLanguage();
+});
+
+applyLanguage();
+
+function displayName(place) {
+  return locale === 'ko' ? KOREAN_PLACES[place.name] || place.name : place.name;
+}
 
 function readingLink(code, chapter, verse, label) {
-  const book = bookByCode.get(code);
-  return `<a href="${bibleReadingUrl(code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${book.name} ${chapter}장 ${verse}절 개역개정으로 읽기`)}">${escapeHtml(label)} <span aria-hidden="true">↗</span></a>`;
+  const reference = `${localizedBookName(code, locale)} ${chapter}:${verse}`;
+  return `<a href="${bibleReadingUrl(code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(translate('readAria', { reference }))}">${escapeHtml(label)} <span aria-hidden="true">↗</span></a>`;
+}
+
+function versesLabel(count) {
+  return locale === 'en' && count === 1 ? '1 verse' : translate('verses', { count });
 }
 
 function occurrenceMarkup(placeId) {
@@ -199,18 +243,17 @@ function occurrenceMarkup(placeId) {
     if (!groups.has(reference.code)) groups.set(reference.code, []);
     groups.get(reference.code).push(reference);
   }
-  return `<p class="occurrence-note">OpenBible.info의 영어 역본 5종 이상에서 확인된 지명 연결 구절입니다. 절을 누르면 대한성서공회 개역개정 본문을 새 탭에서 읽을 수 있습니다. 한글 본문의 지명 표기나 절 번호가 다를 수 있습니다.</p>
+  return `<p class="occurrence-note">${escapeHtml(translate('occurrenceNote'))}</p>
     <div class="occurrence-books">${[...groups].map(([code, verses]) => {
-      const book = bookByCode.get(code);
-      return `<section class="occurrence-book"><h4>${escapeHtml(book.name)} <span>${verses.length}절</span></h4><div class="occurrence-verses">${verses.map(({ chapter, verse }) => readingLink(code, chapter, verse, `${chapter}:${verse}`)).join('')}</div></section>`;
+      return `<section class="occurrence-book"><h4>${escapeHtml(localizedBookName(code, locale))} <span>${escapeHtml(versesLabel(verses.length))}</span></h4><div class="occurrence-verses">${verses.map(({ chapter, verse }) => readingLink(code, chapter, verse, `${chapter}:${verse}`)).join('')}</div></section>`;
     }).join('')}</div>`;
 }
 
 function placeStatus(place) {
-  if (!place.coordinate) return '위치 미확정';
-  if (place.candidateCount > 1) return `위치 후보 ${place.candidateCount}곳`;
-  if (['region', 'river', 'body of water', 'natural area', 'mountain range'].includes(place.type)) return '대표 좌표';
-  return '위치 자료 있음';
+  if (!place.coordinate) return translate('statusUnknown');
+  if (place.candidateCount > 1) return translate('statusCandidates', { count: place.candidateCount });
+  if (['region', 'river', 'body of water', 'natural area', 'mountain range'].includes(place.type)) return translate('statusRepresentative');
+  return translate('statusAvailable');
 }
 
 function clearMarkers() {
@@ -224,7 +267,7 @@ function syncHeroTour() {
   const canTour = heroPlaces.length > 1 && !reducedMotion.matches;
   const playing = canTour && !heroMotionPaused && heroIsVisible && !document.hidden;
   heroMotionToggle.hidden = !canTour;
-  heroMotionToggle.textContent = heroMotionPaused ? '재생' : '일시정지';
+  heroMotionToggle.textContent = translate(heroMotionPaused ? 'play' : 'pause');
   heroMotionToggle.setAttribute('aria-pressed', String(heroMotionPaused));
   heroFocus.classList.toggle('is-playing', playing);
   if (playing) {
@@ -241,10 +284,10 @@ function setHeroFocus(index) {
   heroActiveIndex = (index + heroPlaces.length) % heroPlaces.length;
   const place = heroPlaces[heroActiveIndex];
   const verse = place.references[0];
-  document.querySelector('#hero-focus-kicker').textContent = `본문 속 장소 · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
+  document.querySelector('#hero-focus-kicker').textContent = `${translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
   document.querySelector('#hero-focus-name').textContent = displayName(place);
   document.querySelector('#hero-focus-detail').textContent = verse
-    ? `${currentReference.short} ${verse.chapter}:${verse.verse} · ${placeStatus(place)}`
+    ? `${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse} · ${placeStatus(place)}`
     : placeStatus(place);
   document.querySelector('#hero-position').textContent = `${heroActiveIndex + 1} / ${heroPlaces.length}`;
   heroFocus.classList.remove('focus-changing');
@@ -303,17 +346,17 @@ function renderHeroPreview(places, reference) {
   heroPlaces = places.filter((place) => place.coordinate).sort((a, b) =>
     firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   heroActiveIndex = 0;
-  document.querySelector('#visual-title').textContent = reference.label;
+  document.querySelector('#visual-title').textContent = formatReference(reference, locale);
   document.querySelector('#visual-place-count').textContent = heroPlaces.length
-    ? `지도에 ${heroPlaces.length}곳` : '지도 지점 없음';
+    ? translate('mappedCount', { count: heroPlaces.length }) : translate('noMapPoints');
   const hasSeveral = heroPlaces.length > 1;
   document.querySelector('#hero-prev').hidden = !hasSeveral;
   document.querySelector('#hero-next').hidden = !hasSeveral;
   heroFocus.classList.toggle('is-empty', !heroPlaces.length);
   if (!heroPlaces.length) {
-    document.querySelector('#hero-focus-kicker').textContent = '검색한 본문';
-    document.querySelector('#hero-focus-name').textContent = '연결된 지명이 없습니다';
-    document.querySelector('#hero-focus-detail').textContent = '본문에 지명이 없거나 공개 자료에 연결되지 않았을 수 있습니다.';
+    document.querySelector('#hero-focus-kicker').textContent = translate('searchedPassage');
+    document.querySelector('#hero-focus-name').textContent = translate('noLinkedPlace');
+    document.querySelector('#hero-focus-detail').textContent = translate('noLinkedDetail');
     document.querySelector('#hero-position').textContent = '—';
   } else {
     setHeroFocus(0);
@@ -355,7 +398,7 @@ function updateMap(places) {
     el.type = 'button';
     el.className = 'map-marker';
     el.textContent = String(index + 1);
-    el.setAttribute('aria-label', `${displayName(place)} 지도 핀`);
+    el.setAttribute('aria-label', translate('mapPin', { name: displayName(place) }));
     el.addEventListener('click', () => selectPlace(place.id));
     const marker = new maplibre.Marker({ element: el, anchor: 'bottom' }).setLngLat(place.coordinate).addTo(map);
     markers.push(marker);
@@ -384,23 +427,23 @@ function renderPlaces(places, reference) {
   const chapterReference = !places.length && sameChapter && reference.startVerse !== null
     ? parseReference(`${reference.short} ${reference.chapter}`) : null;
   const chapterPlaceCount = chapterReference ? findPlaces(data, chapterReference).length : 0;
-  resultCount.textContent = `${places.length}곳`;
+  resultCount.textContent = translate('count', { count: places.length });
   resultDescription.textContent = places.length
-    ? `${reference.label}에 연결된 지명 ${places.length}곳을 찾았습니다. 지도에는 위치 자료가 있는 ${mappedCount}곳을 표시합니다.`
-    : `${reference.label}에 직접 연결된 지명이 없습니다. 본문에 지명이 없거나 원자료에 아직 연결되지 않았을 수 있습니다.`;
-  placesCaption.textContent = `${places.length}곳 발견`;
-  mapCaption.textContent = mappedCount ? `${mappedCount}곳 표시` : '표시할 지점 없음';
+    ? translate('resultsFound', { reference: formatReference(reference, locale), count: places.length, mapped: mappedCount })
+    : translate('resultsNone', { reference: formatReference(reference, locale) });
+  placesCaption.textContent = translate('found', { count: places.length });
+  mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
-    const english = name === place.name ? 'OpenBible.info 표기' : place.name;
-    const refs = place.references.map(({ chapter, verse }) => readingLink(reference.code, chapter, verse, `${reference.short} ${chapter}:${verse}`)).join('');
+    const english = name === place.name ? translate('sourceSpelling') : place.name;
+    const refs = place.references.map(({ chapter, verse }) => readingLink(reference.code, chapter, verse, `${localizedBookName(reference.code, locale)} ${chapter}:${verse}`)).join('');
     const allReferenceCount = placeOccurrences.get(place.id)?.length || 0;
     const photo = place.photo;
     const photoMarkup = photo ? `<div class="place-photo">
       <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
-      <div class="place-photo-copy"><span>현재 지역 사진${place.candidateCount > 1 ? ' · 대표 위치 후보' : ''}</span><p>${escapeHtml(photo.alt)}</p><small>사진: ${escapeHtml(photo.credit)}${photo.edited ? ' · 미리보기 가공' : ''}</small><div class="photo-links"><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">사진 원본 ↗</a><a href="${escapeHtml(photo.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.license)} ↗</a></div></div>
+      <div class="place-photo-copy"><span>${escapeHtml(translate('currentPhoto'))}${place.candidateCount > 1 ? ` · ${escapeHtml(translate('candidatePhoto'))}` : ''}</span><p>${escapeHtml(photo.alt)}</p><small>${escapeHtml(translate('photoCredit'))}: ${escapeHtml(photo.credit)}${photo.edited ? ` · ${escapeHtml(translate('previewEdited'))}` : ''}</small><div class="photo-links"><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('photoOriginal'))} ↗</a><a href="${escapeHtml(photo.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.license)} ↗</a></div></div>
     </div>` : '';
     return `<article class="place-card" data-place-id="${escapeHtml(place.id)}">
       <button class="place-focus" type="button" aria-pressed="false" data-focus="${escapeHtml(place.id)}">
@@ -408,13 +451,13 @@ function renderPlaces(places, reference) {
         <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small></span>
         <span class="place-arrow" aria-hidden="true">↗</span>
       </button>
-      <div class="place-meta"><span>${escapeHtml(TYPE_LABELS[place.type] || '지명')}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
-      <div class="verse-list" aria-label="현재 본문의 등장 절">${refs}</div>
-      <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>성경 전체 색인 구절 <strong>${allReferenceCount}절</strong></span><span class="occurrence-summary-action">모두 보기 <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
+      <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
+      <div class="verse-list" aria-label="${escapeHtml(translate('currentVerses'))}">${refs}</div>
+      <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(allReferenceCount))}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
       ${photoMarkup}
-      <a class="source-link" href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">위치 후보와 근거 보기 <span aria-hidden="true">↗</span></a>
+      <a class="source-link" href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceEvidence'))} <span aria-hidden="true">↗</span></a>
     </article>`;
-  }).join('') : `<div class="empty-state"><span class="empty-symbol">○</span><strong>이 범위에서 확인된 지명이 없습니다.</strong><p>본문 전체를 읽으며 지명을 직접 확인해 주세요. 연결 자료가 빠졌을 수도 있습니다.</p>${chapterPlaceCount ? `<p>같은 장에는 연결된 지명 ${chapterPlaceCount}곳이 있습니다.</p><button class="chapter-button" type="button" data-chapter="${escapeHtml(chapterReference.label)}">${escapeHtml(chapterReference.label)} 전체 지명 보기 ↗</button>` : ''}</div>`;
+  }).join('') : `<div class="empty-state"><span class="empty-symbol">○</span><strong>${escapeHtml(translate('emptyTitle'))}</strong><p>${escapeHtml(translate('emptyDesc'))}</p>${chapterPlaceCount ? `<p>${escapeHtml(translate('chapterPlaces', { count: chapterPlaceCount }))}</p><button class="chapter-button" type="button" data-chapter="${escapeHtml(chapterReference.label)}">${escapeHtml(translate('chapterButton', { reference: formatReference(chapterReference, locale) }))} ↗</button>` : ''}</div>`;
   updateMap(places);
   renderHeroPreview(places, reference);
 }
@@ -465,15 +508,15 @@ function renderSavedNotes() {
   try {
     const saved = listNotes(localStorage);
     savedNoteList.innerHTML = saved.length
-      ? saved.map(({ reference }) => `<button type="button" data-note-ref="${escapeHtml(reference)}"${currentReference?.label === reference ? ' class="active"' : ''}>${escapeHtml(reference)}</button>`).join('')
-      : '<span>저장된 메모가 없습니다.</span>';
+      ? saved.map(({ reference }) => `<button type="button" data-note-ref="${escapeHtml(reference)}"${currentReference?.label === reference ? ' class="active"' : ''}>${escapeHtml(formatReference(parseReference(reference), locale) || reference)}</button>`).join('')
+      : `<span>${escapeHtml(translate('noNotes'))}</span>`;
     backupNotesButton.disabled = saved.length === 0;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
   } catch {
-    savedNoteList.textContent = '이 브라우저의 저장 공간을 사용할 수 없습니다.';
+    savedNoteList.textContent = translate('storageUnavailable');
     backupNotesButton.disabled = true;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
-    setNoteStatus('브라우저 저장이 차단되었습니다. 메모 파일로 저장해 주세요.', true);
+    setNoteStatus(translate('noteBlocked'), true);
   }
 }
 
@@ -491,19 +534,21 @@ function downloadText(filename, content, type) {
 function search() {
   clearError();
   const reference = parseReference(input.value);
-  if (reference.error) return showError(reference.error);
-  if (!data) return showError('자료를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
+  if (reference.error) return showError(translate(reference.errorKey || 'badFormat'));
+  if (!data) return showError(translate('loadingTry'));
   currentReference = reference;
   renderPlaces(findPlaces(data, reference), reference);
   try {
     note.value = localStorage.getItem(`${NOTE_PREFIX}${reference.label}`) || '';
-    setNoteStatus(note.value ? '저장된 메모를 불러왔습니다. 변경 내용은 이 브라우저에 자동 저장됩니다.' : '입력하면 이 브라우저에 자동 저장됩니다. 다른 기기에서는 백업 파일을 불러오세요.');
+    setNoteStatus(translate(note.value ? 'noteRestored' : 'noteNew'));
   } catch {
     note.value = '';
-    setNoteStatus('브라우저 저장이 차단되었습니다. 메모 파일로 저장해 주세요.', true);
+    setNoteStatus(translate('noteBlocked'), true);
   }
   renderSavedNotes();
-  history.replaceState(null, '', `#${encodeURIComponent(input.value.trim())}`);
+  const url = new URL(location.href);
+  url.hash = encodeURIComponent(input.value.trim());
+  history.replaceState(null, '', url);
 }
 
 form.addEventListener('submit', (event) => {
@@ -516,9 +561,9 @@ note.addEventListener('input', () => {
     const key = `${NOTE_PREFIX}${currentReference.label}`;
     if (note.value.trim()) localStorage.setItem(key, note.value);
     else localStorage.removeItem(key);
-    setNoteStatus(note.value.trim() ? '이 브라우저에 저장했습니다.' : '빈 메모를 삭제했습니다.');
+    setNoteStatus(translate(note.value.trim() ? 'noteSaved' : 'noteDeleted'));
   } catch {
-    setNoteStatus('브라우저 저장 공간이 부족하거나 차단되었습니다. 메모 파일로 저장해 주세요.', true);
+    setNoteStatus(translate('noteSpace'), true);
   }
   renderSavedNotes();
 });
@@ -534,17 +579,18 @@ savedNoteList.addEventListener('click', (event) => {
 downloadNoteButton.addEventListener('click', () => {
   if (!currentReference || !note.value.trim()) return;
   const part = currentReference.label.replace(/[^\p{L}\p{N}-]+/gu, '-');
-  downloadText(`설교메모-${part}.md`, noteMarkdown(currentReference.label, note.value), 'text/markdown;charset=utf-8');
-  setNoteStatus('현재 본문 메모를 Markdown 파일로 저장했습니다.');
+  const content = `# ${translate('noteTitle')}\n\n${translate('reference')}: ${formatReference(currentReference, locale)}\n${new Date().toISOString()}\n\n${note.value.trimEnd()}\n`;
+  downloadText(`sermon-note-${part}.md`, content, 'text/markdown;charset=utf-8');
+  setNoteStatus(translate('noteDownloaded'));
 });
 
 backupNotesButton.addEventListener('click', () => {
   try {
     const backup = createBackup(listNotes(localStorage));
-    downloadText(`설교메모-전체백업-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
-    setNoteStatus(`${Object.keys(backup.notes).length}개 본문 메모를 백업 파일로 저장했습니다.`);
+    downloadText(`sermon-notes-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
+    setNoteStatus(translate('backupSaved', { count: Object.keys(backup.notes).length }));
   } catch {
-    setNoteStatus('메모 백업에 실패했습니다. 브라우저 저장 상태를 확인해 주세요.', true);
+    setNoteStatus(translate('backupFailed'), true);
   }
 });
 
@@ -557,9 +603,9 @@ importNotesInput.addEventListener('change', async () => {
     const { imported, skipped } = mergeNotes(localStorage, notes);
     if (currentReference && !note.value.trim()) note.value = localStorage.getItem(`${NOTE_PREFIX}${currentReference.label}`) || '';
     renderSavedNotes();
-    setNoteStatus(`${imported}개 메모를 불러왔습니다. 기존 메모 ${skipped}개는 덮어쓰지 않았습니다.`);
+    setNoteStatus(translate('imported', { count: imported, skipped }));
   } catch (cause) {
-    setNoteStatus(cause instanceof Error ? cause.message : '백업 파일을 불러오지 못했습니다.', true);
+    setNoteStatus(locale === 'ko' && cause instanceof Error ? cause.message : translate('importFailed'), true);
   } finally {
     importNotesInput.value = '';
   }
@@ -581,13 +627,13 @@ async function loadMap() {
       preserveDrawingBuffer: true,
     });
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
-    map.on('error', () => { document.querySelector('.map-footnote').textContent = '지도 배경을 불러오지 못해도 아래 지명 목록과 원자료 링크를 이용할 수 있습니다.'; });
+    map.on('error', () => { document.querySelector('.map-footnote').textContent = translate('mapBgError'); });
     map.on('load', () => updateMap(currentPlaces));
     setupHeroMap();
   } catch {
     document.querySelector('#map').classList.add('map-unavailable');
-    document.querySelector('#map').textContent = '지도 배경을 열지 못했습니다. 지명 카드의 원자료는 사용할 수 있습니다.';
-    heroFallback.textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
+    document.querySelector('#map').textContent = translate('mapUnavailable');
+    heroFallback.textContent = translate('heroUnavailable');
   }
 }
 
@@ -627,7 +673,7 @@ function setupHeroMap() {
     renderHeroMap();
   });
   heroMap.on('error', () => {
-    if (!heroMapReady) heroFallback.textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
+    if (!heroMapReady) heroFallback.textContent = translate('heroUnavailable');
   });
 }
 
@@ -644,8 +690,8 @@ async function loadData() {
     }
     search();
   } catch {
-    resultDescription.textContent = '지명 자료를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.';
-    placeList.innerHTML = '<div class="empty-state">자료를 불러오지 못했습니다.</div>';
+    resultDescription.textContent = translate('dataFailed');
+    placeList.innerHTML = `<div class="empty-state">${escapeHtml(translate('dataFailedShort'))}</div>`;
   }
 }
 

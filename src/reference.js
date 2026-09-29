@@ -1,4 +1,5 @@
 import { VERSE_COUNTS } from './verse-counts.js';
+import { BOOK_NAMES } from './book-names.js';
 
 const BOOK_ROWS = [
   ['GEN', '창세기', '창', 'genesis', 'gen'], ['EXO', '출애굽기', '출', 'exodus', 'exod'],
@@ -44,24 +45,43 @@ export const CHAPTER_COUNTS = Object.fromEntries(
   Object.entries(VERSE_COUNTS).map(([code, counts]) => [code, counts.length]),
 );
 
-const aliases = BOOK_ROWS.flatMap(([code, name, ...names]) =>
-  [name, code, ...names].map((alias) => ({ alias: alias.toLowerCase(), code, name, short: names[0] })),
-).sort((a, b) => b.alias.length - a.alias.length);
+const normalize = (value) => String(value).trim().toLowerCase()
+  .replace(/[\s\u200b-\u200d]+/g, '').replace(/\./g, '').replace(/[：]/g, ':')
+  .replace(/[–—~〜]/g, '-');
+const aliases = BOOK_ROWS.flatMap(([code, name, ...names]) => {
+  const native = Object.values(BOOK_NAMES).flatMap((locale) => locale[code]?.aliases || []);
+  return [...new Set([name, code, ...names, ...native].map(normalize))]
+    .filter((alias) => alias.length >= 2 || [name, ...names].map(normalize).includes(alias))
+    .map((alias) => ({ alias, code, name, short: names[0] }));
+}).sort((a, b) => b.alias.length - a.alias.length);
+
+export function formatReference(reference, locale = 'ko') {
+  if (!reference?.code) return '';
+  const book = locale === 'ko' ? BOOKS.find(({ code }) => code === reference.code)?.name
+    : BOOK_NAMES[locale]?.[reference.code]?.name;
+  const end = reference.endChapter !== reference.chapter
+    ? `${reference.endChapter}${reference.endVerse === null ? '' : `:${reference.endVerse}`}`
+    : reference.endVerse !== reference.startVerse ? String(reference.endVerse) : '';
+  return `${book || reference.name} ${reference.chapter}${reference.startVerse === null ? '' : `:${reference.startVerse}`}${end ? `–${end}` : ''}`;
+}
+
+export function localizedBookName(code, locale = 'ko') {
+  return locale === 'ko' ? BOOKS.find((book) => book.code === code)?.name
+    : BOOK_NAMES[locale]?.[code]?.name || BOOKS.find((book) => book.code === code)?.name;
+}
 
 export function parseReference(input) {
-  const normalized = String(input ?? '').trim().toLowerCase()
-    .replace(/\s+/g, '').replace(/\./g, '').replace(/[：]/g, ':')
-    .replace(/[–—~〜]/g, '-');
+  const normalized = normalize(input);
   const book = aliases.find(({ alias }) => normalized.startsWith(alias));
-  if (!book) return { error: '성경 책 이름을 찾지 못했습니다. 예: 행 16:6-15' };
+  if (!book) return { error: '성경 책 이름을 찾지 못했습니다. 예: 행 16:6-15', errorKey: 'badBook' };
   const remainder = normalized.slice(book.alias.length)
     .replace(/[장편](?=\d)/g, ':').replace(/[장절편]/g, '');
   const match = remainder.match(/^(\d{1,3})(?::(\d{1,3}))?(?:-(\d{1,3})(?::(\d{1,3}))?)?$/);
-  if (!match) return { error: '장·절 형식을 확인해 주세요. 예: 창 12, 행 16:6-15, 사 10:15-11:3' };
+  if (!match) return { error: '장·절 형식을 확인해 주세요. 예: 창 12, 행 16:6-15, 사 10:15-11:3', errorKey: 'badFormat' };
 
   const chapter = Number(match[1]);
   const startVerse = match[2] ? Number(match[2]) : null;
-  if (startVerse === null && match[4]) return { error: '장 범위에는 절 끝값을 함께 쓸 수 없습니다.' };
+  if (startVerse === null && match[4]) return { error: '장 범위에는 절 끝값을 함께 쓸 수 없습니다.', errorKey: 'badFormat' };
   const endChapter = startVerse === null || match[4] ? Number(match[3] || chapter) : chapter;
   const endVerse = startVerse === null ? null : Number(match[4] || match[3] || startVerse);
   if (chapter < 1 || chapter > CHAPTER_COUNTS[book.code]
@@ -70,7 +90,7 @@ export function parseReference(input) {
       || startVerse > VERSE_COUNTS[book.code]?.[chapter - 1]
       || endVerse > VERSE_COUNTS[book.code]?.[endChapter - 1]
       || (endChapter === chapter && endVerse < startVerse)))) {
-    return { error: '장·절 범위를 확인해 주세요.' };
+    return { error: '장·절 범위를 확인해 주세요.', errorKey: 'badRange' };
   }
   const endLabel = endChapter !== chapter ? `${endChapter}${endVerse === null ? '' : `:${endVerse}`}`
     : endVerse !== startVerse ? String(endVerse) : '';
