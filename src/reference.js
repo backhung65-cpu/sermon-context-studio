@@ -37,6 +37,8 @@ const BOOK_ROWS = [
 ];
 
 export const BOOKS = BOOK_ROWS.map(([code, name, ...aliases]) => ({ code, name, short: aliases[0] }));
+const BOOK_ORDER = new Map(BOOKS.map(({ code }, index) => [code, index]));
+const BIBLE_READER_CODES = new Map(BOOKS.map(({ code }) => [code, code === 'JON' ? 'jnh' : code.toLowerCase()]));
 
 export const CHAPTER_COUNTS = Object.fromEntries(
   Object.entries(VERSE_COUNTS).map(([code, counts]) => [code, counts.length]),
@@ -97,4 +99,41 @@ export function findPlaces(data, reference) {
       return { chapter, verse };
     }).sort((a, b) => (a.chapter - b.chapter) || (a.verse - b.verse)),
   })).sort((a, b) => (b.references.length - a.references.length) || a.name.localeCompare(b.name));
+}
+
+export function collectPlaceOccurrences(data) {
+  const occurrences = new Map();
+  const seen = new Map();
+  for (const [chapterKey, verses] of Object.entries(data.index)) {
+    const [code, chapterText] = chapterKey.split(' ');
+    if (!BOOK_ORDER.has(code)) continue;
+    const chapter = Number(chapterText);
+    for (const [verseText, placeIndexes] of Object.entries(verses)) {
+      const verse = Number(verseText);
+      if (!Number.isInteger(chapter) || !Number.isInteger(verse)) continue;
+      for (const placeIndex of placeIndexes) {
+        const place = data.places[placeIndex];
+        if (!place) continue;
+        const key = `${code}:${chapter}:${verse}`;
+        if (!seen.has(place.id)) seen.set(place.id, new Set());
+        if (seen.get(place.id).has(key)) continue;
+        seen.get(place.id).add(key);
+        if (!occurrences.has(place.id)) occurrences.set(place.id, []);
+        occurrences.get(place.id).push({ code, chapter, verse });
+      }
+    }
+  }
+  for (const refs of occurrences.values()) {
+    refs.sort((a, b) => BOOK_ORDER.get(a.code) - BOOK_ORDER.get(b.code)
+      || a.chapter - b.chapter || a.verse - b.verse);
+  }
+  return occurrences;
+}
+
+export function bibleReadingUrl(code, chapter, verse) {
+  const book = BIBLE_READER_CODES.get(code);
+  if (!book || !Number.isInteger(chapter) || chapter < 1 || !Number.isInteger(verse) || verse < 1) {
+    throw new Error('Invalid Bible reading reference');
+  }
+  return `https://www.bskorea.or.kr/bible/korbibReadpage.php?book=${book}&chap=${chapter}&sec=${verse}&version=GAE`;
 }

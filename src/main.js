@@ -1,4 +1,4 @@
-import { findPlaces, parseReference } from './reference.js';
+import { BOOKS, bibleReadingUrl, collectPlaceOccurrences, findPlaces, parseReference } from './reference.js';
 import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, noteMarkdown, parseBackup } from './notes.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
@@ -141,6 +141,7 @@ const importNotesInput = document.querySelector('#import-notes');
 const importTrigger = document.querySelector('#import-trigger');
 const printButton = document.querySelector('#print-button');
 let data;
+let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
 let selectedPlaceId = null;
@@ -182,6 +183,27 @@ function escapeHtml(value) {
 
 function displayName(place) {
   return KOREAN_PLACES[place.name] || place.name;
+}
+
+const bookByCode = new Map(BOOKS.map((book) => [book.code, book]));
+
+function readingLink(code, chapter, verse, label) {
+  const book = bookByCode.get(code);
+  return `<a href="${bibleReadingUrl(code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${book.name} ${chapter}장 ${verse}절 개역개정으로 읽기`)}">${escapeHtml(label)} <span aria-hidden="true">↗</span></a>`;
+}
+
+function occurrenceMarkup(placeId) {
+  const references = placeOccurrences.get(placeId) || [];
+  const groups = new Map();
+  for (const reference of references) {
+    if (!groups.has(reference.code)) groups.set(reference.code, []);
+    groups.get(reference.code).push(reference);
+  }
+  return `<p class="occurrence-note">OpenBible.info의 영어 역본 5종 이상에서 확인된 지명 연결 구절입니다. 절을 누르면 대한성서공회 개역개정 본문을 새 탭에서 읽을 수 있습니다. 한글 본문의 지명 표기나 절 번호가 다를 수 있습니다.</p>
+    <div class="occurrence-books">${[...groups].map(([code, verses]) => {
+      const book = bookByCode.get(code);
+      return `<section class="occurrence-book"><h4>${escapeHtml(book.name)} <span>${verses.length}절</span></h4><div class="occurrence-verses">${verses.map(({ chapter, verse }) => readingLink(code, chapter, verse, `${chapter}:${verse}`)).join('')}</div></section>`;
+    }).join('')}</div>`;
 }
 
 function placeStatus(place) {
@@ -373,7 +395,8 @@ function renderPlaces(places, reference) {
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
     const english = name === place.name ? 'OpenBible.info 표기' : place.name;
-    const refs = place.references.map(({ chapter, verse }) => `<span>${escapeHtml(reference.short)} ${chapter}:${verse}</span>`).join('');
+    const refs = place.references.map(({ chapter, verse }) => readingLink(reference.code, chapter, verse, `${reference.short} ${chapter}:${verse}`)).join('');
+    const allReferenceCount = placeOccurrences.get(place.id)?.length || 0;
     const photo = place.photo;
     const photoMarkup = photo ? `<div class="place-photo">
       <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
@@ -386,7 +409,8 @@ function renderPlaces(places, reference) {
         <span class="place-arrow" aria-hidden="true">↗</span>
       </button>
       <div class="place-meta"><span>${escapeHtml(TYPE_LABELS[place.type] || '지명')}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
-      <div class="verse-list" aria-label="등장 절">${refs}</div>
+      <div class="verse-list" aria-label="현재 본문의 등장 절">${refs}</div>
+      <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>성경 전체 색인 구절 <strong>${allReferenceCount}절</strong></span><span class="occurrence-summary-action">모두 보기 <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
       ${photoMarkup}
       <a class="source-link" href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">위치 후보와 근거 보기 <span aria-hidden="true">↗</span></a>
     </article>`;
@@ -405,6 +429,14 @@ placeList.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-focus]');
   if (button) selectPlace(button.dataset.focus);
 });
+
+placeList.addEventListener('toggle', (event) => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.open || !details.matches('[data-occurrence-place]')) return;
+  if (details.dataset.loaded) return;
+  details.querySelector('.occurrence-content').innerHTML = occurrenceMarkup(details.dataset.occurrencePlace);
+  details.dataset.loaded = 'true';
+}, true);
 
 placeList.addEventListener('error', (event) => {
   if (event.target instanceof HTMLImageElement && event.target.closest('.place-photo')) {
@@ -605,6 +637,7 @@ async function loadData() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
+    placeOccurrences = collectPlaceOccurrences(data);
     setupHeroMap();
     if (location.hash.length > 1) {
       try { input.value = decodeURIComponent(location.hash.slice(1)); } catch { /* default example stays */ }
