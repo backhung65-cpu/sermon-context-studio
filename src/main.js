@@ -3,6 +3,8 @@ import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, noteMarkdown, parseBa
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['행 16:6-15', '창 12:1-9', '눅 10:25-37', '마 2:1-12'];
+const HERO_REFERENCE = '행 16:6-15';
+const HERO_PLACE_NAMES = ['Troas', 'Samothrace', 'Philippi'];
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
@@ -60,12 +62,21 @@ app.innerHTML = `
         </form>
         <div class="example-row"><span>바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
       </div>
-      <div class="hero-visual" aria-hidden="true">
-        <div class="visual-grid"></div>
-        <div class="visual-glow"></div>
-        <div class="visual-route"><span class="route-point point-a"></span><span class="route-point point-b"></span><span class="route-point point-c"></span></div>
-        <div class="visual-caption"><span>01 / PLACE & PASSAGE</span><strong>말씀의 공간을 읽다</strong></div>
-      </div>
+      <aside class="hero-visual" aria-labelledby="visual-title">
+        <div class="visual-heading"><span>사용 흐름 · 실제 검색 예시</span><strong id="visual-title">본문 주소에서 지도까지</strong></div>
+        <ol class="visual-steps">
+          <li class="visual-step"><span class="visual-step-number">01</span><div><small>본문 주소 입력</small><strong>행 16:6–15</strong></div></li>
+          <li class="visual-step"><span class="visual-step-number">02</span><div><small>연결된 지명</small><strong id="visual-place-count">지명 확인 중</strong></div></li>
+          <li class="visual-step"><span class="visual-step-number">03</span><div><small>지도에서 위치</small><strong>대표 좌표 보기</strong></div></li>
+        </ol>
+        <div class="visual-map-frame">
+          <div id="hero-map" class="visual-map" aria-hidden="true"></div>
+          <p id="hero-map-fallback" class="visual-map-fallback">드로아·사모드라게·빌립보의 지도 위치를 불러오고 있습니다.</p>
+          <div class="visual-map-legend" aria-label="지도 예시 지명"><span><i>1</i>드로아</span><span><i>2</i>사모드라게</span><span><i>3</i>빌립보</span></div>
+          <span class="visual-map-credit">© OpenStreetMap · OpenFreeMap</span>
+        </div>
+        <div class="visual-footer"><span>검색 결과 중 3곳을 보여주는 예시</span><button id="visual-example-button" type="button">예시 결과 보기 ↗</button></div>
+      </aside>
     </section>
 
     <section id="results" class="results-section" aria-labelledby="results-title">
@@ -128,6 +139,7 @@ let currentReference;
 let currentPlaces = [];
 let selectedPlaceId = null;
 let map;
+let heroMap;
 let maplibre;
 let markers = [];
 
@@ -137,6 +149,13 @@ document.querySelector('#examples').addEventListener('click', (event) => {
   if (!button) return;
   input.value = button.dataset.example;
   form.requestSubmit();
+});
+document.querySelector('#visual-example-button').addEventListener('click', () => {
+  input.value = HERO_REFERENCE;
+  form.requestSubmit();
+  document.querySelector('#results').scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  });
 });
 
 function escapeHtml(value) {
@@ -392,10 +411,46 @@ async function loadMap() {
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
     map.on('error', () => { document.querySelector('.map-footnote').textContent = '지도 배경을 불러오지 못해도 아래 지명 목록과 원자료 링크를 이용할 수 있습니다.'; });
     map.on('load', () => updateMap(currentPlaces));
+    setupHeroMap();
   } catch {
     document.querySelector('#map').classList.add('map-unavailable');
     document.querySelector('#map').textContent = '지도 배경을 열지 못했습니다. 지명 카드의 원자료는 사용할 수 있습니다.';
+    document.querySelector('#hero-map-fallback').textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
   }
+}
+
+function setupHeroMap() {
+  if (heroMap || !maplibre || !data) return;
+  const samplePlaces = findPlaces(data, parseReference(HERO_REFERENCE));
+  const heroPlaces = HERO_PLACE_NAMES.map((name) => samplePlaces.find((place) => place.name === name && place.coordinate));
+  if (heroPlaces.some((place) => !place)) {
+    document.querySelector('#hero-map-fallback').textContent = '예시 지도의 위치 자료를 찾지 못했습니다. 아래 검색 결과를 확인해 주세요.';
+    return;
+  }
+  heroMap = new maplibre.Map({
+    container: 'hero-map',
+    style: 'https://tiles.openfreemap.org/styles/positron',
+    center: [25.2, 40.4],
+    zoom: 5.5,
+    interactive: false,
+    attributionControl: false,
+  });
+  heroMap.on('load', () => {
+    const bounds = new maplibre.LngLatBounds();
+    heroPlaces.forEach((place, index) => {
+      const element = document.createElement('span');
+      element.className = 'hero-map-marker';
+      element.innerHTML = `<span>${index + 1}</span>`;
+      new maplibre.Marker({ element, anchor: 'center' }).setLngLat(place.coordinate).addTo(heroMap);
+      bounds.extend(place.coordinate);
+    });
+    heroMap.fitBounds(bounds, { padding: { top: 46, right: 46, bottom: 52, left: 46 }, maxZoom: 6.4, duration: 0 });
+    document.querySelector('.visual-map-frame').classList.add('hero-map-ready');
+    document.querySelector('#hero-map-fallback').hidden = true;
+  });
+  heroMap.on('error', () => {
+    if (!heroMap.loaded()) document.querySelector('#hero-map-fallback').textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
+  });
 }
 
 async function loadData() {
@@ -404,6 +459,8 @@ async function loadData() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
+    document.querySelector('#visual-place-count').textContent = `${findPlaces(data, parseReference(HERO_REFERENCE)).length}곳 확인`;
+    setupHeroMap();
     if (location.hash.length > 1) {
       try { input.value = decodeURIComponent(location.hash.slice(1)); } catch { /* default example stays */ }
     }
