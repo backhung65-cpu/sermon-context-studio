@@ -3,8 +3,7 @@ import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, noteMarkdown, parseBa
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['행 16:6-15', '창 12:1-9', '눅 10:25-37', '마 2:1-12'];
-const HERO_REFERENCE = '행 16:6-15';
-const HERO_PLACE_NAMES = ['Troas', 'Samothrace', 'Philippi'];
+const HERO_TOUR_DELAY = 4600;
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
@@ -63,19 +62,26 @@ app.innerHTML = `
         <div class="example-row"><span>바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
       </div>
       <aside class="hero-visual" aria-labelledby="visual-title">
-        <div class="visual-heading"><span>사용 흐름 · 실제 검색 예시</span><strong id="visual-title">본문 주소에서 지도까지</strong></div>
-        <ol class="visual-steps">
-          <li class="visual-step"><span class="visual-step-number">01</span><div><small>본문 주소 입력</small><strong>행 16:6–15</strong></div></li>
-          <li class="visual-step"><span class="visual-step-number">02</span><div><small>연결된 지명</small><strong id="visual-place-count">지명 확인 중</strong></div></li>
-          <li class="visual-step"><span class="visual-step-number">03</span><div><small>지도에서 위치</small><strong>대표 좌표 보기</strong></div></li>
-        </ol>
-        <div class="visual-map-frame">
-          <div id="hero-map" class="visual-map" aria-hidden="true"></div>
-          <p id="hero-map-fallback" class="visual-map-fallback">드로아·사모드라게·빌립보의 지도 위치를 불러오고 있습니다.</p>
-          <div class="visual-map-legend" aria-label="지도 예시 지명"><span><i>1</i>드로아</span><span><i>2</i>사모드라게</span><span><i>3</i>빌립보</span></div>
-          <span class="visual-map-credit">© OpenStreetMap · OpenFreeMap</span>
+        <div id="hero-map" class="visual-map" aria-hidden="true"></div>
+        <div class="visual-map-wash" aria-hidden="true"></div>
+        <div class="visual-topline">
+          <span class="visual-live"><i aria-hidden="true"></i> PASSAGE MAP</span>
+          <span id="visual-place-count" class="visual-count">지명 확인 중</span>
         </div>
-        <div class="visual-footer"><span>검색 결과 중 3곳을 보여주는 예시</span><button id="visual-example-button" type="button">예시 결과 보기 ↗</button></div>
+        <div class="visual-intro"><span>지금 살펴보는 본문</span><strong id="visual-title">행 16:6–15</strong><p>본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
+        <p id="hero-map-fallback" class="visual-map-fallback">본문 지도를 불러오고 있습니다.</p>
+        <div class="visual-bottom">
+          <div id="hero-focus" class="visual-focus">
+            <div class="visual-focus-copy"><span id="hero-focus-kicker">본문 속 장소</span><strong id="hero-focus-name">지명 확인 중</strong><small id="hero-focus-detail">지도를 준비하고 있습니다.</small></div>
+            <div class="visual-focus-navigation">
+              <button id="hero-prev" type="button" aria-label="이전 장소" hidden>←</button>
+              <span id="hero-position">—</span>
+              <button id="hero-next" type="button" aria-label="다음 장소" hidden>→</button>
+            </div>
+            <span class="visual-progress" aria-hidden="true"><span id="hero-progress-fill"></span></span>
+          </div>
+          <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button">전체 결과 보기 ↗</button></div></div>
+        </div>
       </aside>
     </section>
 
@@ -142,6 +148,18 @@ let map;
 let heroMap;
 let maplibre;
 let markers = [];
+let heroPlaces = [];
+let heroActiveIndex = 0;
+let heroActiveMarker;
+let heroMapReady = false;
+let heroTourTimer;
+let heroIsVisible = true;
+let heroMotionPaused = false;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const heroVisual = document.querySelector('.hero-visual');
+const heroFallback = document.querySelector('#hero-map-fallback');
+const heroFocus = document.querySelector('#hero-focus');
+const heroMotionToggle = document.querySelector('#hero-motion-toggle');
 
 document.querySelector('#examples').innerHTML = EXAMPLES.map((example) => `<button type="button" data-example="${example}">${example}</button>`).join('');
 document.querySelector('#examples').addEventListener('click', (event) => {
@@ -150,11 +168,9 @@ document.querySelector('#examples').addEventListener('click', (event) => {
   input.value = button.dataset.example;
   form.requestSubmit();
 });
-document.querySelector('#visual-example-button').addEventListener('click', () => {
-  input.value = HERO_REFERENCE;
-  form.requestSubmit();
+document.querySelector('#visual-results-button').addEventListener('click', () => {
   document.querySelector('#results').scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    behavior: reducedMotion.matches ? 'auto' : 'smooth',
   });
 });
 
@@ -179,6 +195,127 @@ function clearMarkers() {
   for (const marker of markers) marker.remove();
   markers = [];
 }
+
+function syncHeroTour() {
+  clearInterval(heroTourTimer);
+  heroTourTimer = undefined;
+  const canTour = heroPlaces.length > 1 && !reducedMotion.matches;
+  const playing = canTour && !heroMotionPaused && heroIsVisible && !document.hidden;
+  heroMotionToggle.hidden = !canTour;
+  heroMotionToggle.textContent = heroMotionPaused ? '재생' : '일시정지';
+  heroMotionToggle.setAttribute('aria-pressed', String(heroMotionPaused));
+  heroFocus.classList.toggle('is-playing', playing);
+  if (playing) {
+    const progress = document.querySelector('#hero-progress-fill');
+    progress.style.animation = 'none';
+    void progress.offsetWidth;
+    progress.style.animation = '';
+    heroTourTimer = setInterval(() => setHeroFocus(heroActiveIndex + 1), HERO_TOUR_DELAY);
+  }
+}
+
+function setHeroFocus(index) {
+  if (!heroPlaces.length) return;
+  heroActiveIndex = (index + heroPlaces.length) % heroPlaces.length;
+  const place = heroPlaces[heroActiveIndex];
+  const verse = place.references[0];
+  document.querySelector('#hero-focus-kicker').textContent = `본문 속 장소 · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
+  document.querySelector('#hero-focus-name').textContent = displayName(place);
+  document.querySelector('#hero-focus-detail').textContent = verse
+    ? `${currentReference.short} ${verse.chapter}:${verse.verse} · ${placeStatus(place)}`
+    : placeStatus(place);
+  document.querySelector('#hero-position').textContent = `${heroActiveIndex + 1} / ${heroPlaces.length}`;
+  heroFocus.classList.remove('focus-changing');
+  void heroFocus.offsetWidth;
+  heroFocus.classList.add('focus-changing');
+  if (heroMapReady) {
+    if (!heroActiveMarker) {
+      const element = document.createElement('span');
+      element.className = 'hero-active-pin';
+      element.innerHTML = '<span></span>';
+      heroActiveMarker = new maplibre.Marker({ element, anchor: 'center' }).setLngLat(place.coordinate).addTo(heroMap);
+    } else {
+      heroActiveMarker.setLngLat(place.coordinate);
+    }
+  }
+  if (heroTourTimer) {
+    const progress = document.querySelector('#hero-progress-fill');
+    progress.style.animation = 'none';
+    void progress.offsetWidth;
+    progress.style.animation = '';
+  }
+}
+
+function renderHeroMap() {
+  if (!heroMapReady) return;
+  heroMap.getSource('passage-places').setData({
+    type: 'FeatureCollection',
+    features: heroPlaces.map((place) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: place.coordinate },
+      properties: { id: place.id },
+    })),
+  });
+  heroActiveMarker?.remove();
+  heroActiveMarker = undefined;
+  if (!heroPlaces.length) {
+    heroMap.easeTo({ center: [34, 32], zoom: 3.4, duration: reducedMotion.matches ? 0 : 700 });
+    return;
+  }
+  if (heroPlaces.length === 1) {
+    heroMap.easeTo({ center: heroPlaces[0].coordinate, zoom: 6, duration: reducedMotion.matches ? 0 : 950 });
+  } else {
+    const bounds = new maplibre.LngLatBounds();
+    heroPlaces.forEach((place) => bounds.extend(place.coordinate));
+    heroMap.fitBounds(bounds, {
+      padding: { top: 98, right: 46, bottom: 145, left: 46 },
+      maxZoom: 6.7,
+      duration: reducedMotion.matches ? 0 : 950,
+    });
+  }
+  setHeroFocus(heroActiveIndex);
+}
+
+function renderHeroPreview(places, reference) {
+  heroPlaces = places.filter((place) => place.coordinate);
+  heroActiveIndex = 0;
+  document.querySelector('#visual-title').textContent = reference.label;
+  document.querySelector('#visual-place-count').textContent = heroPlaces.length
+    ? `지도에 ${heroPlaces.length}곳` : '지도 지점 없음';
+  const hasSeveral = heroPlaces.length > 1;
+  document.querySelector('#hero-prev').hidden = !hasSeveral;
+  document.querySelector('#hero-next').hidden = !hasSeveral;
+  heroFocus.classList.toggle('is-empty', !heroPlaces.length);
+  if (!heroPlaces.length) {
+    document.querySelector('#hero-focus-kicker').textContent = '검색한 본문';
+    document.querySelector('#hero-focus-name').textContent = '연결된 지명이 없습니다';
+    document.querySelector('#hero-focus-detail').textContent = '본문에 지명이 없거나 공개 자료에 연결되지 않았을 수 있습니다.';
+    document.querySelector('#hero-position').textContent = '—';
+  } else {
+    setHeroFocus(0);
+  }
+  renderHeroMap();
+  syncHeroTour();
+}
+
+document.querySelector('#hero-prev').addEventListener('click', () => {
+  setHeroFocus(heroActiveIndex - 1);
+  syncHeroTour();
+});
+document.querySelector('#hero-next').addEventListener('click', () => {
+  setHeroFocus(heroActiveIndex + 1);
+  syncHeroTour();
+});
+heroMotionToggle.addEventListener('click', () => {
+  heroMotionPaused = !heroMotionPaused;
+  syncHeroTour();
+});
+reducedMotion.addEventListener('change', syncHeroTour);
+document.addEventListener('visibilitychange', syncHeroTour);
+new IntersectionObserver(([entry]) => {
+  heroIsVisible = entry.isIntersecting;
+  syncHeroTour();
+}, { threshold: 0.1 }).observe(heroVisual);
 
 function updateMap(places) {
   if (!map) return;
@@ -253,6 +390,7 @@ function renderPlaces(places, reference) {
     </article>`;
   }).join('') : `<div class="empty-state"><span class="empty-symbol">○</span><strong>이 범위에서 확인된 지명이 없습니다.</strong><p>본문 전체를 읽으며 지명을 직접 확인해 주세요. 연결 자료가 빠졌을 수도 있습니다.</p>${chapterPlaceCount ? `<p>같은 장에는 연결된 지명 ${chapterPlaceCount}곳이 있습니다.</p><button class="chapter-button" type="button" data-chapter="${escapeHtml(chapterReference.label)}">${escapeHtml(chapterReference.label)} 전체 지명 보기 ↗</button>` : ''}</div>`;
   updateMap(places);
+  renderHeroPreview(places, reference);
 }
 
 placeList.addEventListener('click', (event) => {
@@ -415,41 +553,47 @@ async function loadMap() {
   } catch {
     document.querySelector('#map').classList.add('map-unavailable');
     document.querySelector('#map').textContent = '지도 배경을 열지 못했습니다. 지명 카드의 원자료는 사용할 수 있습니다.';
-    document.querySelector('#hero-map-fallback').textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
+    heroFallback.textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
   }
 }
 
 function setupHeroMap() {
   if (heroMap || !maplibre || !data) return;
-  const samplePlaces = findPlaces(data, parseReference(HERO_REFERENCE));
-  const heroPlaces = HERO_PLACE_NAMES.map((name) => samplePlaces.find((place) => place.name === name && place.coordinate));
-  if (heroPlaces.some((place) => !place)) {
-    document.querySelector('#hero-map-fallback').textContent = '예시 지도의 위치 자료를 찾지 못했습니다. 아래 검색 결과를 확인해 주세요.';
-    return;
-  }
   heroMap = new maplibre.Map({
     container: 'hero-map',
     style: 'https://tiles.openfreemap.org/styles/positron',
-    center: [25.2, 40.4],
-    zoom: 5.5,
+    center: [34, 32],
+    zoom: 3.4,
     interactive: false,
     attributionControl: false,
   });
   heroMap.on('load', () => {
-    const bounds = new maplibre.LngLatBounds();
-    heroPlaces.forEach((place, index) => {
-      const element = document.createElement('span');
-      element.className = 'hero-map-marker';
-      element.innerHTML = `<span>${index + 1}</span>`;
-      new maplibre.Marker({ element, anchor: 'center' }).setLngLat(place.coordinate).addTo(heroMap);
-      bounds.extend(place.coordinate);
+    // The small preview has its own passage labels; basemap labels overlap them.
+    for (const layer of heroMap.getStyle().layers) {
+      if (layer.type === 'symbol') heroMap.setLayoutProperty(layer.id, 'visibility', 'none');
+    }
+    heroMap.addSource('passage-places', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
     });
-    heroMap.fitBounds(bounds, { padding: { top: 46, right: 46, bottom: 52, left: 46 }, maxZoom: 6.4, duration: 0 });
-    document.querySelector('.visual-map-frame').classList.add('hero-map-ready');
-    document.querySelector('#hero-map-fallback').hidden = true;
+    heroMap.addLayer({
+      id: 'passage-places-pins',
+      type: 'circle',
+      source: 'passage-places',
+      paint: {
+        'circle-radius': 6,
+        'circle-color': '#1d3e72',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2,
+      },
+    });
+    heroMapReady = true;
+    heroVisual.classList.add('hero-map-ready');
+    heroFallback.hidden = true;
+    renderHeroMap();
   });
   heroMap.on('error', () => {
-    if (!heroMap.loaded()) document.querySelector('#hero-map-fallback').textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
+    if (!heroMapReady) heroFallback.textContent = '지도 미리보기를 열지 못했습니다. 아래 검색 결과에서 지명을 확인해 주세요.';
   });
 }
 
@@ -459,7 +603,6 @@ async function loadData() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
-    document.querySelector('#visual-place-count').textContent = `${findPlaces(data, parseReference(HERO_REFERENCE)).length}곳 확인`;
     setupHeroMap();
     if (location.hash.length > 1) {
       try { input.value = decodeURIComponent(location.hash.slice(1)); } catch { /* default example stays */ }
