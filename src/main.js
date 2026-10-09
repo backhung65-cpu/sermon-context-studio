@@ -127,6 +127,7 @@ app.innerHTML = `
           </div>
           <div class="places-pane">
             <div class="pane-head"><div><span class="pane-index">02</span><strong data-i18n="placesEvidence">지명과 근거</strong></div><span id="places-caption" data-i18n="searchResults">검색 결과</span></div>
+            <button id="selected-place-index" class="selected-place-index" type="button" hidden></button>
             <div id="place-list" class="place-list" aria-live="polite"><div class="empty-state" data-i18n="dataLoading">자료를 불러오는 중입니다.</div></div>
           </div>
         </div>
@@ -237,6 +238,11 @@ document.querySelector('#insight-strip').addEventListener('click', (event) => {
 });
 
 document.querySelector('#map-selection').addEventListener('click', (event) => {
+  const occurrenceButton = event.target.closest('button[data-map-occurrences]');
+  if (occurrenceButton) {
+    openOccurrences(occurrenceButton.dataset.mapOccurrences, true);
+    return;
+  }
   const button = event.target.closest('button[data-map-compare]');
   if (!button) return;
   const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === button.dataset.mapCompare);
@@ -244,6 +250,10 @@ document.querySelector('#map-selection').addEventListener('click', (event) => {
   const details = card.querySelector('.place-candidates');
   if (details) details.open = true;
   card.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+});
+
+document.querySelector('#selected-place-index').addEventListener('click', () => {
+  if (selectedPlaceId) openOccurrences(selectedPlaceId, true);
 });
 
 function escapeHtml(value) {
@@ -421,6 +431,27 @@ function occurrenceMarkup(placeId) {
     }).join('')}</div>`;
 }
 
+function openOccurrences(placeId, scroll = false) {
+  const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === placeId);
+  const details = card?.querySelector('.place-occurrences');
+  if (!details) return;
+  if (!details.dataset.loaded) {
+    details.querySelector('.occurrence-content').innerHTML = occurrenceMarkup(placeId);
+    details.dataset.loaded = 'true';
+  }
+  details.open = true;
+  if (scroll) details.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+}
+
+function revealPlaceCard(placeId) {
+  const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === placeId);
+  if (!card || placeList.scrollHeight <= placeList.clientHeight) return;
+  const top = card.getBoundingClientRect().top - placeList.getBoundingClientRect().top + placeList.scrollTop;
+  if (top < placeList.scrollTop || top > placeList.scrollTop + placeList.clientHeight - 90) {
+    placeList.scrollTop = Math.max(0, top - 10);
+  }
+}
+
 function placeStatus(place) {
   if (!place.coordinate) return translate('statusUnknown');
   if (place.candidateCount > 1) return translate('statusCandidates', { count: place.candidateCount });
@@ -460,21 +491,30 @@ function renderDiscovery(places, reference) {
 
 function renderMapSelection(place) {
   const panel = document.querySelector('#map-selection');
+  const indexButton = document.querySelector('#selected-place-index');
   if (!place) {
     panel.hidden = true;
     panel.innerHTML = '';
+    indexButton.hidden = true;
+    indexButton.innerHTML = '';
     return;
   }
   const verse = [...place.references].sort((a, b) => a.chapter - b.chapter || a.verse - b.verse)[0];
   const candidate = place.candidates?.[selectedCandidateIndex] || place.candidates?.[0];
   const name = displayName(place);
+  const candidateName = place.candidateCount > 1 ? candidate?.name || name : name;
+  const occurrenceCount = placeOccurrences.get(place.id)?.length || 0;
+  indexButton.hidden = false;
+  indexButton.innerHTML = `<span>${escapeHtml(translate('legendPlace'))}: <strong>${escapeHtml(name)}</strong></span><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</span>`;
   const position = currentPlaces.findIndex((item) => item.id === place.id) + 1;
   const photo = selectedCandidateIndex === 0 ? place.photo : null;
   panel.classList.toggle('no-photo', !photo);
+  panel.classList.toggle('is-alternative', selectedCandidateIndex > 0);
   const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
   panel.hidden = false;
-  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(translate('mapSelected'))} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)} · ${escapeHtml(placeStatus(place))}</span>
-    <span class="map-selection-candidate">${escapeHtml(translate(selectedCandidateIndex ? 'mapOtherCandidate' : 'mapPrimaryCandidate', { name: candidate?.name || place.name, rank: selectedCandidateIndex + 1 }))}</span>
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+    ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))} · ${escapeHtml(placeStatus(place))}</span>` : ''}
+    <button class="map-selection-occurrences" type="button" data-map-occurrences="${escapeHtml(place.id)}">${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</button>
     <div class="map-selection-actions">${place.candidateCount > 1 ? `<button type="button" data-map-compare="${escapeHtml(place.id)}">${escapeHtml(translate('compareNow', { count: place.candidateCount }))} ↗</button>` : ''}<a href="${bibleReadingUrl(currentReference.code, verse.chapter, verse.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('readBible'))} ↗</a></div></div>${photoMarkup}`;
 }
 
@@ -644,10 +684,10 @@ function renderCandidateMarkers(place) {
     const element = document.createElement('button');
     element.type = 'button';
     element.className = 'candidate-marker';
-    element.textContent = String(index + 1);
+    element.innerHTML = `<span>${index + 1}</span><span class="candidate-marker-label">${escapeHtml(candidate.name)}</span>`;
     element.setAttribute('aria-label', translate('candidateLocation', { name: displayName(place), rank: index + 1 }));
     element.classList.toggle('active', selectedCandidateIndex === index);
-    element.addEventListener('click', () => selectCandidate(place.id, index));
+    element.addEventListener('click', () => selectCandidate(place.id, index, true));
     candidateMarkers.push(new maplibre.Marker({ element, anchor: 'center' }).setLngLat(candidate.coordinate).addTo(map));
   }
 }
@@ -669,10 +709,13 @@ function selectPlace(id, center = true) {
   for (const marker of markers) marker.getElement().classList.toggle('is-selected', marker.getElement().dataset.placeId === id);
   renderCandidateMarkers(place);
   renderMapSelection(place);
+  const occurrenceCount = placeOccurrences.get(id)?.length || 0;
+  if (occurrenceCount > 0 && occurrenceCount <= 20) openOccurrences(id);
+  if (center) revealPlaceCard(id);
   if (center && place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
 }
 
-function selectCandidate(placeId, index) {
+function selectCandidate(placeId, index, fromMap = false) {
   const place = currentPlaces.find((item) => item.id === placeId);
   const candidate = place?.candidates?.[index];
   if (!candidate?.coordinate) return;
@@ -685,7 +728,9 @@ function selectCandidate(placeId, index) {
   for (const [candidateIndex, marker] of candidateMarkers.entries()) {
     marker.getElement().classList.toggle('active', candidateIndex + 1 === index);
   }
+  for (const marker of markers) marker.getElement().classList.toggle('is-selected', index === 0 && marker.getElement().dataset.placeId === placeId);
   renderMapSelection(place);
+  if (fromMap) revealPlaceCard(placeId);
   map?.flyTo({ center: candidate.coordinate, zoom: Math.max(map.getZoom(), 8), essential: true });
   if (window.matchMedia('(max-width: 760px)').matches) {
     document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
@@ -740,8 +785,8 @@ function renderPlaces(places, reference) {
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
       <div class="verse-list" aria-label="${escapeHtml(translate('currentVerses'))}">${refs}</div>
-      ${candidateMarkup}
       <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(allReferenceCount))}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
+      ${candidateMarkup}
       ${photoMarkup}
       <a class="source-link" href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceEvidence'))} <span aria-hidden="true">↗</span></a>
     </article>`;
@@ -750,12 +795,8 @@ function renderPlaces(places, reference) {
   if (spotlightPlaceId) {
     selectPlace(spotlightPlaceId, false);
     const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === spotlightPlaceId);
-    const candidates = card?.querySelector('.place-candidates');
-    if (candidates && places.find((place) => place.id === spotlightPlaceId)?.candidateCount > 1) {
-      candidates.open = true;
-      if (placeList.scrollHeight > placeList.clientHeight) {
-        placeList.scrollTop = card.getBoundingClientRect().top - placeList.getBoundingClientRect().top + placeList.scrollTop - 10;
-      }
+    if (card && placeList.scrollHeight > placeList.clientHeight) {
+      placeList.scrollTop = card.getBoundingClientRect().top - placeList.getBoundingClientRect().top + placeList.scrollTop - 10;
     }
   }
   else renderMapSelection(null);

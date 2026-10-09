@@ -196,9 +196,14 @@ h1 em { font-style: normal; }
 .map-selection.no-photo { grid-template-columns: 1fr; }
 .map-selection-content { display: grid; align-content: start; gap: 3px; min-width: 0; }
 .map-selection-kicker { color: #55719a; font-size: 10px; font-weight: 800; letter-spacing: .045em; }
-.map-selection-content > strong { color: #12213d; font-size: 23px; line-height: 1.2; letter-spacing: -.05em; }
+.map-selection-content > strong { color: #12213d; font-size: 23px; line-height: 1.2; letter-spacing: -.05em; overflow-wrap: anywhere; }
+.map-selection.is-alternative { border-color: #c8b8e9; }
+.map-selection.is-alternative .map-selection-content > strong { color: #5d3397; }
 .map-selection-verse { color: #526783; font-size: 11px; font-weight: 700; line-height: 1.4; }
-.map-selection-candidate { overflow: hidden; margin-top: 3px; color: #654098; font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.map-selection-candidate { margin-top: 3px; color: #654098; font-size: 11px; font-weight: 800; line-height: 1.4; }
+.map-selection-occurrences { justify-self: start; margin-top: 5px; padding: 4px 0; border: 0; background: transparent; color: #174d98; font-size: 11px; font-weight: 750; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.map-selection-occurrences strong { color: #0d3271; }
+.map-selection-occurrences:focus-visible { outline: 2px solid #6496fd; outline-offset: 3px; }
 .map-selection-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .map-selection-actions button, .map-selection-actions a { display: inline-flex; align-items: center; min-height: 32px; padding: 6px 9px; border: 1px solid #d9e3f1; border-radius: 6px; background: #fff; color: #315682; font-size: 10px; font-weight: 800; text-decoration: none; }
 .map-selection-actions button { border-color: #c8b8e9; background: #f7f2ff; color: #633d91; }
@@ -216,11 +221,17 @@ h1 em { font-style: normal; }
 .map-marker-label { display: none; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 .map-marker.is-selected { z-index: 4; height: 37px; padding-inline: 11px; background: #2261b5; box-shadow: 0 0 0 5px rgba(43,114,219,.19), 0 4px 12px rgba(15,23,42,.29); }
 .map-marker.is-selected .map-marker-label { display: inline; }
-.candidate-marker { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #9b55cd; color: #fff; box-shadow: 0 2px 9px rgba(58,24,104,.35); font-size: 10px; font-weight: 800; }
-.candidate-marker.active { width: 31px; height: 31px; background: #5929a8; box-shadow: 0 0 0 4px rgba(154,85,205,.2), 0 2px 9px rgba(58,24,104,.35); }
+.candidate-marker { display: flex; align-items: center; justify-content: center; gap: 5px; width: 26px; height: 26px; padding: 0; border: 2px solid #fff; border-radius: 50%; background: #9b55cd; color: #fff; box-shadow: 0 2px 9px rgba(58,24,104,.35); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.candidate-marker-label { display: none; }
+.candidate-marker.active { width: auto; max-width: 180px; height: 32px; padding: 0 9px; border-radius: 17px; background: #5929a8; box-shadow: 0 0 0 4px rgba(154,85,205,.2), 0 2px 9px rgba(58,24,104,.35); }
+.candidate-marker.active .candidate-marker-label { display: inline-block; overflow: hidden; max-width: 145px; text-overflow: ellipsis; }
 .candidate-marker:focus-visible { outline: 3px solid #173e77; outline-offset: 3px; }
 .maplibregl-control-container { font-family: 'Noto Sans KR', sans-serif; }
 .places-pane { display: flex; flex-direction: column; min-width: 0; border-left: 1px solid #e2e8f0; }
+.selected-place-index { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; width: 100%; min-height: 45px; padding: 9px 22px; border: 0; border-bottom: 1px solid #cbdcf3; background: #edf4ff; color: #244773; font-size: 10px; font-weight: 700; text-align: left; cursor: pointer; }
+.selected-place-index[hidden] { display: none; }
+.selected-place-index strong { color: #103b79; font-size: 12px; }
+.selected-place-index:focus-visible { outline: 2px solid #6496fd; outline-offset: -2px; }
 .place-list { min-height: 495px; max-height: 595px; overflow: auto; scrollbar-color: #cbd5e1 transparent; }
 .place-card { padding: 18px 22px 17px; border-bottom: 1px solid #e9edf3; transition: background .2s; }
 .place-card:last-child { border-bottom: 0; }
@@ -238,6 +249,9 @@ h1 em { font-style: normal; }
 .verse-list a:hover, .occurrence-verses a:hover { border-color: #8ba9dd; background: #f2f6ff; color: #153f83; }
 .verse-list a span, .occurrence-verses a span { color: #7c95bc; }
 .place-occurrences, .place-candidates { margin: 12px 0 0 25px; border: 1px solid #dce6f2; border-radius: 8px; background: #f9fbff; }
+.place-occurrences { border-color: #bcd1ee; background: #f3f7ff; }
+.place-occurrences summary { color: #193e76; }
+.place-occurrences summary strong { margin-left: 4px; padding: 3px 6px; border-radius: 5px; background: #dfeafa; }
 .place-candidates { border-color: #e4d9f2; background: #fcfaff; }
 .place-occurrences summary, .place-candidates summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 43px; padding: 10px 12px; color: #365273; font-size: 11px; font-weight: 700; list-style: none; cursor: pointer; }
 .place-candidates summary { color: #61388b; }
@@ -342,6 +356,7 @@ h1 em { font-style: normal; }
   .workspace { display: block; }
   .map-frame, .map { min-height: 430px; }
   .places-pane { border-left: 0; border-top: 1px solid #e2e8f0; }
+  .selected-place-index { padding-inline: 16px; }
   .place-list { max-height: none; min-height: 0; overflow: visible; }
 }
 
@@ -389,8 +404,9 @@ h1 em { font-style: normal; }
   .text-button { font-size: 10px; }
   .workspace { display: block; }
   .pane-head { height: 56px; padding-inline: 16px; }
-  .map-frame, .map { height: 460px; min-height: 460px; }
-  .map-selection { top: auto; bottom: 11px; left: 11px; width: calc(100% - 22px); }
+  .map-frame { display: flex; flex-direction: column; flex: none; height: auto; min-height: 0; }
+  .map { flex: none; width: 100%; height: 420px; min-height: 420px; }
+  .map-selection { position: relative; top: auto; bottom: auto; left: auto; width: 100%; border-radius: 0; box-shadow: none; }
   .map-guide { top: 11px; left: 11px; }
   .map-footnote { min-height: 0; padding: 12px 16px; font-size: 10px; }
   .places-pane { border-left: 0; border-top: 1px solid #e2e8f0; }
