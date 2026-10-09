@@ -4,7 +4,7 @@ import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
-const EXAMPLES = ['행 16:6-15', '창 12:1-9', '눅 10:25-37', '마 2:1-12'];
+const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
 const HERO_TOUR_DELAY = 4600;
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴',
@@ -60,11 +60,12 @@ app.innerHTML = `
         <form id="reference-form" class="search-form" novalidate>
           <label for="reference-input" data-i18n="reference">성경 본문</label>
           <div class="search-row">
-            <input id="reference-input" name="reference" type="text" value="행 16:6-15" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
+            <input id="reference-input" name="reference" type="text" value="왕하 4:1-44" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
             <button type="submit"><span data-i18n="search">장소 찾기</span><span aria-hidden="true">↗</span></button>
           </div>
           <p id="search-error" class="search-error" role="alert" hidden></p>
         </form>
+        <button id="example-hint" class="example-hint" type="button" hidden></button>
         <div class="example-row"><span data-i18n="examples">바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
       </div>
       <aside class="hero-visual" aria-labelledby="visual-title">
@@ -74,7 +75,7 @@ app.innerHTML = `
           <span class="visual-live"><i aria-hidden="true"></i> <span data-i18n="mapBadge">본문 지도</span></span>
           <span id="visual-place-count" class="visual-count" data-i18n="checking">지명 확인 중</span>
         </div>
-        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">행 16:6–15</strong><p data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
+        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">열왕기하 4:1–44</strong><p id="visual-intro-copy" data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
         <p id="hero-map-fallback" class="visual-map-fallback" data-i18n="previewLoading">본문 지도를 불러오고 있습니다.</p>
         <div class="visual-bottom">
           <div id="hero-focus" class="visual-focus">
@@ -86,7 +87,7 @@ app.innerHTML = `
             </div>
             <span class="visual-progress" aria-hidden="true"><span id="hero-progress-fill"></span></span>
           </div>
-          <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button"><span data-i18n="allResults">전체 결과 보기</span> ↗</button></div></div>
+          <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button"><span data-i18n="heroExplore">이 장소 살펴보기</span> ↗</button></div></div>
         </div>
       </aside>
     </section>
@@ -99,10 +100,12 @@ app.innerHTML = `
           <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
 
+        <div id="insight-strip" class="insight-strip" hidden></div>
+
         <div class="workspace">
           <div class="map-pane">
             <div class="pane-head"><div><span class="pane-index">01</span><strong data-i18n="mapView">지도로 보기</strong></div><span id="map-caption" data-i18n="bibleWorld">성경 세계</span></div>
-            <div class="map-frame"><div id="map" class="map" role="img" data-i18n-aria-label="mapView" aria-label="본문과 연결된 지명 지도"></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong data-i18n="mapEmptyTitle">이 본문에 연결된 지도 지점이 없습니다.</strong><p data-i18n="mapEmptyDesc">지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
+            <div class="map-frame"><div id="map" class="map" role="img" data-i18n-aria-label="mapView" aria-label="본문과 연결된 지명 지도"></div><div id="map-guide" class="map-guide" hidden></div><div id="map-selection" class="map-selection" aria-live="polite" hidden></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong data-i18n="mapEmptyTitle">이 본문에 연결된 지도 지점이 없습니다.</strong><p data-i18n="mapEmptyDesc">지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
             <p class="map-footnote" data-i18n="mapFootnote">핀은 선택된 대표 좌표입니다. 지역·강 또는 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.</p>
           </div>
           <div class="places-pane">
@@ -151,6 +154,7 @@ let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
 let selectedPlaceId = null;
+let spotlightPlaceId = null;
 let map;
 let heroMap;
 let maplibre;
@@ -183,9 +187,34 @@ document.querySelector('#examples').addEventListener('click', (event) => {
   form.requestSubmit();
 });
 document.querySelector('#visual-results-button').addEventListener('click', () => {
-  document.querySelector('#results').scrollIntoView({
+  const place = heroPlaces[heroActiveIndex];
+  if (place) selectPlace(place.id, false);
+  document.querySelector(place ? '.map-pane' : '#results').scrollIntoView({
     behavior: reducedMotion.matches ? 'auto' : 'smooth',
   });
+});
+
+document.querySelector('#example-hint').addEventListener('click', () => {
+  if (!spotlightPlaceId) return;
+  selectPlace(spotlightPlaceId, false);
+  document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+});
+
+document.querySelector('#insight-strip').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-insight-place]');
+  if (!button) return;
+  selectPlace(button.dataset.insightPlace, true);
+  document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+});
+
+document.querySelector('#map-selection').addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-map-compare]');
+  if (!button) return;
+  const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === button.dataset.mapCompare);
+  if (!card) return;
+  const details = card.querySelector('.place-candidates');
+  if (details) details.open = true;
+  card.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
 });
 
 function escapeHtml(value) {
@@ -231,6 +260,15 @@ function displayName(place) {
   return locale === 'ko' ? KOREAN_PLACES[place.name] || place.name : place.name;
 }
 
+function firstMention(place) {
+  return Math.min(...place.references.map(({ chapter, verse }) => chapter * 1000 + verse));
+}
+
+function spotlightPlace(places) {
+  return [...places].filter((place) => place.coordinate)
+    .sort((a, b) => b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))[0];
+}
+
 function renderSourceVersion() {
   const target = document.querySelector('#source-version');
   if (!target || !data?.sourceCommit) return;
@@ -268,6 +306,56 @@ function placeStatus(place) {
   return translate('statusAvailable');
 }
 
+function renderDiscovery(places, reference) {
+  const spotlight = spotlightPlace(places);
+  spotlightPlaceId = spotlight?.id || null;
+  const hint = document.querySelector('#example-hint');
+  const intro = document.querySelector('#visual-intro-copy');
+  const strip = document.querySelector('#insight-strip');
+  const guide = document.querySelector('#map-guide');
+  if (!spotlight) {
+    hint.hidden = true;
+    intro.textContent = translate('previewIntro');
+    strip.hidden = true;
+    guide.hidden = true;
+    return;
+  }
+  const name = displayName(spotlight);
+  hint.hidden = false;
+  hint.textContent = `${spotlight.candidateCount > 1 ? translate('exampleHint', { name, count: spotlight.candidateCount }) : translate('examplePlain')} ↗`;
+  intro.textContent = spotlight.candidateCount > 1
+    ? translate('heroCandidateHint', { name, count: spotlight.candidateCount })
+    : translate('previewIntro');
+  const options = [...places].filter((place) => place.coordinate)
+    .sort((a, b) => b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))
+    .slice(0, 3);
+  strip.hidden = false;
+  strip.innerHTML = `<div class="insight-copy"><span>${escapeHtml(translate('insightTitle'))}</span><strong>${escapeHtml(formatReference(reference, locale))}</strong><small>${escapeHtml(translate('insightHint'))}</small></div>
+    <div class="insight-actions">${options.map((place) => `<button type="button" data-insight-place="${escapeHtml(place.id)}"><strong>${escapeHtml(displayName(place))}</strong><span>${escapeHtml(place.candidateCount > 1 ? translate('mapCandidates', { count: place.candidateCount }) : placeStatus(place))}</span><i aria-hidden="true">↗</i></button>`).join('')}</div>`;
+  guide.hidden = false;
+  guide.innerHTML = `<strong>${escapeHtml(translate('mapGuide'))}</strong><div><span><i class="legend-place"></i>${escapeHtml(translate('legendPlace'))}</span>${places.some((place) => place.candidateCount > 1) ? `<span><i class="legend-candidate"></i>${escapeHtml(translate('legendCandidate'))}</span>` : ''}</div>`;
+}
+
+function renderMapSelection(place) {
+  const panel = document.querySelector('#map-selection');
+  if (!place) {
+    panel.hidden = true;
+    panel.innerHTML = '';
+    return;
+  }
+  const verse = [...place.references].sort((a, b) => a.chapter - b.chapter || a.verse - b.verse)[0];
+  const candidate = place.candidates?.[selectedCandidateIndex] || place.candidates?.[0];
+  const name = displayName(place);
+  const position = currentPlaces.findIndex((item) => item.id === place.id) + 1;
+  const photo = selectedCandidateIndex === 0 ? place.photo : null;
+  panel.classList.toggle('no-photo', !photo);
+  const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
+  panel.hidden = false;
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(translate('mapSelected'))} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)} · ${escapeHtml(placeStatus(place))}</span>
+    <span class="map-selection-candidate">${escapeHtml(translate(selectedCandidateIndex ? 'mapOtherCandidate' : 'mapPrimaryCandidate', { name: candidate?.name || place.name, rank: selectedCandidateIndex + 1 }))}</span>
+    <div class="map-selection-actions">${place.candidateCount > 1 ? `<button type="button" data-map-compare="${escapeHtml(place.id)}">${escapeHtml(translate('compareNow', { count: place.candidateCount }))} ↗</button>` : ''}<a href="${bibleReadingUrl(currentReference.code, verse.chapter, verse.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('readBible'))} ↗</a></div></div>${photoMarkup}`;
+}
+
 function clearMarkers() {
   for (const marker of markers) marker.remove();
   markers = [];
@@ -297,6 +385,9 @@ function setHeroFocus(index) {
   if (!heroPlaces.length) return;
   heroActiveIndex = (index + heroPlaces.length) % heroPlaces.length;
   const place = heroPlaces[heroActiveIndex];
+  document.querySelector('#visual-intro-copy').textContent = place.candidateCount > 1
+    ? translate('heroCandidateHint', { name: displayName(place), count: place.candidateCount })
+    : translate('previewIntro');
   const verse = place.references[0];
   document.querySelector('#hero-focus-kicker').textContent = `${translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
   document.querySelector('#hero-focus-name').textContent = displayName(place);
@@ -356,10 +447,9 @@ function renderHeroMap() {
 }
 
 function renderHeroPreview(places, reference) {
-  const firstMention = (place) => Math.min(...place.references.map(({ chapter, verse }) => chapter * 1000 + verse));
   heroPlaces = places.filter((place) => place.coordinate).sort((a, b) =>
     firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
-  heroActiveIndex = 0;
+  heroActiveIndex = Math.max(0, heroPlaces.findIndex((place) => place.id === spotlightPlaceId));
   document.querySelector('#visual-title').textContent = formatReference(reference, locale);
   document.querySelector('#visual-place-count').textContent = heroPlaces.length
     ? translate('mappedCount', { count: heroPlaces.length }) : translate('noMapPoints');
@@ -373,7 +463,7 @@ function renderHeroPreview(places, reference) {
     document.querySelector('#hero-focus-detail').textContent = translate('noLinkedDetail');
     document.querySelector('#hero-position').textContent = '—';
   } else {
-    setHeroFocus(0);
+    setHeroFocus(heroActiveIndex);
   }
   renderHeroMap();
   syncHeroTour();
@@ -411,7 +501,8 @@ function updateMap(places) {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'map-marker';
-    el.textContent = String(index + 1);
+    el.dataset.placeId = place.id;
+    el.innerHTML = `<span class="map-marker-number">${index + 1}</span><span class="map-marker-label">${escapeHtml(displayName(place))}</span>`;
     el.setAttribute('aria-label', translate('mapPin', { name: displayName(place) }));
     el.addEventListener('click', () => selectPlace(place.id));
     const marker = new maplibre.Marker({ element: el, anchor: 'bottom' }).setLngLat(place.coordinate).addTo(map);
@@ -453,7 +544,9 @@ function selectPlace(id, center = true) {
     button.setAttribute('aria-pressed', String(active));
   }
   const place = currentPlaces.find((item) => item.id === id);
+  for (const marker of markers) marker.getElement().classList.toggle('is-selected', marker.getElement().dataset.placeId === id);
   renderCandidateMarkers(place);
+  renderMapSelection(place);
   if (center && place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
 }
 
@@ -470,6 +563,7 @@ function selectCandidate(placeId, index) {
   for (const [candidateIndex, marker] of candidateMarkers.entries()) {
     marker.getElement().classList.toggle('active', candidateIndex + 1 === index);
   }
+  renderMapSelection(place);
   map?.flyTo({ center: candidate.coordinate, zoom: Math.max(map.getZoom(), 8), essential: true });
   if (window.matchMedia('(max-width: 760px)').matches) {
     document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
@@ -477,8 +571,10 @@ function selectCandidate(placeId, index) {
 }
 
 function renderPlaces(places, reference) {
+  places = [...places].sort((a, b) => firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   currentPlaces = places;
   selectedPlaceId = null;
+  selectedCandidateIndex = 0;
   const mappedCount = places.filter((place) => place.coordinate).length;
   const sameChapter = reference.chapter === reference.endChapter;
   const chapterReference = !places.length && sameChapter && reference.startVerse !== null
@@ -491,6 +587,7 @@ function renderPlaces(places, reference) {
   placesCaption.textContent = translate('found', { count: places.length });
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
+  renderDiscovery(places, reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
@@ -528,6 +625,18 @@ function renderPlaces(places, reference) {
     </article>`;
   }).join('') : `<div class="empty-state"><span class="empty-symbol">○</span><strong>${escapeHtml(translate('emptyTitle'))}</strong><p>${escapeHtml(translate('emptyDesc'))}</p>${chapterPlaceCount ? `<p>${escapeHtml(translate('chapterPlaces', { count: chapterPlaceCount }))}</p><button class="chapter-button" type="button" data-chapter="${escapeHtml(chapterReference.label)}">${escapeHtml(translate('chapterButton', { reference: formatReference(chapterReference, locale) }))} ↗</button>` : ''}</div>`;
   updateMap(places);
+  if (spotlightPlaceId) {
+    selectPlace(spotlightPlaceId, false);
+    const card = [...placeList.querySelectorAll('.place-card')].find((item) => item.dataset.placeId === spotlightPlaceId);
+    const candidates = card?.querySelector('.place-candidates');
+    if (candidates && places.find((place) => place.id === spotlightPlaceId)?.candidateCount > 1) {
+      candidates.open = true;
+      if (placeList.scrollHeight > placeList.clientHeight) {
+        placeList.scrollTop = card.getBoundingClientRect().top - placeList.getBoundingClientRect().top + placeList.scrollTop - 10;
+      }
+    }
+  }
+  else renderMapSelection(null);
   renderHeroPreview(places, reference);
 }
 
@@ -551,7 +660,7 @@ placeList.addEventListener('click', (event) => {
 placeList.addEventListener('toggle', (event) => {
   const details = event.target;
   if (details instanceof HTMLDetailsElement && details.open && details.matches('[data-candidate-place]')) {
-    selectPlace(details.dataset.candidatePlace, false);
+    if (selectedPlaceId !== details.dataset.candidatePlace) selectPlace(details.dataset.candidatePlace, false);
     return;
   }
   if (!(details instanceof HTMLDetailsElement) || !details.open || !details.matches('[data-occurrence-place]')) return;
@@ -707,7 +816,10 @@ async function loadMap() {
     });
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
     map.on('error', () => { document.querySelector('.map-footnote').textContent = translate('mapBgError'); });
-    map.on('load', () => updateMap(currentPlaces));
+    map.on('load', () => {
+      updateMap(currentPlaces);
+      if (selectedPlaceId) selectPlace(selectedPlaceId, false);
+    });
     setupHeroMap();
   } catch {
     document.querySelector('#map').classList.add('map-unavailable');
