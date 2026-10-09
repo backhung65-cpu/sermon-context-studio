@@ -27,6 +27,7 @@ npm start
 - 각 지명 카드에서 현재 본문의 절을 개역개정 읽기 페이지로 연결하고, 성경 전체 색인에서 해당 지명이 등장하는 모든 절을 책별로 펼쳐 확인
 - 직접 연결된 지명이 없는 절에는 빈 지도 안내를 표시하고, 같은 장의 참고 지명은 별도 버튼으로 탐색
 - 위치 후보가 여러 곳이면 모든 좌표·현대 지명·원자료 점수·판정 기록 수를 비교하고, 후보를 누르면 지도가 해당 지점으로 이동합니다. 점수는 확률이 아닙니다.
+- **여행 이야기**: 첫 화면의 「여행 이야기 따라가기」에서 [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV)의 아브라함 여정 7장면과 [사도행전 13–14장](https://www.biblegateway.com/passage/?search=Acts+13-14&version=KJV)의 바울 첫 선교 여행 11장면을 본문 순서대로 탐색합니다. 지도 번호·장면 설명·현대 지역 사진·성경 읽기·현재 본문 지도 바로가기를 연결했습니다. `?journey=paul&step=3`처럼 장면 링크를 공유할 수 있습니다. 지도 점선은 장소가 나오는 순서만 이어 주며 실제 이동 경로나 거리가 아닙니다. 애굽·네겝 같은 넓은 지역은 대표 핀으로 표시하고, 정확한 경로를 그리지 않습니다. 여정과 화면 문구는 9개 언어의 정적 번역으로 제공하며 AI 기능은 사용하지 않습니다.
 - 이용 조건이 확인된 현재 지역 사진을 지명 카드에 표시하고 저작자·원본·라이선스 링크 제공
 - 일부 주요 지명의 한글 이름 제공; 나머지는 원자료 영문 이름으로 표시
 - 본문별 설교 메모를 해당 브라우저에 자동 저장, 저장된 본문 목록에서 다시 열기
@@ -62,6 +63,7 @@ Theographic 사건 색인은 일부 본문을 지나치게 넓은 한 사건으�
 - 다국어 성경 책 이름·검색 별칭: [OpenBible.info Bible-Passage-Reference-Parser-Languages](https://github.com/openbibleinfo/Bible-Passage-Reference-Parser-Languages)의 언어별 자료를 `scripts/build_book_names.py`로 `src/book-names.js`에 담았습니다. 원자료 라이선스는 MIT입니다.
 - 화면 번역: `src/i18n-source.json`의 한국어·영어 문구를 바탕으로 빌드 시 번역 초안을 생성해 `src/i18n.js`에 저장했고, 주요 표현은 `src/i18n-overrides.js`에서 수정했습니다. 앱 실행 중 외부 번역 서비스를 호출하지 않습니다.
 - 성경 본문 전체 텍스트는 앱에 포함하지 않습니다. 대한성서공회 성경 읽기 링크를 제공합니다.
+- 여행 이야기의 순서와 한 문장 요약은 KJV [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV), [사도행전 13–14장](https://www.biblegateway.com/passage/?search=Acts+13-14&version=KJV)을 확인해 수작업으로 정리했습니다. 각 장면의 위치와 구절은 위 OpenBible.info 고정 판본의 지명 색인에서 검증합니다. 지명의 실제 위치는 추정일 수 있습니다.
 - 성경 절 링크는 대한성서공회 [개역개정 성경읽기](https://www.bskorea.or.kr/bible/korbibReadpage.php?book=gen&chap=12&sec=5&version=GAE)의 장·절 주소로 연결합니다. OpenBible.info의 영어 역본 기반 지명 색인을 역으로 모아 보여주므로 한국어 본문의 지명 표기와 다를 수 있습니다.
 
 원자료를 새로 받아 색인을 갱신하려면 다음 명령을 사용합니다.

@@ -2,6 +2,7 @@ import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, 
 import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from './notes.js';
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
+import { JOURNEYS, journeyMessage } from './journeys.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
@@ -27,6 +28,8 @@ const KOREAN_PLACES = {
   'Bethsaida 1': '벳새다', 'Sea of Galilee': '갈릴리 바다', 'Dead Sea': '사해',
   'Shunem': '수넴', 'Baal-shalishah': '바알 살리사', 'Gilgal 2': '길갈',
   'Mount Carmel': '갈멜산', 'Mount Zion': '시온산', 'Mount Esau': '에서 산',
+  'Seleucia': '실루기아', 'Salamis': '살라미', 'Perga': '버가',
+  'Iconium': '이고니온', 'Lystra': '루스드라', 'Derbe': '더베', 'Attalia': '앗달리아',
 };
 
 const TYPE_LABELS = {
@@ -67,6 +70,7 @@ app.innerHTML = `
         </form>
         <button id="example-hint" class="example-hint" type="button" hidden></button>
         <div class="example-row"><span data-i18n="examples">바로 살펴보기</span><div id="examples" class="example-buttons"></div></div>
+        <button id="journey-jump" class="journey-jump" type="button"><span>여행 이야기 따라가기</span><span aria-hidden="true">↓</span></button>
       </div>
       <aside class="hero-visual" aria-labelledby="visual-title">
         <div id="hero-map" class="visual-map" aria-hidden="true"></div>
@@ -90,6 +94,19 @@ app.innerHTML = `
           <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button"><span data-i18n="heroExplore">이 장소 살펴보기</span> ↗</button></div></div>
         </div>
       </aside>
+    </section>
+
+    <section id="journeys" class="journey-section" aria-labelledby="journey-title">
+      <div class="shell">
+        <div class="section-topline"></div>
+        <div class="journey-heading"><div><div id="journey-eyebrow" class="section-kicker">본문을 따라 걷는 지도</div><h2 id="journey-title">여행 이야기</h2><p id="journey-intro">지명이 나오는 순서대로 장면을 넘기며, 본문과 지도 근거를 함께 살펴보세요.</p></div><div id="journey-tabs" class="journey-tabs" role="group" aria-label="Journey"></div></div>
+        <p id="journey-route-note" class="journey-route-note"></p>
+        <div class="journey-workspace">
+          <div class="journey-map-shell"><div id="journey-map" class="journey-map" aria-label="여행 이야기 지도"><span id="journey-map-loading">여정 지도를 불러오는 중입니다.</span></div><button id="journey-fit" class="journey-fit" type="button">전체 여정 ↗</button></div>
+          <div class="journey-story"><div class="journey-story-top"><span id="journey-scene-count"></span><span id="journey-step-reference"></span></div><div id="journey-current" class="journey-current" aria-live="polite"></div><div class="journey-controls"><button id="journey-prev" type="button"></button><button id="journey-next" type="button"></button></div><div id="journey-timeline" class="journey-timeline" aria-label="Journey scenes"></div></div>
+        </div>
+        <a class="journey-data-credit" href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info · CC BY 4.0 ↗</a>
+      </div>
     </section>
 
     <section id="results" class="results-section" aria-labelledby="results-title">
@@ -149,6 +166,18 @@ const backupNotesButton = document.querySelector('#backup-notes');
 const importNotesInput = document.querySelector('#import-notes');
 const importTrigger = document.querySelector('#import-trigger');
 const printButton = document.querySelector('#print-button');
+const journeySection = document.querySelector('#journeys');
+const journeyParam = new URLSearchParams(location.search).get('journey');
+const initialJourneyLink = JOURNEYS.some(({ id }) => id === journeyParam);
+let currentJourney = JOURNEYS.find(({ id }) => id === journeyParam) || JOURNEYS[0];
+const requestedJourneyStep = Number(new URLSearchParams(location.search).get('step'));
+let journeyStepIndex = Number.isInteger(requestedJourneyStep) && requestedJourneyStep >= 1
+  ? Math.min(requestedJourneyStep - 1, currentJourney.steps.length - 1) : 0;
+let journeyMap;
+let journeyMapReady = false;
+let journeyMapWanted = false;
+let journeyMapFailed = false;
+let journeyMarkers = [];
 let data;
 let placeOccurrences = new Map();
 let currentReference;
@@ -223,6 +252,98 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function journeyPlace(step) {
+  return data?.places.find((place) => place.id === step.placeId);
+}
+
+function journeyReference(step) {
+  const end = step.endVerse ? `–${step.endVerse}` : '';
+  return `${localizedBookName(currentJourney.code, locale)} ${step.chapter}:${step.verse}${end}`;
+}
+
+function updateJourneyAddress() {
+  const url = new URL(location.href);
+  url.searchParams.set('journey', currentJourney.id);
+  url.searchParams.set('step', String(journeyStepIndex + 1));
+  history.replaceState(null, '', url);
+}
+
+function renderJourney() {
+  const j = (key, vars) => journeyMessage(locale, key, vars);
+  document.querySelector('#journey-jump span').textContent = j('jump');
+  document.querySelector('#journey-eyebrow').textContent = j('eyebrow');
+  document.querySelector('#journey-title').textContent = j('title');
+  document.querySelector('#journey-intro').textContent = j('intro');
+  document.querySelector('#journey-tabs').setAttribute('aria-label', j('title'));
+  document.querySelector('#journey-timeline').setAttribute('aria-label', j('steps', { count: currentJourney.steps.length }));
+  document.querySelector('#journey-map').setAttribute('aria-label', `${j('title')} · ${j('all')}`);
+  document.querySelector('#journey-route-note').textContent = j('routeNote');
+  if (!journeyMapReady) document.querySelector('#journey-map-loading').textContent = j(journeyMapFailed ? 'mapFailed' : 'mapLoading');
+  document.querySelector('#journey-fit').textContent = `${j('all')} ↗`;
+  document.querySelector('#journey-prev').textContent = `← ${j('prev')}`;
+  document.querySelector('#journey-next').textContent = `${j('next')} →`;
+  document.querySelector('#journey-prev').disabled = journeyStepIndex === 0;
+  document.querySelector('#journey-next').disabled = journeyStepIndex === currentJourney.steps.length - 1;
+  document.querySelector('#journey-tabs').innerHTML = JOURNEYS.map((journey) => `<button type="button" data-journey="${journey.id}" aria-pressed="${journey.id === currentJourney.id}"><strong>${escapeHtml(j(journey.id))}</strong><small>${escapeHtml(j('steps', { count: journey.steps.length }))}</small></button>`).join('');
+  const step = currentJourney.steps[journeyStepIndex];
+  const place = journeyPlace(step);
+  if (!place) return;
+  const name = displayName(place);
+  const scene = j('scene', { current: journeyStepIndex + 1, total: currentJourney.steps.length });
+  const story = j(`${currentJourney.id}Events`)[journeyStepIndex];
+  const photo = place.photo;
+  document.querySelector('#journey-scene-count').textContent = scene;
+  document.querySelector('#journey-step-reference').textContent = journeyReference(step);
+  document.querySelector('#journey-current').innerHTML = `<div class="journey-current-heading"><span>${escapeHtml(j(`${currentJourney.id}Intro`))}</span><h3>${escapeHtml(name)}</h3><p>${escapeHtml(story)}</p></div>
+    ${step.broad ? `<p class="journey-broad">${escapeHtml(j('broad'))}</p>` : ''}
+    ${photo ? `<figure class="journey-photo"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><figcaption>${escapeHtml(j('photo'))} · <a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></figcaption></figure>` : ''}
+    <div class="journey-links"><a href="${bibleReadingUrl(currentJourney.code, step.chapter, step.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('read'))} ↗</a><button type="button" data-journey-open-place>${escapeHtml(j('place'))} ↗</button><a class="journey-source-link" href="${escapeHtml(currentJourney.source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('source'))} · KJV ↗</a></div>`;
+  document.querySelector('#journey-timeline').innerHTML = currentJourney.steps.map((item, index) => {
+    const itemPlace = journeyPlace(item);
+    return `<button type="button" data-journey-step="${index}" aria-current="${index === journeyStepIndex ? 'step' : 'false'}"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(itemPlace ? displayName(itemPlace) : '—')}</strong><small>${escapeHtml(`${item.chapter}:${item.verse}`)}</small></button>`;
+  }).join('');
+  const timeline = document.querySelector('#journey-timeline');
+  const activeScene = timeline.querySelector('[aria-current="step"]');
+  if (activeScene && timeline.scrollHeight > timeline.clientHeight) timeline.scrollTop = activeScene.offsetTop - timeline.offsetTop - 8;
+  if (journeyMapReady) updateJourneyMap(false);
+}
+
+function selectJourneyStep(index) {
+  if (!Number.isInteger(index) || index < 0 || index >= currentJourney.steps.length) return;
+  journeyStepIndex = index;
+  updateJourneyAddress();
+  renderJourney();
+}
+
+document.querySelector('#journey-jump').addEventListener('click', () => {
+  journeySection.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+});
+document.querySelector('#journey-tabs').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-journey]');
+  const selected = JOURNEYS.find((journey) => journey.id === button?.dataset.journey);
+  if (!selected || selected.id === currentJourney.id) return;
+  currentJourney = selected;
+  journeyStepIndex = 0;
+  updateJourneyAddress();
+  renderJourney();
+  fitJourneyMap();
+});
+document.querySelector('#journey-prev').addEventListener('click', () => selectJourneyStep(journeyStepIndex - 1));
+document.querySelector('#journey-next').addEventListener('click', () => selectJourneyStep(journeyStepIndex + 1));
+document.querySelector('#journey-fit').addEventListener('click', () => fitJourneyMap());
+document.querySelector('#journey-timeline').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-journey-step]');
+  if (button) selectJourneyStep(Number(button.dataset.journeyStep));
+});
+document.querySelector('#journey-current').addEventListener('click', (event) => {
+  if (!event.target.closest('[data-journey-open-place]')) return;
+  const step = currentJourney.steps[journeyStepIndex];
+  input.value = journeyReference(step);
+  form.requestSubmit();
+  selectPlace(step.placeId, false);
+  document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+});
+
 function applyLanguage() {
   document.documentElement.lang = locale;
   document.title = translate('title');
@@ -235,6 +356,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
   renderSourceVersion();
   renderExamples();
+  if (data) renderJourney();
   if (currentReference && data) {
     input.value = formatReference(currentReference, locale);
     renderPlaces(currentPlaces, currentReference);
@@ -801,6 +923,108 @@ importNotesInput.addEventListener('change', async () => {
 importTrigger.addEventListener('click', () => importNotesInput.click());
 printButton.addEventListener('click', () => window.print());
 
+function journeyLineData() {
+  const features = [];
+  let segment = [];
+  const flush = () => {
+    if (segment.length > 1) features.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: segment }, properties: {} });
+    segment = [];
+  };
+  for (const step of currentJourney.steps) {
+    const place = journeyPlace(step);
+    if (step.broad || !place?.coordinate) { flush(); continue; }
+    segment.push(place.coordinate);
+  }
+  flush();
+  return { type: 'FeatureCollection', features };
+}
+
+function fitJourneyMap(instant = false) {
+  if (!journeyMapReady) return;
+  const coordinates = currentJourney.steps.map(journeyPlace).map((place) => place?.coordinate).filter(Boolean);
+  if (!coordinates.length) return;
+  const bounds = coordinates.reduce((box, coordinate) => box.extend(coordinate), new maplibre.LngLatBounds(coordinates[0], coordinates[0]));
+  journeyMap.fitBounds(bounds, { padding: window.innerWidth < 760 ? 62 : 75, maxZoom: 7, duration: instant || reducedMotion.matches ? 0 : 650 });
+}
+
+window.addEventListener('resize', () => {
+  if (!journeyMapReady) return;
+  journeyMap.resize();
+  fitJourneyMap(true);
+});
+
+function updateJourneyMap(fit = false) {
+  if (!journeyMapReady) return;
+  journeyMap.getSource('journey-route')?.setData(journeyLineData());
+  for (const marker of journeyMarkers) marker.remove();
+  journeyMarkers = [];
+  const groups = new Map();
+  currentJourney.steps.forEach((step, index) => {
+    const group = groups.get(step.placeId) || [];
+    group.push(index);
+    groups.set(step.placeId, group);
+  });
+  for (const [placeId, indices] of groups) {
+    const place = data.places.find((item) => item.id === placeId);
+    if (!place?.coordinate) continue;
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'journey-marker';
+    element.classList.toggle('active', indices.includes(journeyStepIndex));
+    element.classList.toggle('broad', currentJourney.steps[indices[0]].broad === true);
+    element.textContent = indices.map((index) => index + 1).join('·');
+    element.setAttribute('aria-label', `${displayName(place)} · ${indices.map((index) => index + 1).join(', ')}`);
+    element.addEventListener('click', () => selectJourneyStep(indices.find((index) => index > journeyStepIndex) ?? indices[0]));
+    journeyMarkers.push(new maplibre.Marker({ element, anchor: 'bottom' }).setLngLat(place.coordinate).addTo(journeyMap));
+  }
+  if (fit) fitJourneyMap();
+  else {
+    const coordinate = journeyPlace(currentJourney.steps[journeyStepIndex])?.coordinate;
+    if (coordinate) {
+      const view = { center: coordinate, zoom: Math.max(journeyMap.getZoom(), 5.7) };
+      if (reducedMotion.matches) journeyMap.jumpTo(view);
+      else journeyMap.flyTo({ ...view, speed: 1.2, essential: true });
+    }
+  }
+}
+
+function setupJourneyMap() {
+  if (!journeyMapWanted || journeyMap || !maplibre || !data) return;
+  try {
+    journeyMap = new maplibre.Map({
+      container: 'journey-map', style: 'https://tiles.openfreemap.org/styles/positron',
+      center: [34, 34], zoom: 3.4, attributionControl: true,
+    });
+    journeyMap.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
+    journeyMap.on('load', () => {
+      journeyMap.addSource('journey-route', { type: 'geojson', data: journeyLineData() });
+      journeyMap.addLayer({ id: 'journey-route-line', type: 'line', source: 'journey-route', paint: { 'line-color': '#644ca7', 'line-width': 3, 'line-opacity': .75, 'line-dasharray': [2, 2] } });
+      journeyMapReady = true;
+      document.querySelector('#journey-map-loading').hidden = true;
+      updateJourneyMap(true);
+    });
+    journeyMap.on('error', () => {
+      if (!journeyMapReady) {
+        journeyMapFailed = true;
+        document.querySelector('#journey-map-loading').textContent = journeyMessage(locale, 'mapFailed');
+      }
+    });
+  } catch {
+    journeyMapFailed = true;
+    document.querySelector('#journey-map-loading').textContent = journeyMessage(locale, 'mapFailed');
+  }
+}
+
+if ('IntersectionObserver' in window) {
+  const journeyObserver = new IntersectionObserver((entries) => {
+    if (!entries.some((entry) => entry.isIntersecting)) return;
+    journeyMapWanted = true;
+    setupJourneyMap();
+    journeyObserver.disconnect();
+  }, { rootMargin: '350px' });
+  journeyObserver.observe(journeySection);
+} else journeyMapWanted = true;
+
 async function loadMap() {
   try {
     const vendorModule = `/public/vendor/${'maplibre-gl.mjs'}`;
@@ -821,10 +1045,13 @@ async function loadMap() {
       if (selectedPlaceId) selectPlace(selectedPlaceId, false);
     });
     setupHeroMap();
+    setupJourneyMap();
   } catch {
     document.querySelector('#map').classList.add('map-unavailable');
     document.querySelector('#map').textContent = translate('mapUnavailable');
     heroFallback.textContent = translate('heroUnavailable');
+    journeyMapFailed = true;
+    document.querySelector('#journey-map-loading').textContent = journeyMessage(locale, 'mapFailed');
   }
 }
 
@@ -877,13 +1104,17 @@ async function loadData() {
     renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
     setupHeroMap();
+    renderJourney();
+    setupJourneyMap();
     if (location.hash.length > 1) {
       try { input.value = decodeURIComponent(location.hash.slice(1)); } catch { /* default example stays */ }
     }
     search();
+    if (initialJourneyLink) requestAnimationFrame(() => journeySection.scrollIntoView({ behavior: 'auto', block: 'start' }));
   } catch {
     resultDescription.textContent = translate('dataFailed');
     placeList.innerHTML = `<div class="empty-state">${escapeHtml(translate('dataFailedShort'))}</div>`;
+    document.querySelector('#journey-current').textContent = translate('dataFailedShort');
   }
 }
 
