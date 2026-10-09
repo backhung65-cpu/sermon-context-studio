@@ -14,9 +14,11 @@ import urllib.request
 from pathlib import Path
 
 
-SOURCE_URL = "https://raw.githubusercontent.com/openbibleinfo/Bible-Geocoding-Data/main/data/ancient.jsonl"
-MODERN_URL = "https://raw.githubusercontent.com/openbibleinfo/Bible-Geocoding-Data/main/data/modern.jsonl"
-IMAGE_URL = "https://raw.githubusercontent.com/openbibleinfo/Bible-Geocoding-Data/main/data/image.jsonl"
+SOURCE_COMMIT = "7eb18a5ee62f27b9b93bd6689ea272d76dd23b8f"
+SOURCE_BASE = f"https://raw.githubusercontent.com/openbibleinfo/Bible-Geocoding-Data/{SOURCE_COMMIT}/data"
+SOURCE_URL = f"{SOURCE_BASE}/ancient.jsonl"
+MODERN_URL = f"{SOURCE_BASE}/modern.jsonl"
+IMAGE_URL = f"{SOURCE_BASE}/image.jsonl"
 OUTPUT = Path(__file__).resolve().parents[1] / "public" / "data" / "openbible-places.json"
 
 
@@ -94,9 +96,9 @@ def lonlat_from_resolution(resolution: dict) -> list[float] | None:
     return None
 
 
-def locations_for(row: dict) -> tuple[list[float] | None, int]:
+def locations_for(row: dict) -> tuple[list[float] | None, list[dict]]:
     identifications = row.get("identifications", [])
-    candidates: list[tuple[int, list[float]]] = []
+    candidates: list[dict] = []
     for association in row.get("modern_associations", {}).values():
         score = association.get("score", 0)
         for identification_i, resolution_i in association.get("identification_ids", []):
@@ -106,20 +108,28 @@ def locations_for(row: dict) -> tuple[list[float] | None, int]:
                 continue
             coordinate = lonlat_from_resolution(resolution)
             if coordinate:
-                candidates.append((score, coordinate))
+                identification = identifications[identification_i]
+                candidates.append({"name": association.get("name") or "Location candidate",
+                                   "coordinate": coordinate, "score": score,
+                                   "votes": (identification.get("score") or {}).get("vote_count", 0)})
 
     if not candidates:
         for identification in identifications:
             for resolution in identification.get("resolutions", []):
                 coordinate = lonlat_from_resolution(resolution)
                 if coordinate:
-                    candidates.append((0, coordinate))
+                    name = html.unescape(re.sub(r"<[^>]+>", "", resolution.get("description", ""))).strip()
+                    candidates.append({"name": name or "Location candidate", "coordinate": coordinate,
+                                       "score": None, "votes": 0})
 
     if not candidates:
-        return None, 0
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    unique = {(lon, lat) for _, (lon, lat) in candidates}
-    return candidates[0][1], len(unique)
+        return None, []
+    candidates.sort(key=lambda item: item["score"] if item["score"] is not None else -9999, reverse=True)
+    unique: dict[tuple[float, float], dict] = {}
+    for candidate in candidates:
+        unique.setdefault(tuple(candidate["coordinate"]), candidate)
+    candidate_list = list(unique.values())
+    return candidate_list[0]["coordinate"], candidate_list
 
 
 def main() -> None:
@@ -135,14 +145,15 @@ def main() -> None:
         verses = row.get("verses") or []
         if not verses:
             continue
-        coordinate, candidate_count = locations_for(row)
+        coordinate, candidates = locations_for(row)
         place_i = len(places)
         places.append({
             "id": row["id"],
             "name": row.get("friendly_id", ""),
             "type": (row.get("types") or ["place"])[0],
             "coordinate": coordinate,
-            "candidateCount": candidate_count,
+            "candidateCount": len(candidates),
+            "candidates": candidates,
             "sourceUrl": f"https://www.openbible.info/geo/ancient/{row['id']}/{row['url_slug']}",
             "photo": photo_for_place(row, modern, images),
         })
@@ -162,6 +173,8 @@ def main() -> None:
         "source": "OpenBible.info Bible Geocoding Data",
         "sourceUrl": "https://github.com/openbibleinfo/Bible-Geocoding-Data",
         "license": "CC BY 4.0",
+        "sourceCommit": SOURCE_COMMIT,
+        "sourcePublished": "2021-11-01",
         "places": places,
         "index": index,
     }

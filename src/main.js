@@ -1,6 +1,7 @@
 import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, localizedBookName, parseReference } from './reference.js';
 import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from './notes.js';
 import { LOCALES, t } from './i18n.js';
+import { enrichmentText } from './enrichment-i18n.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['행 16:6-15', '창 12:1-9', '눅 10:25-37', '마 2:1-12'];
@@ -36,7 +37,7 @@ const TYPE_LABELS = {
 
 const requestedLocale = new URLSearchParams(location.search).get('lang');
 let locale = Object.hasOwn(LOCALES, requestedLocale) ? requestedLocale : 'ko';
-const translate = (key, variables) => t(locale, key, variables);
+const translate = (key, variables) => enrichmentText(locale, key, variables) ?? t(locale, key, variables);
 
 const app = document.querySelector('#app');
 app.innerHTML = `
@@ -119,7 +120,7 @@ app.innerHTML = `
             <div class="note-actions"><button id="download-note" type="button" disabled><span data-i18n="noteDownload">이 메모 파일로 저장</span> ↗</button><button id="backup-notes" type="button" disabled><span data-i18n="noteBackup">전체 메모 백업</span> ↗</button><button id="import-trigger" type="button"><span data-i18n="noteImport">백업 불러오기</span> ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
             <div class="saved-notes"><strong data-i18n="savedPassages">이 브라우저에 저장된 본문</strong><div id="saved-note-list" data-i18n="noNotes">저장된 메모가 없습니다.</div></div>
           </div>
-          <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
+          <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div id="source-version" class="source-version"></div><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
         </div>
       </div>
     </section>
@@ -154,6 +155,8 @@ let map;
 let heroMap;
 let maplibre;
 let markers = [];
+let candidateMarkers = [];
+let selectedCandidateIndex = 0;
 let heroPlaces = [];
 let heroActiveIndex = 0;
 let heroActiveMarker;
@@ -201,6 +204,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  renderSourceVersion();
   renderExamples();
   if (currentReference && data) {
     input.value = formatReference(currentReference, locale);
@@ -225,6 +229,14 @@ applyLanguage();
 
 function displayName(place) {
   return locale === 'ko' ? KOREAN_PLACES[place.name] || place.name : place.name;
+}
+
+function renderSourceVersion() {
+  const target = document.querySelector('#source-version');
+  if (!target || !data?.sourceCommit) return;
+  const commit = data.sourceCommit;
+  const url = `https://github.com/openbibleinfo/Bible-Geocoding-Data/commit/${commit}`;
+  target.innerHTML = `<strong>${escapeHtml(translate('sourceVersion'))}</strong> <a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(commit.slice(0, 7))} ↗</a><small>${escapeHtml(translate('sourceVersionNote'))}</small>`;
 }
 
 function readingLink(code, chapter, verse, label) {
@@ -259,6 +271,8 @@ function placeStatus(place) {
 function clearMarkers() {
   for (const marker of markers) marker.remove();
   markers = [];
+  for (const marker of candidateMarkers) marker.remove();
+  candidateMarkers = [];
 }
 
 function syncHeroTour() {
@@ -408,15 +422,58 @@ function updateMap(places) {
   else map.fitBounds(bounds, { padding: 68, maxZoom: 6.3, duration: 850 });
 }
 
-function selectPlace(id) {
+function renderCandidateMarkers(place) {
+  for (const marker of candidateMarkers) marker.remove();
+  candidateMarkers = [];
+  if (!map || !place?.candidates?.length) return;
+  for (const [index, candidate] of place.candidates.entries()) {
+    if (index === 0) continue; // The primary map pin already shows the first candidate.
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'candidate-marker';
+    element.textContent = String(index + 1);
+    element.setAttribute('aria-label', translate('candidateLocation', { name: displayName(place), rank: index + 1 }));
+    element.classList.toggle('active', selectedCandidateIndex === index);
+    element.addEventListener('click', () => selectCandidate(place.id, index));
+    candidateMarkers.push(new maplibre.Marker({ element, anchor: 'center' }).setLngLat(candidate.coordinate).addTo(map));
+  }
+}
+
+function selectPlace(id, center = true) {
   selectedPlaceId = id;
+  selectedCandidateIndex = 0;
   for (const card of placeList.querySelectorAll('.place-card')) {
     const selected = card.dataset.placeId === id;
     card.classList.toggle('selected', selected);
     card.querySelector('.place-focus').setAttribute('aria-pressed', String(selected));
   }
+  for (const button of placeList.querySelectorAll('[data-candidate]')) {
+    const active = button.dataset.candidate === `${id}:0`;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  }
   const place = currentPlaces.find((item) => item.id === id);
-  if (place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
+  renderCandidateMarkers(place);
+  if (center && place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
+}
+
+function selectCandidate(placeId, index) {
+  const place = currentPlaces.find((item) => item.id === placeId);
+  const candidate = place?.candidates?.[index];
+  if (!candidate?.coordinate) return;
+  if (selectedPlaceId !== placeId) selectPlace(placeId, false);
+  selectedCandidateIndex = index;
+  for (const button of placeList.querySelectorAll('[data-candidate]')) {
+    button.classList.toggle('active', button.dataset.candidate === `${placeId}:${index}`);
+    button.setAttribute('aria-pressed', String(button.dataset.candidate === `${placeId}:${index}`));
+  }
+  for (const [candidateIndex, marker] of candidateMarkers.entries()) {
+    marker.getElement().classList.toggle('active', candidateIndex + 1 === index);
+  }
+  map?.flyTo({ center: candidate.coordinate, zoom: Math.max(map.getZoom(), 8), essential: true });
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  }
 }
 
 function renderPlaces(places, reference) {
@@ -440,6 +497,17 @@ function renderPlaces(places, reference) {
     const english = name === place.name ? translate('sourceSpelling') : place.name;
     const refs = place.references.map(({ chapter, verse }) => readingLink(reference.code, chapter, verse, `${localizedBookName(reference.code, locale)} ${chapter}:${verse}`)).join('');
     const allReferenceCount = placeOccurrences.get(place.id)?.length || 0;
+    const candidateMarkup = place.candidates?.length ? `<details class="place-candidates" data-candidate-place="${escapeHtml(place.id)}">
+      <summary><span>${escapeHtml(translate('candidateTitle'))} <strong>${place.candidates.length}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary>
+      <div class="candidate-content"><p>${escapeHtml(translate('candidateIntro'))}</p><ol class="candidate-list">${place.candidates.map((candidate, candidateIndex) => `<li>
+        <button type="button" data-candidate="${escapeHtml(place.id)}:${candidateIndex}" aria-pressed="false">
+          <span class="candidate-rank">${escapeHtml(candidateIndex === 0 ? translate('candidateOne') : translate('candidateRank', { rank: candidateIndex + 1 }))}</span>
+          <strong>${escapeHtml(candidate.name)}</strong>
+          <small>${candidate.score !== null ? `${escapeHtml(translate('candidateScore', { score: candidate.score }))}` : ''}${candidate.votes ? ` · ${escapeHtml(translate('candidateVotes', { count: candidate.votes }))}` : ''}</small>
+          <span class="candidate-action">${escapeHtml(translate('candidateMap'))} ↗</span>
+        </button></li>`).join('')}</ol>
+        <p class="candidate-help">${escapeHtml(translate('candidateScoreHelp'))}</p><a href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceRecord'))} ↗</a>
+      </div></details>` : '';
     const photo = place.photo;
     const photoMarkup = photo ? `<div class="place-photo">
       <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
@@ -453,6 +521,7 @@ function renderPlaces(places, reference) {
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
       <div class="verse-list" aria-label="${escapeHtml(translate('currentVerses'))}">${refs}</div>
+      ${candidateMarkup}
       <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(allReferenceCount))}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
       ${photoMarkup}
       <a class="source-link" href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceEvidence'))} <span aria-hidden="true">↗</span></a>
@@ -463,6 +532,12 @@ function renderPlaces(places, reference) {
 }
 
 placeList.addEventListener('click', (event) => {
+  const candidateButton = event.target.closest('button[data-candidate]');
+  if (candidateButton) {
+    const separator = candidateButton.dataset.candidate.lastIndexOf(':');
+    selectCandidate(candidateButton.dataset.candidate.slice(0, separator), Number(candidateButton.dataset.candidate.slice(separator + 1)));
+    return;
+  }
   const chapterButton = event.target.closest('button[data-chapter]');
   if (chapterButton) {
     input.value = chapterButton.dataset.chapter;
@@ -475,6 +550,10 @@ placeList.addEventListener('click', (event) => {
 
 placeList.addEventListener('toggle', (event) => {
   const details = event.target;
+  if (details instanceof HTMLDetailsElement && details.open && details.matches('[data-candidate-place]')) {
+    selectPlace(details.dataset.candidatePlace, false);
+    return;
+  }
   if (!(details instanceof HTMLDetailsElement) || !details.open || !details.matches('[data-occurrence-place]')) return;
   if (details.dataset.loaded) return;
   details.querySelector('.occurrence-content').innerHTML = occurrenceMarkup(details.dataset.occurrencePlace);
@@ -683,6 +762,7 @@ async function loadData() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
+    renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
     setupHeroMap();
     if (location.hash.length > 1) {
