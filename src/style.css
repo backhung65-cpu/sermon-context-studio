@@ -114,6 +114,66 @@ h1 em { font-style: normal; }
 .journey-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 35px 0 25px; }
 .journey-heading h2 { margin: 7px 0 7px; color: #15213c; font-size: 32px; letter-spacing: -.05em; }
 .journey-heading p { max-width: 660px; margin: 0; color: #65718a; font-size: 13px; line-height: 1.6; }
+.person-explorer { margin-bottom: 48px; border: 1px solid #dce4f2; border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgba(29,51,91,.07); overflow: hidden; }
+.person-intro { display: flex; justify-content: space-between; gap: 24px; padding: 27px 30px; color: #fff; background: radial-gradient(circle at 82% 14%, rgba(172,139,252,.24), transparent 29%), linear-gradient(115deg, #13294b 10%, #284179 64%, #463c82); }
+.person-intro > div:first-child { max-width: 650px; }
+.person-intro #person-eyebrow { color: #cbbdff; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
+.person-intro h3 { margin: 8px 0 7px; color: #fff; font-size: clamp(21px, 2.4vw, 31px); letter-spacing: -.055em; }
+.person-intro p { margin: 0; color: #d6e3ff; font-size: 12px; line-height: 1.65; }
+.person-stats { display: grid; align-content: center; gap: 4px; flex: none; min-width: 225px; padding-left: 22px; border-left: 1px solid rgba(255,255,255,.23); }
+.person-stats strong { font-size: 17px; letter-spacing: -.04em; }
+.person-stats span, .person-stats small { color: #d4def5; font-size: 10px; line-height: 1.4; }
+.person-layout { display: grid; grid-template-columns: minmax(290px, .76fr) minmax(0, 1.24fr); min-height: 500px; }
+.person-browser { min-width: 0; padding: 22px; border-right: 1px solid #e5ebf4; background: #f9fbff; }
+.person-browser input { width: 100%; min-height: 47px; padding: 10px 14px; border: 1px solid #bccde7; border-radius: 11px; background: #fff; color: #16294a; font-size: 13px; }
+.person-browser input:focus-visible { outline: 2px solid #759df4; outline-offset: 2px; }
+.person-featured { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
+.person-featured button { padding: 6px 10px; border: 1px solid #d5dff0; border-radius: 20px; background: #fff; color: #385681; font-size: 10px; font-weight: 800; }
+.person-featured button:hover { background: #eaf1ff; }
+.person-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.person-filters label { min-width: 0; display: grid; gap: 5px; color: #60728f; font-size: 10px; font-weight: 800; }
+.person-filters select { width: 100%; min-width: 0; min-height: 39px; padding: 7px 9px; border: 1px solid #c8d6e9; border-radius: 9px; background: #fff; color: #243d62; font: inherit; font-size: 11px; }
+.person-filters select:focus-visible { outline: 2px solid #759df4; outline-offset: 2px; }
+.person-result-heading { display: flex; justify-content: space-between; align-items: center; padding-bottom: 9px; color: #667c9a; font-size: 10px; }
+.person-result-heading strong { color: #19365e; }
+.person-results { max-height: 410px; overflow: auto; display: grid; align-content: start; gap: 5px; padding-right: 4px; }
+.person-results button { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 55px; padding: 8px 11px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #213a5e; text-align: left; }
+.person-results button:hover, .person-results button[aria-pressed="true"] { border-color: #c3d4f1; background: #edf3ff; }
+.person-results button[aria-pressed="true"] { box-shadow: inset 3px 0 #3468bd; }
+.person-results button span { min-width: 0; display: grid; gap: 1px; }
+.person-results button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.person-results button small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8999b0; font-size: 9px; }
+.person-results button em { flex: none; color: #6980a0; font-size: 9px; font-style: normal; }
+.person-more, .person-more-verses { margin-top: 12px; padding: 9px 13px; border: 1px solid #cbd9ef; border-radius: 8px; background: #fff; color: #315c9e; font-size: 11px; font-weight: 800; }
+.person-more[hidden] { display: none; }
+.person-status { margin: 0; padding: 18px 5px; color: #657a98; font-size: 12px; }
+.person-detail { min-width: 0; padding: 25px 29px; }
+.person-detail-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; }
+.person-detail-kicker { color: #8355b0; font-size: 10px; font-weight: 900; }
+.person-detail h4 { margin: 6px 0 2px; color: #102948; font-size: clamp(23px, 2.4vw, 31px); letter-spacing: -.055em; }
+.person-detail-head p { margin: 0; color: #8393a9; font-size: 10px; }
+.person-detail-number { min-width: 76px; padding: 10px; border: 1px solid #e4eaf3; border-radius: 11px; color: #273f6b; font-size: 18px; font-weight: 900; text-align: center; }
+.person-detail-number small { display: block; color: #71839d; font-size: 9px; font-weight: 600; }
+.person-detail-metrics { display: flex; flex-wrap: wrap; gap: 9px; margin: 18px 0 13px; }
+.person-detail-metrics span { padding: 8px 10px; border: 1px solid #e0e7f2; border-radius: 8px; color: #536986; font-size: 10px; }
+.person-detail-metrics b { margin-left: 6px; color: #193e78; font-size: 12px; }
+.person-curated { display: flex; flex-wrap: wrap; gap: 7px; }
+.person-curated button { padding: 8px 12px; border: 1px solid #b9c9eb; border-radius: 8px; background: #eef4ff; color: #24477f; font-size: 11px; font-weight: 800; }
+.person-curated p { margin: 0; padding: 8px 0; color: #8190a4; font-size: 11px; }
+.person-caveat { margin: 16px 0; padding: 10px 12px; border-left: 3px solid #a780cc; border-radius: 6px; background: #f6f2fb; color: #645878; font-size: 10px; line-height: 1.6; }
+.person-ref-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e3eaf4; }
+.person-ref-tabs button { padding: 10px 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #71829a; font-size: 10px; font-weight: 800; }
+.person-ref-tabs button[aria-pressed="true"] { border-bottom-color: #325fb2; color: #204c95; }
+.person-ref-tabs b { margin-left: 3px; }
+.person-reference-list { max-height: 350px; overflow: auto; }
+.person-reference { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 2px; border-bottom: 1px solid #edf1f7; }
+.person-reference > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.person-reference strong { color: #243e65; font-size: 11px; }
+.person-reference small { color: #8192a9; font-size: 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-reference > div:last-child { display: flex; flex: none; gap: 6px; }
+.person-reference a, .person-reference button { padding: 5px 7px; border: 1px solid #dce5f3; border-radius: 6px; background: #fff; color: #3761a1; font-size: 9px; text-decoration: none; }
+.person-attribution { display: block; padding: 12px 22px; border-top: 1px solid #e9eef6; color: #667d9d; font-size: 9px; text-decoration: none; }
+.person-explorer button:focus-visible, .person-explorer a:focus-visible { outline: 2px solid #759df4; outline-offset: 2px; }
 .journey-catalog-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 0 0 16px; }
 .journey-catalog-heading h3 { margin: 0 0 5px; color: #16294b; font-size: 19px; letter-spacing: -.04em; }
 .journey-catalog-heading p { margin: 0; color: #687b98; font-size: 12px; line-height: 1.5; }
@@ -418,6 +478,15 @@ h1 em { font-style: normal; }
   .journey-heading { display: block; padding: 30px 0 17px; }
   .journey-heading h2 { font-size: 27px; }
   .journey-heading p { font-size: 12px; }
+  .person-explorer { margin-bottom: 34px; }
+  .person-intro { display: grid; gap: 17px; padding: 23px 20px; }
+  .person-stats { min-width: 0; padding: 12px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.23); }
+  .person-layout { display: block; }
+  .person-browser { padding: 17px; border-right: 0; border-bottom: 1px solid #e5ebf4; }
+  .person-results { max-height: 220px; }
+  .person-detail { padding: 22px 17px; }
+  .person-reference { align-items: start; }
+  .person-reference > div:last-child { flex-wrap: wrap; justify-content: end; }
   .journey-catalog-heading { align-items: start; }
   .journey-catalog-heading h3 { font-size: 17px; }
   .journey-catalog-heading > span { padding-top: 3px; }

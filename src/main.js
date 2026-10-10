@@ -3,15 +3,16 @@ import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from '.
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
+import { createPersonExplorer } from './person-explorer.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
 const HERO_TOUR_DELAY = 4600;
 const KOREAN_PLACES = {
-  'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴',
+  'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
   'Moreh 1': '모레', 'Negeb': '네겝',
-  'Nazareth': '나사렛', 'Capernaum': '가버나움', 'Galilee': '갈릴리',
+  'Nazareth': '나사렛', 'Capernaum': '가버나움', 'Galilee': '갈릴리', 'Galilee 1': '갈릴리',
   'Judea 1': '유대', 'Samaria 1': '사마리아', 'Jordan': '요단강',
   'Egypt': '애굽', 'Babylon 1': '바벨론', 'Damascus': '다메섹',
   'Antioch 1': '수리아 안디옥', 'Antioch 2': '비시디아 안디옥',
@@ -27,7 +28,7 @@ const KOREAN_PLACES = {
   'Gaza': '가사', 'Tyre': '두로', 'Sidon': '시돈', 'Bethany 1': '베다니',
   'Bethsaida 1': '벳새다', 'Sea of Galilee': '갈릴리 바다', 'Dead Sea': '사해',
   'Shunem': '수넴', 'Baal-shalishah': '바알 살리사', 'Gilgal 2': '길갈',
-  'Mount Carmel': '갈멜산', 'Mount Zion': '시온산', 'Mount Esau': '에서 산',
+  'Mount Carmel': '갈멜산', 'Mount Zion': '시온산', 'Zion': '시온', 'Mount Esau': '에서 산',
   'Seleucia': '실루기아', 'Salamis': '살라미', 'Perga': '버가',
   'Iconium': '이고니온', 'Lystra': '루스드라', 'Derbe': '더베', 'Attalia': '앗달리아',
   'Gerasa': '거라사', 'Bethsaida 2': '벳새다', 'Caesarea Philippi': '가이사랴 빌립보',
@@ -105,6 +106,7 @@ app.innerHTML = `
       <div class="shell">
         <div class="section-topline"></div>
         <div class="journey-heading"><div><div id="journey-eyebrow" class="section-kicker">본문을 따라 걷는 지도</div><h2 id="journey-title">여행 이야기</h2><p id="journey-intro">지명이 나오는 순서대로 장면을 넘기며, 본문과 지도 근거를 함께 살펴보세요.</p></div></div>
+        <div id="person-explorer" class="person-explorer"></div>
         <div class="journey-catalog-heading"><div><h3 id="journey-catalog-title"></h3><p id="journey-catalog-intro"></p></div><span id="journey-catalog-count"></span></div>
         <input id="journey-search" class="journey-search" type="search" autocomplete="off" />
         <div id="journey-filters" class="journey-filters" role="group"></div>
@@ -207,6 +209,31 @@ let heroPlaces = [];
 let heroActiveIndex = 0;
 let heroActiveMarker;
 let heroMapReady = false;
+const personExplorer = createPersonExplorer(document.querySelector('#person-explorer'), {
+  getLocale: () => locale,
+  getPlaces: () => data?.places,
+  placeName: displayName,
+  journeyName: (id) => journeyName(JOURNEYS.find((journey) => journey.id === id)),
+  openJourney: (id) => {
+    const selected = JOURNEYS.find((journey) => journey.id === id);
+    if (!selected) return;
+    currentJourney = selected;
+    currentJourneyCategory = 'all';
+    journeyQuery = '';
+    document.querySelector('#journey-search').value = '';
+    journeyStepIndex = 0;
+    updateJourneyAddress();
+    renderJourney();
+    fitJourneyMap();
+    document.querySelector('#journey-active-head').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  },
+  openReference: (code, chapter, verse) => {
+    input.value = `${localizedBookName(code, locale)} ${chapter}:${verse}`;
+    switchView('places');
+    form.requestSubmit();
+    document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  },
+});
 let heroTourTimer;
 let heroIsVisible = true;
 let heroMotionPaused = false;
@@ -300,6 +327,7 @@ function applyView(scroll = false) {
   }
   requestAnimationFrame(() => {
     if (showingJourneys) {
+      personExplorer.load();
       journeyMapWanted = true;
       setupJourneyMap();
       journeyMap?.resize();
@@ -515,6 +543,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
   renderSourceVersion();
   renderExamples();
+  personExplorer.render();
   if (data) renderJourney();
   applyView();
   if (currentReference && data) {
@@ -1294,6 +1323,7 @@ async function loadData() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
+    personExplorer.render();
     renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
     setupHeroMap();

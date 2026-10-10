@@ -96,15 +96,15 @@ export const ADDITIONAL_JOURNEYS = [
 export const JOURNEY_CATEGORIES = ['all', 'jesus', 'paul', 'patriarch', 'exodus'];
 
 export const JOURNEY_SEARCH_MESSAGES = {
-  ko: { searchJourneys: '인물 또는 여정 검색', noJourneyResults: '일치하는 공개 여정이 없습니다.' },
-  en: { searchJourneys: 'Search people or journeys', noJourneyResults: 'No published journey matches.' },
-  ja: { searchJourneys: '人物や旅を検索', noJourneyResults: '一致する公開済みの旅はありません。' },
-  'zh-CN': { searchJourneys: '搜索人物或旅程', noJourneyResults: '没有匹配的已发布旅程。' },
-  es: { searchJourneys: 'Buscar personas o viajes', noJourneyResults: 'No hay viajes publicados que coincidan.' },
-  th: { searchJourneys: 'ค้นหาบุคคลหรือการเดินทาง', noJourneyResults: 'ไม่พบการเดินทางที่เผยแพร่ซึ่งตรงกัน' },
-  hi: { searchJourneys: 'व्यक्ति या यात्रा खोजें', noJourneyResults: 'कोई प्रकाशित यात्रा नहीं मिली।' },
-  fr: { searchJourneys: 'Rechercher une personne ou un voyage', noJourneyResults: 'Aucun voyage publié ne correspond.' },
-  de: { searchJourneys: 'Person oder Reise suchen', noJourneyResults: 'Keine passende veröffentlichte Reise gefunden.' },
+  ko: { catalogTitle: '본문으로 검수한 여정', searchJourneys: '검수된 여정 검색', noJourneyResults: '일치하는 공개 여정이 없습니다.' },
+  en: { catalogTitle: 'Reviewed journeys', searchJourneys: 'Search reviewed journeys', noJourneyResults: 'No published journey matches.' },
+  ja: { catalogTitle: '本文で検証した旅', searchJourneys: '検証済みの旅を検索', noJourneyResults: '一致する公開済みの旅はありません。' },
+  'zh-CN': { catalogTitle: '经文核查的旅程', searchJourneys: '搜索已核查旅程', noJourneyResults: '没有匹配的已发布旅程。' },
+  es: { catalogTitle: 'Viajes revisados', searchJourneys: 'Buscar viajes revisados', noJourneyResults: 'No hay viajes publicados que coincidan.' },
+  th: { catalogTitle: 'การเดินทางที่ตรวจสอบแล้ว', searchJourneys: 'ค้นหาการเดินทางที่ตรวจสอบแล้ว', noJourneyResults: 'ไม่พบการเดินทางที่เผยแพร่ซึ่งตรงกัน' },
+  hi: { catalogTitle: 'जाँची गई यात्राएँ', searchJourneys: 'जाँची गई यात्रा खोजें', noJourneyResults: 'कोई प्रकाशित यात्रा नहीं मिली।' },
+  fr: { catalogTitle: 'Voyages vérifiés', searchJourneys: 'Rechercher des voyages vérifiés', noJourneyResults: 'Aucun voyage publié ne correspond.' },
+  de: { catalogTitle: 'Geprüfte Reisen', searchJourneys: 'Geprüfte Reisen suchen', noJourneyResults: 'Keine passende veröffentlichte Reise gefunden.' },
 };
 
 export const CATALOG_MESSAGES = {
