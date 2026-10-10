@@ -8,6 +8,11 @@ const MANUAL_ROUTE_SCENES = {
     { placeId: 'adf74d4', code: 'GEN', chapter: 37, verse: 14 }, // Joseph came to Shechem.
     { placeId: 'ab635e4', code: 'GEN', chapter: 37, verse: 17 }, // Joseph found his brothers in Dothan.
   ],
+  '076': [
+    { placeId: 'aa4680a', code: '1SA', chapter: 1, verse: 9 }, // Hannah prays at Shiloh.
+    { placeId: 'a90f6e1', code: '1SA', chapter: 1, verse: 19 }, // Hannah and Elkanah return home to Ramah.
+    { placeId: 'aa4680a', code: '1SA', chapter: 1, verse: 24 }, // Hannah brings Samuel to Shiloh.
+  ],
   '153': [
     { placeId: 'af5884f', code: 'LUK', chapter: 2, verse: 4 }, // Joseph leaves Nazareth.
     { placeId: 'a112427', code: 'LUK', chapter: 2, verse: 4 }, // Joseph goes to Bethlehem.

@@ -27,7 +27,7 @@ const ITINERARY_COPY = {
 };
 
 const COPY = {
-  ko: { heading: '인물의 경로를 지도에서', intro: 'United Bible Societies가 공개한 경로 도형입니다. 제목과 문맥으로 인물에 연결했으며, 각 선분의 장절은 아직 대조하지 않았습니다.', noRoute: '이 인물에게 연결할 수 있는 공개 경로 도형이 없습니다. 이동 기록이 없다는 뜻은 아닙니다.', loading: '경로 자료를 불러오는 중입니다.', failed: '경로 자료를 불러오지 못했습니다.', mapFailed: '지도 배경을 불러오지 못했습니다. 아래 원자료 링크를 사용할 수 있습니다.', source: 'UBS 원자료', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '선은 역사적 실제 도로나 확정 이동 경로가 아닌 편집상 재구성입니다. 출애굽에는 복수의 경로안이 있습니다.' },
+  ko: { heading: '인물의 경로를 지도에서', intro: 'United Bible Societies의 경로 도형입니다. 본문 장면을 대조한 곳에는 지명과 절을 표시합니다. 선분별 실제 경유지는 확정되지 않았습니다.', noRoute: '이 인물에게 연결할 수 있는 공개 경로 도형이 없습니다. 이동 기록이 없다는 뜻은 아닙니다.', loading: '경로 자료를 불러오는 중입니다.', failed: '경로 자료를 불러오지 못했습니다.', mapFailed: '지도 배경을 불러오지 못했습니다. 아래 원자료 링크를 사용할 수 있습니다.', source: 'UBS 원자료', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '선은 역사적 실제 도로나 확정 이동 경로가 아닌 편집상 재구성입니다. 출애굽에는 복수의 경로안이 있습니다.' },
   en: { heading: 'Map this person’s routes', intro: 'Route drawings published by United Bible Societies, assigned to people by title and narrative context. Segment-level verses have not been audited.', noRoute: 'No published drawing could be linked to this person; that does not prove there was no travel.', loading: 'Loading route drawings.', failed: 'Could not load route drawings.', mapFailed: 'Map background unavailable; the source link remains available.', source: 'UBS source', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: 'Lines are editorial reconstructions, not historical roads or certain itineraries. Exodus has competing proposed routes.' },
   ja: { heading: '人物の経路を地図で見る', intro: 'UBS公開の経路図を題名と文脈から人物に結びました。線分ごとの聖書箇所は未照合です。', noRoute: 'この人物に結び付けられる経路図はありません。移動がなかったという意味ではありません。', loading: '経路図を読み込み中です。', failed: '経路図を読み込めません。', mapFailed: '地図を読み込めません。原資料リンクを利用できます。', source: 'UBS原資料', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '線は編集上の再構成で、実際の古道や確定経路ではありません。' },
   'zh-CN': { heading: '在地图上查看人物路线', intro: 'UBS公开路线图按标题和叙事背景关联人物；每段路线的经文尚未逐一核查。', noRoute: '没有可关联的公开路线图；不代表此人没有移动。', loading: '正在加载路线图。', failed: '路线图加载失败。', mapFailed: '地图不可用，仍可打开原始资料。', source: 'UBS原始资料', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '线条是编辑性重建，并非历史道路或确定行程。' },
@@ -53,7 +53,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
   let mapLoaded = false;
   let markers = [];
   let stops = [];
-  root.innerHTML = `<section class="person-route-section"><div class="person-route-heading"><h5 id="person-route-title"></h5><p id="person-route-intro"></p></div><div id="person-route-picks" class="person-route-picks"></div><div id="person-route-map" class="person-route-map" aria-label="Bible route map"></div><div id="person-route-itinerary" class="person-route-itinerary" hidden></div><div id="person-route-status" class="person-route-status"></div><div id="person-route-stops" class="person-route-stops" hidden><div class="person-route-stops-heading"><strong id="person-route-stops-title"></strong><p id="person-route-stops-intro"></p></div><div id="person-route-stops-list" class="person-route-stops-list"></div></div><div class="person-route-foot"><p id="person-route-warning"></p><a id="person-route-source" target="_blank" rel="noopener noreferrer"></a><a id="person-route-credit" href="https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/" target="_blank" rel="noopener noreferrer"></a></div></section>`;
+  root.innerHTML = `<section class="person-route-section"><div class="person-route-heading"><h5 id="person-route-title"></h5><p id="person-route-intro"></p></div><div id="person-route-picks" class="person-route-picks"></div><div id="person-route-itinerary" class="person-route-itinerary" hidden></div><div id="person-route-map" class="person-route-map" aria-label="Bible route map"></div><div id="person-route-status" class="person-route-status"></div><div id="person-route-stops" class="person-route-stops" hidden><div class="person-route-stops-heading"><strong id="person-route-stops-title"></strong><p id="person-route-stops-intro"></p></div><div id="person-route-stops-list" class="person-route-stops-list"></div></div><div class="person-route-foot"><p id="person-route-warning"></p><a id="person-route-source" target="_blank" rel="noopener noreferrer"></a><a id="person-route-credit" href="https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/" target="_blank" rel="noopener noreferrer"></a></div></section>`;
   const mapElement = root.querySelector('#person-route-map');
   root.addEventListener('click', (event) => {
     const button = event.target.closest('[data-ubs-route]');
@@ -114,7 +114,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
       element.setAttribute('aria-label', `${indices.map((index) => stops[index].order).join(', ')} · ${placeName(stop.place)}`);
       const number = document.createElement('span');
       number.className = 'person-route-stop-number';
-      number.textContent = indices.length > 1 ? `${stop.order}+` : String(stop.order);
+      number.textContent = indices.map((index) => stops[index].order).join('·');
       const label = document.createElement('span');
       label.className = 'person-route-stop-label';
       label.textContent = placeName(stop.place);
@@ -179,8 +179,8 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     root.querySelector('#person-route-stops-title').textContent = `${stopCopy[0]} · ${stops.length}`;
     root.querySelector('#person-route-stops-intro').textContent = stops.length ? stopCopy[1] : stopCopy[6];
     const itinerary = root.querySelector('#person-route-itinerary');
-    itinerary.hidden = !stops.length;
-    itinerary.innerHTML = stops.length ? `<strong>${escapeHtml(ITINERARY_COPY[locale] || ITINERARY_COPY.en)}</strong><div>${stops.map((stop, index) => `<button type="button" data-route-stop="${index}">${stop.order}. ${escapeHtml(placeName(stop.place))}</button>`).join('')}</div>` : '';
+    itinerary.hidden = !route;
+    itinerary.innerHTML = stops.length ? `<strong>${escapeHtml(ITINERARY_COPY[locale] || ITINERARY_COPY.en)}</strong><div>${stops.map((stop, index) => `<button type="button" data-route-stop="${index}">${stop.order}. ${escapeHtml(placeName(stop.place))} · ${escapeHtml(localizedBookName(stop.code, locale))} ${stop.chapter}:${stop.verse}</button>`).join('')}</div>` : `<strong>${escapeHtml(routeStatus[1])}</strong><p>${escapeHtml(stopCopy[6])}</p>`;
     root.querySelector('#person-route-stops-list').innerHTML = stops.length ? stops.map((stop, index) => {
       const reference = `${localizedBookName(stop.code, locale)} ${stop.chapter}:${stop.verse}`;
       const uncertainty = stop.place.candidateCount > 1 ? ` · ${stop.place.candidateCount} ${locale === 'ko' ? '위치 후보' : 'location candidates'}` : '';

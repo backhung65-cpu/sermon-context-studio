@@ -62,8 +62,16 @@ test('Joseph to Dothan retains the biblical destination despite a coordinate dis
   assert.ok(scenes[1].distanceKm > 20, 'the map must not hide the source discrepancy');
 });
 
+test('Hannah names Shiloh and Ramah in the order of the account', () => {
+  const scenes = passageScenesForRoute(routes.routes.find((route) => route.id === '076'), places);
+  assert.deepEqual(scenes.map(({ place }) => place.name), ['Shiloh', 'Ramah 4', 'Shiloh']);
+  assert.deepEqual(scenes.map(({ code, chapter, verse }) => [code, chapter, verse]),
+    [['1SA', 1, 9], ['1SA', 1, 19], ['1SA', 1, 24]]);
+  assert.ok(scenes.every(({ distanceKm }) => distanceKm < 3));
+});
+
 test('only route-specific scenes have map markers and each one names its exact verse', () => {
-  assert.equal(new Set(PASSAGE_SCENE_ROUTE_IDS).size, 5);
+  assert.equal(new Set(PASSAGE_SCENE_ROUTE_IDS).size, 6);
   for (const route of routes.routes) {
     const scenes = passageScenesForRoute(route, places);
     assert.equal(scenes.length > 0, PASSAGE_SCENE_ROUTE_IDS.includes(route.id), route.id);

@@ -40,7 +40,7 @@ const KOREAN_PLACES = {
   'Marah': '마라', 'Elim': '엘림', 'Wilderness of Sinai': '시내 광야',
   'Kadesh-barnea': '가데스', 'Mount Hor 1': '호르 산', 'Mount Nebo': '느보 산',
   'Nob': '놉', 'Gibeah 1': '기브아', 'Ziph 1': '십', 'Gath 1': '가드',
-  'Keilah': '그일라', 'Adullam': '아둘람', 'Ramah 4': '라마',
+  'Keilah': '그일라', 'Adullam': '아둘람', 'Ramah 4': '라마', 'Shiloh': '실로',
   'Naioth': '나욧', 'Mizpeh 3': '미스바', 'Carmel 1': '갈멜',
   'Jezreel 3': '이스르엘', 'Bahurim': '바후림', 'Gallim': '갈림',
   'City of David': '다윗 성', 'Baal-perazim': '바알브라심',

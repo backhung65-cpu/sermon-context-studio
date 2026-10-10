@@ -172,16 +172,17 @@ h1 em { font-style: normal; }
 .person-route-picks button small { opacity: .7; font-size: 9px; }
 .person-route-map { width: 100%; height: 350px; border: 1px solid #e5e2ed; border-radius: 10px; overflow: hidden; background: #e9eef6; }
 .person-route-map[hidden] { display: none; }
-.person-route-itinerary { margin-top: 10px; padding: 11px 12px; border: 1px solid #e1d8eb; border-radius: 10px; background: #fbf8fd; }
+.person-route-itinerary { margin-bottom: 10px; padding: 11px 12px; border: 1px solid #e1d8eb; border-radius: 10px; background: #fbf8fd; }
 .person-route-itinerary[hidden], .person-route-stop-label[hidden] { display: none !important; }
 .person-route-itinerary strong { display: block; margin-bottom: 8px; color: #3a2b4c; font-size: 11px; }
+.person-route-itinerary p { margin: 0; color: #706479; font-size: 10px; line-height: 1.5; }
 .person-route-itinerary div { display: flex; flex-wrap: wrap; gap: 6px; }
 .person-route-itinerary button { padding: 5px 8px; border: 1px solid #ddd0e8; border-radius: 99px; background: #fff; color: #47315a; font-size: 10px; font-weight: 750; cursor: pointer; }
 .person-route-itinerary button:hover, .person-route-itinerary button:focus-visible { border-color: #8b539e; outline: 1px solid #8b539e; }
-.person-route-stop-marker { position: absolute; display: grid; place-items: center; width: 30px; height: 30px; padding: 2px; border: 2px solid #fff; border-radius: 50%; background: #864a96; box-shadow: 0 3px 13px #35264b52; color: #fff; cursor: pointer; white-space: nowrap; }
+.person-route-stop-marker { position: absolute; display: grid; place-items: center; width: 35px; height: 35px; padding: 2px; border: 2px solid #fff; border-radius: 50%; background: #864a96; box-shadow: 0 3px 13px #35264b52; color: #fff; cursor: pointer; white-space: nowrap; }
 .person-route-stop-marker.uncertain { border-style: dashed; border-color: #fff; background: #775093; }
 .person-route-stop-marker:hover, .person-route-stop-marker:focus-visible, .person-route-stop-marker[aria-pressed="true"] { outline: 2px solid #923b9c; outline-offset: 2px; z-index: 3; }
-.person-route-stop-number { font-size: 11px; font-weight: 900; }
+.person-route-stop-number { font-size: 10px; font-weight: 900; }
 .person-route-stop-label { position: absolute; top: 50%; left: calc(100% + 4px); transform: translateY(-50%); max-width: 120px; overflow: hidden; padding: 5px 8px; border: 1px solid #e1d8eb; border-radius: 99px; background: #fff; box-shadow: 0 2px 8px #35264b35; color: #292039; font-size: 11px; font-weight: 850; text-overflow: ellipsis; pointer-events: none; }
 .person-route-stop-marker.label-left .person-route-stop-label { right: calc(100% + 4px); left: auto; }
 .person-route-stops { margin-top: 12px; border: 1px solid #e1d8eb; border-radius: 12px; background: #fff; overflow: hidden; }

@@ -209,8 +209,8 @@ export function createPersonExplorer(root, { getLocale, getPlaces, getMaplibre, 
     const detail = root.querySelector('#person-detail');
     const routes = CURATED_JOURNEYS_BY_PERSON[person.id] || [];
     detail.querySelector('#person-detail-top').innerHTML = `<div class="person-detail-head"><div><span class="person-detail-kicker">${escapeHtml(m.show)}${bookFilter < 0 ? '' : ` · ${escapeHtml(localizedBookName(index.codes[bookFilter], locale))}`}</span><h4>${escapeHtml(personName(person))}</h4><p>${escapeHtml(m.english)} · ${escapeHtml(person.title)}</p></div><div class="person-detail-number">${scopedRefs.length.toLocaleString(locale)}<small>${escapeHtml(m.mentions)}</small></div></div>
-      <div class="person-detail-metrics"><span>${escapeHtml(m.places)} <b>${scopedMapped.length.toLocaleString(locale)}</b></span><span>${escapeHtml(m.routes)} <b>${routes.length}</b></span></div>
-      <div class="person-curated">${routes.length ? routes.map((id) => `<button type="button" data-person-journey="${id}">${escapeHtml(journeyName(id))} ↗</button>`).join('') : `<p>${escapeHtml(m.noRoutes)}</p>`}</div>
+      <div class="person-detail-metrics"><span>${escapeHtml(m.places)} <b>${scopedMapped.length.toLocaleString(locale)}</b></span>${routes.length ? `<span>${escapeHtml(m.routes)} <b>${routes.length}</b></span>` : ''}</div>
+      ${routes.length ? `<div class="person-curated">${routes.map((id) => `<button type="button" data-person-journey="${id}">${escapeHtml(journeyName(id))} ↗</button>`).join('')}</div>` : ''}
       <p class="person-caveat">${escapeHtml(m.caveat)}</p>`;
     routeViewer.setPerson(person.id);
     detail.querySelector('#person-detail-bottom').innerHTML = `<div class="person-ref-tabs"><button type="button" data-person-mode="mapped" aria-pressed="${mode === 'mapped'}">${escapeHtml(m.mapped)} <b>${scopedMapped.length.toLocaleString(locale)}</b></button><button type="button" data-person-mode="all" aria-pressed="${mode === 'all'}">${escapeHtml(m.all)} <b>${scopedRefs.length.toLocaleString(locale)}</b></button></div>
