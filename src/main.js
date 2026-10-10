@@ -6,6 +6,7 @@ import { passageContext, passageContextCopy, passageRole } from './passage-conte
 import { auditMessage, choosePassageFocus, evidenceForReference, evidenceMessage, evidencePriority, firstPassageMention, reviewedSceneMessage } from './passage-evidence.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
+import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMarkdown } from './pastoral-study.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
@@ -142,7 +143,8 @@ app.innerHTML = `
         <div class="results-quick-actions">
           <button id="quick-map" type="button"><span aria-hidden="true">1</span><span data-i18n="mapView">지도로 보기</span> ↗</button>
           <a id="quick-bible" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">2</span><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a>
-          <button id="quick-note" type="button"><span aria-hidden="true">3</span><span data-i18n="noteTitle">설교 준비 메모</span> ↗</button>
+          <button id="quick-study" type="button"><span aria-hidden="true">3</span><span id="quick-study-label">설교 준비 시트</span> ↗</button>
+          <button id="quick-note" type="button"><span aria-hidden="true">4</span><span data-i18n="noteTitle">설교 준비 메모</span> ↗</button>
         </div>
 
         <div id="passage-context" class="passage-context" hidden></div>
@@ -162,12 +164,14 @@ app.innerHTML = `
           </div>
         </div>
 
+        <section id="study-sheet" class="study-sheet" aria-labelledby="study-title" hidden></section>
         <details id="research-details" class="research-details" hidden><summary><span data-i18n="sourceTop">자료 출처와 사용 범위</span><span data-i18n="showAll">모두 보기</span></summary><div id="passage-evidence" class="passage-evidence" hidden></div></details>
 
         <div class="lower-grid">
           <div class="note-panel">
             <div class="note-title"><span class="pane-index">03</span><h3 data-i18n="noteTitle">설교 준비 메모</h3></div>
             <p data-i18n="noteIntro">본문을 읽으며 떠오른 관찰과 확인할 질문을 적어 두세요.</p>
+            <button id="note-starter" class="note-starter" type="button">관찰 질문 틀 넣기</button>
             <label class="sr-only" for="sermon-note" data-i18n="noteTitle">설교 준비 메모</label><textarea id="sermon-note" data-i18n-placeholder="notePlaceholder" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
             <span id="note-status" class="note-save" role="status" data-i18n="noteAuto">입력하면 이 브라우저에 자동 저장됩니다.</span>
             <div class="note-actions"><button id="download-note" type="button" disabled><span data-i18n="noteDownload">이 메모 파일로 저장</span> ↗</button><button id="backup-notes" type="button" disabled><span data-i18n="noteBackup">전체 메모 백업</span> ↗</button><button id="import-trigger" type="button"><span data-i18n="noteImport">백업 불러오기</span> ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
@@ -221,6 +225,7 @@ let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
 let currentPassageContext = null;
+let currentStudy = null;
 let selectedPlaceId = null;
 let spotlightPlaceId = null;
 let corpusAuditData = null;
@@ -598,6 +603,8 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  document.querySelector('#quick-study-label').textContent = pastoralStudyCopy(locale).title;
+  document.querySelector('#note-starter').textContent = pastoralStudyCopy(locale).starter;
   document.querySelector('#journey-catalog-reveal').textContent = evidenceMessage(locale).reveal;
   renderSourceVersion();
   renderExamples();
@@ -758,6 +765,28 @@ function renderPassageEvidence(places, reference) {
     <div class="passage-evidence-columns"><div><strong>${escapeHtml(m.placeEvents)}</strong><div class="passage-evidence-chips">${places.slice(0, 8).map((place) => `<button type="button" data-evidence-place="${escapeHtml(place.id)}"><span>${escapeHtml(displayName(place))}</span><small>${escapeHtml(eventPlaceIds.has(place.id) ? m.eventLocation : confirmed.has(place.id) ? m.both : m.mention)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPlaces)}</span>`}</div>${events.length ? `<div class="passage-evidence-events">${events.map((event) => `<span><b>${escapeHtml(event.title)}</b><small>${escapeHtml(m.eventCategory)} · ${event.verses} ${escapeHtml(m.linkedVerses)}</small></span>`).join('')}</div>` : ''}</div>
     <div><strong>${escapeHtml(m.personJourneys)}</strong><div class="passage-evidence-chips">${people.map((person) => `<button type="button" data-evidence-person="${escapeHtml(person.id)}"><span>${escapeHtml(ko ? KOREAN_NAMES[person.id] || person.name : person.name)}</span><small>${person.verses} ${escapeHtml(m.personVerses)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPeople)}</span>`}</div>${scenes.length ? `<div class="passage-evidence-journeys">${scenes.map(({ journey, step, index }) => `<a href="/?view=journeys&journey=${encodeURIComponent(journey.id)}&step=${index + 1}${ko ? '' : `&lang=${encodeURIComponent(locale)}`}">${escapeHtml(journeyName(journey))} · ${escapeHtml(`${localizedBookName(step.code || journey.code, locale)} ${step.chapter}:${step.verse}`)} ↗</a>`).join('')}</div>` : ''}</div></div>
     <p class="passage-evidence-caveat">${escapeHtml(m.caveat)}</p>`;
+}
+
+function renderPastoralStudy(places, reference) {
+  const copy = pastoralStudyCopy(locale);
+  const panel = document.querySelector('#study-sheet');
+  currentStudy = buildPastoralStudy(reference,
+    places.map((place) => ({ ...place, displayName: displayName(place) })),
+    currentPassageContext, currentEvidence);
+  const verseMarkup = (row) => `<li class="study-verse">
+    <div class="study-verse-head">${readingLink(reference.code, row.chapter, row.verse, `${localizedBookName(reference.code, locale)} ${row.chapter}:${row.verse}`)}</div>
+    <div class="study-verse-places">${row.places.map((place) => {
+      const role = place.role ? copy[place.role] : place.reviewed ? copy.reviewed : copy.mention;
+      return `<div class="study-place"><button class="study-add" type="button" data-study-place="${escapeHtml(place.id)}" data-study-verse="${row.chapter}:${row.verse}" aria-label="${escapeHtml(`${copy.note}: ${place.name} ${row.chapter}:${row.verse}`)}">＋</button><button class="study-map-link" type="button" data-study-focus="${escapeHtml(place.id)}" aria-label="${escapeHtml(`${translate('candidateMap')}: ${place.name}`)}"><strong>${escapeHtml(place.name)}</strong><span>${escapeHtml(role)}</span></button></div>`;
+    }).join('')}</div>
+  </li>`;
+  const visible = currentStudy.verses.slice(0, 6);
+  const rest = currentStudy.verses.slice(6, 150);
+  panel.hidden = false;
+  panel.innerHTML = `<div class="study-heading"><div><span class="section-kicker">${escapeHtml(formatReference(reference, locale))}</span><h3 id="study-title">${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div><div class="study-heading-actions"><a href="${bibleReadingUrl(reference.code, reference.chapter, reference.startVerse || 1)}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.read)} ↗</a><button id="download-study" type="button">${escapeHtml(copy.download)} ↓</button></div></div>
+    <div class="study-content"><div class="study-flow"><strong>${escapeHtml(copy.flow)} · ${currentStudy.verseCount}</strong>
+    ${visible.length ? `<ol class="study-verses">${visible.map(verseMarkup).join('')}</ol>${rest.length ? `<details class="study-more"><summary>${escapeHtml(copy.more)} · ${rest.length}</summary><ol class="study-verses">${rest.map(verseMarkup).join('')}</ol></details>` : ''}${currentStudy.verses.length > 150 ? `<p class="study-caveat">${escapeHtml(copy.narrow)}</p>` : ''}` : `<p class="study-empty">${escapeHtml(copy.noPlaces)}</p>`}</div>
+    <aside class="study-check"><strong>${escapeHtml(copy.cautionTitle)}</strong><ul><li>${escapeHtml(copy.cautionRole)}</li>${currentStudy.candidatePlaceCount ? `<li>${escapeHtml(copy.cautionCandidates)}</li>` : ''}${!currentStudy.reviewedVerseCount ? `<li>${escapeHtml(copy.cautionReview)}</li>` : ''}<li>${escapeHtml(copy.cautionText)}</li></ul></aside></div>`;
 }
 
 document.querySelector('#passage-evidence').addEventListener('click', (event) => {
@@ -1100,6 +1129,7 @@ function renderPlaces(places, reference) {
   renderPassageContext(places);
   renderPassageEvidence(places, reference);
   renderDiscovery(places, reference);
+  renderPastoralStudy(places, reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
@@ -1269,6 +1299,9 @@ form.addEventListener('submit', (event) => {
 document.querySelector('#quick-map').addEventListener('click', () => {
   document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
 });
+document.querySelector('#quick-study').addEventListener('click', () => {
+  document.querySelector('#study-sheet').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+});
 document.querySelector('#passage-place-index').addEventListener('click', (event) => {
   const button = event.target.closest('[data-index-place]');
   if (!button) return;
@@ -1279,6 +1312,46 @@ document.querySelector('#passage-place-index').addEventListener('click', (event)
 document.querySelector('#quick-note').addEventListener('click', () => {
   document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
   note.focus({ preventScroll: true });
+});
+document.querySelector('#study-sheet').addEventListener('click', (event) => {
+  if (event.target.closest('#download-study') && currentReference && currentStudy) {
+    const part = currentReference.label.replace(/[^\p{L}\p{N}-]+/gu, '-');
+    const markdown = pastoralStudyMarkdown(formatReference(currentReference, locale),
+      localizedBookName(currentReference.code, locale), currentStudy, pastoralStudyCopy(locale),
+      (chapter = currentReference.chapter, verse = currentReference.startVerse || 1) =>
+        bibleReadingUrl(currentReference.code, chapter, verse), note.value);
+    downloadText(`passage-study-${part}.md`, markdown, 'text/markdown;charset=utf-8');
+    return;
+  }
+  const focus = event.target.closest('[data-study-focus]');
+  if (focus) {
+    selectPlace(focus.dataset.studyFocus, false);
+    document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+    return;
+  }
+  const button = event.target.closest('[data-study-place]');
+  if (!button || !currentReference || !currentStudy) return;
+  const row = currentStudy.verses.find(({ chapter, verse }) => `${chapter}:${verse}` === button.dataset.studyVerse);
+  const place = row?.places.find(({ id }) => id === button.dataset.studyPlace);
+  if (!place) return;
+  const line = observationLine(localizedBookName(currentReference.code, locale), row, place,
+    pastoralStudyCopy(locale), bibleReadingUrl(currentReference.code, row.chapter, row.verse));
+  if (!note.value.includes(line)) {
+    note.value = `${note.value.trimEnd()}${note.value.trim() ? '\n' : ''}${line}\n`;
+    note.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  note.focus({ preventScroll: true });
+  setNoteStatus(pastoralStudyCopy(locale).noteAdded);
+});
+document.querySelector('#note-starter').addEventListener('click', () => {
+  const copy = pastoralStudyCopy(locale);
+  if (!note.value.includes(copy.starterText.trim())) {
+    note.value = `${note.value.trimEnd()}${note.value.trim() ? '\n\n' : ''}${copy.starterText}`;
+    note.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  note.focus();
+  setNoteStatus(copy.starterAdded);
 });
 note.addEventListener('input', () => {
   if (!currentReference) return;
@@ -1337,6 +1410,16 @@ importNotesInput.addEventListener('change', async () => {
 });
 importTrigger.addEventListener('click', () => importNotesInput.click());
 printButton.addEventListener('click', () => window.print());
+let studyMoreWasOpen = false;
+window.addEventListener('beforeprint', () => {
+  const details = document.querySelector('.study-more');
+  studyMoreWasOpen = Boolean(details?.open);
+  if (details) details.open = true;
+});
+window.addEventListener('afterprint', () => {
+  const details = document.querySelector('.study-more');
+  if (details) details.open = studyMoreWasOpen;
+});
 
 function journeyLineData() {
   const features = [];
