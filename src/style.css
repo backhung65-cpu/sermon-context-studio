@@ -312,7 +312,29 @@ h1 em { font-style: normal; }
 .journey-section.is-person-only .journey-active-head,
 .journey-section.is-person-only .journey-route-note,
 .journey-section.is-person-only .journey-workspace,
+.journey-section.is-person-only .atlas-companion--journey,
 .journey-section.is-person-only .journey-data-credit { display: none; }
+
+.atlas-companion:not([hidden]) { display: grid; gap: 15px; margin: 0 0 20px; padding: 21px 23px; border: 1px solid #d7dff1; border-radius: 15px; background: linear-gradient(135deg, #f7f9ff 0%, #fff 58%, #fff8f4 100%); box-shadow: 0 10px 26px rgba(26,53,102,.05); }
+.atlas-companion--journey:not([hidden]) { margin: 15px 0 0; }
+.atlas-companion-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.atlas-companion-heading h3 { margin: 5px 0 4px; color: #142b54; font-size: 20px; line-height: 1.3; letter-spacing: -.035em; }
+.atlas-companion-heading p { margin: 0; color: #586c88; font-size: 13px; line-height: 1.6; }
+.atlas-companion-count { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border: 1px solid #cdd9ef; border-radius: 50%; color: #4167aa; font-size: 11px; font-weight: 800; }
+.atlas-companion-plates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.atlas-companion-plate { display: flex; gap: 11px; min-width: 0; padding: 15px; border: 1px solid #e0e8f3; border-radius: 11px; background: #fff; }
+.atlas-companion-plate-mark { display: grid; flex: none; place-items: center; width: 29px; height: 29px; border-radius: 8px; background: #edf2ff; color: #5378bf; font-size: 21px; line-height: 1; }
+.atlas-companion-plate > div { display: grid; min-width: 0; gap: 4px; }
+.atlas-companion-plate small { color: #687fa3; font-size: 11px; font-weight: 750; line-height: 1.5; }
+.atlas-companion-plate strong { color: #142b54; font-size: 15px; line-height: 1.4; }
+.atlas-companion-plate p { margin: 0; color: #52647e; font-size: 12px; line-height: 1.65; }
+.atlas-companion-plate-links { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.atlas-companion-plate-open { width: fit-content; margin-top: 4px; color: #2457a0; font-size: 12px; font-weight: 800; text-decoration: none; }
+.atlas-companion-plate-open:hover, .atlas-companion-plate-open:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.atlas-companion-caveat { margin: 0; padding: 9px 12px; border-left: 3px solid #b27bc9; border-radius: 0 7px 7px 0; background: #f5f1fa; color: #685476; font-size: 12px; line-height: 1.65; }
+.atlas-companion-links { display: flex; flex-wrap: wrap; gap: 7px; }
+.atlas-companion-links a { display: inline-flex; align-items: center; min-height: 36px; padding: 7px 10px; border: 1px solid #cbd9ef; border-radius: 7px; background: #fff; color: #24518d; font-size: 12px; font-weight: 800; text-decoration: none; }
+.atlas-companion-links a:hover, .atlas-companion-links a:focus-visible { border-color: #567ec0; background: #f2f6ff; outline: none; }
 
 .results-section { background: #fff; padding-bottom: 110px; }
 .section-topline { height: 3px; background: linear-gradient(115deg, #ea48e1, #fa8af9 18%, #a8aefe 48%, #6496fd 68%, #1580fd 84%, #154fdf); opacity: .72; }
@@ -536,6 +558,19 @@ h1 em { font-style: normal; }
 .candidate-action { grid-column: 2; grid-row: 2 / 4; align-self: center; color: #5b3e99; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .candidate-content .candidate-help { margin: 12px 0 8px; font-size: 10px; }
 .candidate-content > a { color: #573e95; font-size: 10px; font-weight: 800; text-underline-offset: 3px; }
+.place-dictionary { margin: 12px 0 0 25px; border: 1px solid #dbe5f2; border-radius: 8px; background: #f8fbff; }
+.place-dictionary summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; cursor: pointer; list-style: none; }
+.place-dictionary summary::-webkit-details-marker { display: none; }
+.place-dictionary summary strong { color: #203d68; font-size: 12px; }
+.place-dictionary summary span { color: #667f9e; font-size: 11px; white-space: nowrap; }
+.place-dictionary summary i { display: inline-block; font-size: 14px; font-style: normal; transition: transform .2s ease; }
+.place-dictionary[open] summary i { transform: rotate(180deg); }
+.place-dictionary summary:focus-visible { outline: 2px solid #6496fd; outline-offset: 2px; }
+.place-dictionary-content { padding: 0 12px 13px; border-top: 1px solid #e4ecf6; }
+.place-dictionary-content p { margin: 10px 0 0; color: #30415b; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.place-dictionary-content .place-dictionary-caution { color: #725579; }
+.place-dictionary-sources { display: flex; flex-wrap: wrap; gap: 7px 13px; margin-top: 11px; }
+.place-dictionary-sources a { color: #315d9e; font-size: 11px; font-weight: 700; text-underline-offset: 2px; }
 .occurrence-content { padding: 12px; border-top: 1px solid #e2eaf5; background: #fff; }
 .occurrence-note { margin: 0 0 13px; color: #65758d; font-size: 10px; line-height: 1.65; }
 .occurrence-books { display: grid; gap: 13px; max-height: 350px; overflow-y: auto; scrollbar-color: #b8c8df transparent; }
@@ -626,6 +661,9 @@ h1 em { font-style: normal; }
 }
 
 @media (max-width: 760px) {
+  .atlas-companion:not([hidden]) { gap: 13px; padding: 16px; }
+  .atlas-companion-plates { grid-template-columns: 1fr; }
+  .atlas-companion-heading h3 { font-size: 18px; }
   .passage-evidence:not([hidden]) { padding: 14px; }
   .passage-evidence-heading { display: block; }
   .passage-evidence-heading a { display: inline-block; margin-top: 7px; }
@@ -705,7 +743,7 @@ h1 em { font-style: normal; }
   .places-pane { border-left: 0; border-top: 1px solid #e2e8f0; }
   .place-list { max-height: none; min-height: 0; overflow: visible; }
   .place-card { padding: 18px 16px; }
-  .place-candidates, .place-occurrences, .place-photo, .source-link, .verse-list, .place-meta { margin-left: 0; }
+  .place-candidates, .place-occurrences, .place-dictionary, .place-photo, .source-link, .verse-list, .place-meta { margin-left: 0; }
   .candidate-list { max-height: none; overflow: visible; }
   .candidate-content > p { font-size: 12px; }
   .candidate-list button { min-height: 68px; }

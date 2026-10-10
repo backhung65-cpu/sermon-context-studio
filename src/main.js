@@ -7,9 +7,12 @@ import { auditMessage, choosePassageFocus, evidenceForReference, evidenceMessage
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
 import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMarkdown } from './pastoral-study.js';
+import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geography-notes.js';
+import { ATLAS_COMPACT_PDF, ATLAS_PUBLISHER_PAGE, ATLAS_STUDY_PDF, atlasCompanionCopy, atlasPlatesForJourney, atlasPlatesForPassage, atlasPlateText } from './atlas-companion.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
+const GEOGRAPHY_NOTES_URL = '/public/data/geography-notes.json';
 const CORPUS_AUDIT_URL = '/public/data/corpus-audit.json';
 const EXAMPLES = ['출애굽기 3장', '왕하 4:1-44', '행 16:6-15', '창 12:1-9'];
 const KOREAN_PLACES = {
@@ -126,6 +129,7 @@ app.innerHTML = `
           <div class="journey-map-shell"><div id="journey-map" class="journey-map" aria-label="여행 이야기 지도"><span id="journey-map-loading">여정 지도를 불러오는 중입니다.</span></div><button id="journey-fit" class="journey-fit" type="button">전체 여정 ↗</button></div>
           <div class="journey-story"><div class="journey-story-top"><span id="journey-scene-count"></span><span id="journey-step-reference"></span></div><div id="journey-current" class="journey-current" aria-live="polite"></div><div class="journey-controls"><button id="journey-prev" type="button"></button><button id="journey-next" type="button"></button></div><div id="journey-timeline" class="journey-timeline" aria-label="Journey scenes"></div></div>
         </div>
+        <div id="journey-atlas-companion" class="atlas-companion atlas-companion--journey" hidden></div>
         <a class="journey-data-credit" href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info · CC BY 4.0 ↗</a>
         <div id="person-explorer" class="person-explorer"></div>
         <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 본문 연결 여정 보기 ↗</button>
@@ -149,6 +153,7 @@ app.innerHTML = `
 
         <div id="passage-context" class="passage-context" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
+        <div id="passage-atlas-companion" class="atlas-companion" hidden></div>
 
         <div class="workspace">
           <div class="map-pane">
@@ -220,6 +225,7 @@ let journeyMapFailed = false;
 let journeyMarkers = [];
 let data;
 let evidenceData;
+let geographyNotesData;
 let currentEvidence;
 let placeOccurrences = new Map();
 let currentReference;
@@ -484,6 +490,21 @@ function updateJourneyAddress() {
   history.replaceState(null, '', url);
 }
 
+function renderAtlasCompanion(target, plates) {
+  const panel = document.querySelector(target);
+  panel.hidden = !plates.length;
+  if (!plates.length) { panel.innerHTML = ''; return; }
+  const copy = atlasCompanionCopy(locale);
+  const pageLabel = (page) => copy.page.replace('{page}', String(page));
+  panel.innerHTML = `<div class="atlas-companion-heading"><div><span class="section-kicker">${escapeHtml(copy.eyebrow)}</span><h3>${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div><span class="atlas-companion-count">${String(plates.length).padStart(2, '0')}</span></div>
+    <div class="atlas-companion-plates">${plates.map((entry) => {
+      const text = atlasPlateText(entry, locale);
+      return `<article class="atlas-companion-plate"><span class="atlas-companion-plate-mark" aria-hidden="true">⌖</span><div><small>${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))}${entry.compactPage ? ` <span> / ${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))}</span>` : ''}</small><strong lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.title)}</strong><p lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.prompt)}</p><div class="atlas-companion-plate-links"><a class="atlas-companion-plate-open" href="${ATLAS_STUDY_PDF}#page=${entry.studyPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))} ↗</a>${entry.compactPage ? `<a class="atlas-companion-plate-open" href="${ATLAS_COMPACT_PDF}#page=${entry.compactPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))} ↗</a>` : ''}</div></div></article>`;
+    }).join('')}</div>
+    <p class="atlas-companion-caveat">${escapeHtml(copy.caveat)}</p>
+    <div class="atlas-companion-links"><a href="${ATLAS_STUDY_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openStudy)} ↗</a><a href="${ATLAS_COMPACT_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openCompact)} ↗</a><a href="${ATLAS_PUBLISHER_PAGE}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.source)} ↗</a></div>`;
+}
+
 function renderJourney() {
   const j = (key, vars) => journeyMessage(locale, key, vars);
   document.querySelector('#journey-eyebrow').textContent = j('eyebrow');
@@ -509,6 +530,7 @@ function renderJourney() {
     ? visible.map((journey) => `<button type="button" data-journey="${escapeHtml(journey.id)}" aria-pressed="${journey.id === currentJourney.id}"><span>${escapeHtml(j(`category${journey.category[0].toUpperCase()}${journey.category.slice(1)}`))}</span><strong>${escapeHtml(journeyName(journey))}</strong><small>${escapeHtml(journeyRange(journey))} · ${escapeHtml(j('steps', { count: journey.steps.length }))}</small><i aria-hidden="true">↗</i></button>`).join('')
     : `<p class="journey-empty">${escapeHtml(j('noJourneyResults'))}</p>`;
   document.querySelector('#journey-active-head').innerHTML = `<span>${escapeHtml(j(`category${currentJourney.category[0].toUpperCase()}${currentJourney.category.slice(1)}`))} · ${escapeHtml(journeyRange(currentJourney))}</span><h3>${escapeHtml(journeyName(currentJourney))}</h3><p>${escapeHtml(journeyIntro(currentJourney))}</p>`;
+  renderAtlasCompanion('#journey-atlas-companion', atlasPlatesForJourney(currentJourney.id));
   document.querySelector('#journey-timeline').setAttribute('aria-label', j('steps', { count: currentJourney.steps.length }));
   document.querySelector('#journey-map').setAttribute('aria-label', `${j('title')} · ${j('all')}`);
   document.querySelector('#journey-route-note').textContent = j(currentJourney.linePolicy === 'none' ? 'noRouteNote' : 'routeNote');
@@ -1127,6 +1149,7 @@ function renderPlaces(places, reference) {
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
   renderPassageContext(places);
+  renderAtlasCompanion('#passage-atlas-companion', atlasPlatesForPassage(reference));
   renderPassageEvidence(places, reference);
   renderDiscovery(places, reference);
   renderPastoralStudy(places, reference);
@@ -1149,6 +1172,14 @@ function renderPlaces(places, reference) {
         <p class="candidate-help">${escapeHtml(translate('candidateScoreHelp'))}</p><a href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceRecord'))} ↗</a>
       </div></details>` : '';
     const photo = place.photo;
+    const dictionaryNote = noteForPlace(geographyNotesData, data.sourceCommit, place.id);
+    const dictionaryCopy = geographyNoteCopy(locale);
+    const dictionaryMarkup = dictionaryNote ? `<details class="place-dictionary">
+      <summary><strong>${escapeHtml(dictionaryCopy.title)}</strong><span>${escapeHtml(dictionaryCopy.original)} <i aria-hidden="true">⌄</i></span></summary>
+      <div class="place-dictionary-content"><p class="place-dictionary-caution">${escapeHtml(dictionaryCopy.caution)}</p>
+      ${dictionaryNote.paragraphs.map((paragraph) => `<p lang="en">${escapeHtml(dictionaryPlainText(paragraph))}</p>`).join('')}
+      <div class="place-dictionary-sources"><a href="https://ccel.org/ccel/easton/ebd2/ebd2" target="_blank" rel="noopener noreferrer">${escapeHtml(dictionaryCopy.source)} ↗</a><a href="https://github.com/robertrouse/theographic-bible-metadata/tree/${escapeHtml(geographyNotesData.sourceCommit)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dictionaryCopy.data)} · Theographic ↗</a></div></div>
+    </details>` : '';
     const photoMarkup = photo ? `<div class="place-photo">
       <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
       <div class="place-photo-copy"><span>${escapeHtml(translate('currentPhoto'))}${place.candidateCount > 1 ? ` · ${escapeHtml(translate('candidatePhoto'))}` : ''}</span><p>${escapeHtml(photo.alt)}</p><small>${escapeHtml(translate('photoCredit'))}: ${escapeHtml(photo.credit)}${photo.edited ? ` · ${escapeHtml(translate('previewEdited'))}` : ''}</small><div class="photo-links"><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('photoOriginal'))} ↗</a><a href="${escapeHtml(photo.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.license)} ↗</a></div></div>
@@ -1161,6 +1192,7 @@ function renderPlaces(places, reference) {
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
       <div class="verse-list" aria-label="${escapeHtml(translate('currentVerses'))}">${refs}</div>
+      ${dictionaryMarkup}
       <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(allReferenceCount))}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
       ${candidateMarkup}
       ${photoMarkup}
@@ -1611,7 +1643,7 @@ function setupHeroMap() {
 
 async function loadData() {
   try {
-    const [response, evidenceResult, auditResult] = await Promise.all([
+    const [response, evidenceResult, auditResult, geographyResult] = await Promise.all([
       fetch(DATA_URL),
       fetch(EVIDENCE_URL).then(async (result) => {
         if (!result.ok) throw new Error(`Evidence HTTP ${result.status}`);
@@ -1620,11 +1652,14 @@ async function loadData() {
         return payload;
       }).catch(() => null),
       fetch(CORPUS_AUDIT_URL).then(async (result) => result.ok ? result.json() : null).catch(() => null),
+      fetch(GEOGRAPHY_NOTES_URL).then(async (result) => result.ok ? result.json() : null).catch(() => null),
     ]);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
     evidenceData = evidenceResult?.placeSourceCommit === data.sourceCommit ? evidenceResult : null;
+    geographyNotesData = geographyResult?.placeSourceCommit === data.sourceCommit
+      && geographyResult?.sourceCommit === evidenceData?.sourceCommit ? geographyResult : null;
     corpusAuditData = auditResult?.sources?.atlas === data.sourceCommit
       && auditResult?.sources?.theographic === evidenceData?.sourceCommit ? auditResult : null;
     personExplorer.render();
