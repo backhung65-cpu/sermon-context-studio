@@ -212,6 +212,7 @@ let heroMapReady = false;
 const personExplorer = createPersonExplorer(document.querySelector('#person-explorer'), {
   getLocale: () => locale,
   getPlaces: () => data?.places,
+  getMaplibre: () => maplibre,
   placeName: displayName,
   journeyName: (id) => journeyName(JOURNEYS.find((journey) => journey.id === id)),
   openJourney: (id) => {
@@ -328,6 +329,7 @@ function applyView(scroll = false) {
   requestAnimationFrame(() => {
     if (showingJourneys) {
       personExplorer.load();
+      personExplorer.onShow();
       journeyMapWanted = true;
       setupJourneyMap();
       journeyMap?.resize();
@@ -1252,6 +1254,7 @@ async function loadMap() {
     const vendorModule = `/public/vendor/${'maplibre-gl.mjs'}`;
     maplibre = await import(/* @vite-ignore */ vendorModule);
     maplibre.setWorkerUrl('/public/vendor/maplibre-gl-worker.mjs');
+    personExplorer.onShow();
     map = new maplibre.Map({
       container: 'map',
       style: 'https://tiles.openfreemap.org/styles/positron',

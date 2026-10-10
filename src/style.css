@@ -130,6 +130,8 @@ h1 em { font-style: normal; }
 .person-featured { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
 .person-featured button { padding: 6px 10px; border: 1px solid #d5dff0; border-radius: 20px; background: #fff; color: #385681; font-size: 10px; font-weight: 800; }
 .person-featured button:hover { background: #eaf1ff; }
+.person-featured .person-routes-chip { border-color: #b373bd; background: #f9effa; color: #753982; }
+.person-featured .person-routes-chip[aria-pressed="true"] { background: #753982; color: #fff; }
 .person-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
 .person-filters label { min-width: 0; display: grid; gap: 5px; color: #60728f; font-size: 10px; font-weight: 800; }
 .person-filters select { width: 100%; min-width: 0; min-height: 39px; padding: 7px 9px; border: 1px solid #c8d6e9; border-radius: 9px; background: #fff; color: #243d62; font: inherit; font-size: 11px; }
@@ -161,6 +163,20 @@ h1 em { font-style: normal; }
 .person-curated button { padding: 8px 12px; border: 1px solid #b9c9eb; border-radius: 8px; background: #eef4ff; color: #24477f; font-size: 11px; font-weight: 800; }
 .person-curated p { margin: 0; padding: 8px 0; color: #8190a4; font-size: 11px; }
 .person-caveat { margin: 16px 0; padding: 10px 12px; border-left: 3px solid #a780cc; border-radius: 6px; background: #f6f2fb; color: #645878; font-size: 10px; line-height: 1.6; }
+.person-route-section { margin: 20px 0 24px; padding: 18px; border: 1px solid #e3ddec; border-radius: 14px; background: linear-gradient(145deg, #fbf8ff, #f6f9ff); }
+.person-route-heading h5 { margin: 0 0 5px; color: #342951; font-size: 16px; letter-spacing: -.04em; }
+.person-route-heading p { margin: 0 0 12px; color: #6d6780; font-size: 10px; line-height: 1.6; }
+.person-route-picks { display: flex; gap: 7px; max-height: 118px; overflow: auto; flex-wrap: wrap; align-content: start; padding: 1px 0 10px; }
+.person-route-picks button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 9px; border: 1px solid #d8cce5; border-radius: 8px; background: #fff; color: #584775; font-size: 10px; font-weight: 800; text-align: left; }
+.person-route-picks button[aria-pressed="true"] { border-color: #8b539e; background: #8b539e; color: #fff; }
+.person-route-picks button small { opacity: .7; font-size: 9px; }
+.person-route-map { width: 100%; height: 295px; border: 1px solid #e5e2ed; border-radius: 10px; overflow: hidden; background: #e9eef6; }
+.person-route-map[hidden] { display: none; }
+.person-route-status { color: #6d6780; font-size: 11px; line-height: 1.5; }
+.person-route-status:empty { display: none; }
+.person-route-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 9px; }
+.person-route-foot p { flex-basis: 100%; margin: 0; color: #756985; font-size: 9px; line-height: 1.5; }
+.person-route-foot a { color: #68479a; font-size: 9px; font-weight: 800; text-decoration: none; }
 .person-ref-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e3eaf4; }
 .person-ref-tabs button { padding: 10px 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #71829a; font-size: 10px; font-weight: 800; }
 .person-ref-tabs button[aria-pressed="true"] { border-bottom-color: #325fb2; color: #204c95; }
@@ -484,6 +500,8 @@ h1 em { font-style: normal; }
   .person-layout { display: block; }
   .person-browser { padding: 17px; border-right: 0; border-bottom: 1px solid #e5ebf4; }
   .person-results { max-height: 220px; }
+  .person-route-section { padding: 13px; }
+  .person-route-map { height: 230px; }
   .person-detail { padding: 22px 17px; }
   .person-reference { align-items: start; }
   .person-reference > div:last-child { flex-wrap: wrap; justify-content: end; }
