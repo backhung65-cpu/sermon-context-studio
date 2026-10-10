@@ -2,9 +2,9 @@ import { bibleReadingUrl, localizedBookName } from './reference.js';
 import { createPersonRouteMap } from './person-route-map.js';
 
 // These labels are editorial aliases only. The stable identity is Theographic personLookup.
-const KOREAN_NAMES = {
+export const KOREAN_NAMES = {
   jesus_905: '예수 그리스도', paul_2479: '바울', moses_2108: '모세', abraham_58: '아브라함',
-  david_994: '다윗', israel_682: '야곱 (이스라엘)', aaron_1: '아론', solomon_2762: '솔로몬',
+  david_994: '다윗', israel_682: '이스라엘 (인물·민족 구분 필요)', aaron_1: '아론', solomon_2762: '솔로몬',
   saul_2478: '사울', judah_1751: '유다', joseph_1710: '요셉 (야곱의 아들)',
   joseph_1715: '요셉 (마리아의 남편)', joshua_1727: '여호수아', peter_2745: '베드로',
   ephraim_1206: '에브라임', benjamin_463: '베냐민', esau_1216: '에서',
@@ -25,6 +25,7 @@ const KOREAN_NAMES = {
   queen_of_sheba_2379: '스바 여왕', rehoboam_2412: '르호보암',
   naaman_2122: '나아만', jehu_817: '예후',
   mary_1938: '마리아 (예수님의 어머니)', philip_2347: '전도자 빌립',
+  gehazi_1293: '게하시', jethro_2431: '이드로',
 };
 
 const MESSAGES = {
@@ -58,7 +59,7 @@ const ROUTE_CHIP = {
   de: ['37 mit Routenkarten', 'Routen'],
 };
 
-const CURATED = {
+export const CURATED_JOURNEYS_BY_PERSON = {
   jesus_905: ['jesus-early', 'jesus-ministry'], paul_2479: ['paul', 'paul-2', 'paul-3'],
   moses_2108: ['moses'], abraham_58: ['abraham'],
 };
@@ -208,7 +209,7 @@ export function createPersonExplorer(root, { getLocale, getPlaces, getMaplibre, 
     if (mode === 'mapped' && !scopedMapped.length) mode = 'all';
     const rows = mode === 'mapped' ? scopedMapped : scopedRefs;
     const detail = root.querySelector('#person-detail');
-    const routes = CURATED[person.id] || [];
+    const routes = CURATED_JOURNEYS_BY_PERSON[person.id] || [];
     detail.querySelector('#person-detail-top').innerHTML = `<div class="person-detail-head"><div><span class="person-detail-kicker">${escapeHtml(m.show)}${bookFilter < 0 ? '' : ` · ${escapeHtml(localizedBookName(index.codes[bookFilter], locale))}`}</span><h4>${escapeHtml(personName(person))}</h4><p>${escapeHtml(m.english)} · ${escapeHtml(person.title)}</p></div><div class="person-detail-number">${scopedRefs.length.toLocaleString(locale)}<small>${escapeHtml(m.mentions)}</small></div></div>
       <div class="person-detail-metrics"><span>${escapeHtml(m.places)} <b>${scopedMapped.length.toLocaleString(locale)}</b></span><span>${escapeHtml(m.routes)} <b>${routes.length}</b></span></div>
       <div class="person-curated">${routes.length ? routes.map((id) => `<button type="button" data-person-journey="${id}">${escapeHtml(journeyName(id))} ↗</button>`).join('') : `<p>${escapeHtml(m.noRoutes)}</p>`}</div>
@@ -245,6 +246,22 @@ export function createPersonExplorer(root, { getLocale, getPlaces, getMaplibre, 
     return pending;
   }
 
+  async function focusPerson(id) {
+    selectedId = id;
+    query = '';
+    input.value = '';
+    bookFilter = -1;
+    mappedOnly = false;
+    routeOnly = false;
+    personLimit = 24;
+    await load();
+    if (!index?.people.some((person) => person.id === id)) return false;
+    mode = index.people.find((person) => person.id === id).mapped.length ? 'mapped' : 'all';
+    render();
+    root.querySelector('#person-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+
   render();
-  return { load, render, onShow: routeViewer.onShow };
+  return { load, render, focusPerson, onShow: routeViewer.onShow };
 }

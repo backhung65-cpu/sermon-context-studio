@@ -3,12 +3,13 @@ import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from '.
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 import { passageContext, passageContextCopy, passageRole } from './passage-context.js';
+import { evidenceForReference, evidenceMessage, evidencePriority, firstPassageMention } from './passage-evidence.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
-import { createPersonExplorer } from './person-explorer.js';
+import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
+const EVIDENCE_URL = '/public/data/passage-evidence.json';
 const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
-const HERO_TOUR_DELAY = 4600;
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
@@ -114,6 +115,7 @@ app.innerHTML = `
         <div class="section-topline"></div>
         <div class="journey-heading"><div><div id="journey-eyebrow" class="section-kicker">본문을 따라 걷는 지도</div><h2 id="journey-title">여행 이야기</h2><p id="journey-intro">지명이 나오는 순서대로 장면을 넘기며, 본문과 지도 근거를 함께 살펴보세요.</p></div></div>
         <div id="person-explorer" class="person-explorer"></div>
+        <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 검수 여정 보기 ↗</button>
         <div class="journey-catalog-heading"><div><h3 id="journey-catalog-title"></h3><p id="journey-catalog-intro"></p></div><span id="journey-catalog-count"></span></div>
         <input id="journey-search" class="journey-search" type="search" autocomplete="off" />
         <div id="journey-filters" class="journey-filters" role="group"></div>
@@ -137,6 +139,7 @@ app.innerHTML = `
         </div>
 
         <div id="passage-context" class="passage-context" hidden></div>
+        <div id="passage-evidence" class="passage-evidence" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
 
         <div class="workspace">
@@ -202,6 +205,8 @@ let journeyMapWanted = false;
 let journeyMapFailed = false;
 let journeyMarkers = [];
 let data;
+let evidenceData;
+let currentEvidence;
 let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
@@ -215,6 +220,7 @@ let markers = [];
 let candidateMarkers = [];
 let selectedCandidateIndex = 0;
 let heroPlaces = [];
+let heroReferenceLabel;
 let heroActiveIndex = 0;
 let heroActiveMarker;
 let heroMapReady = false;
@@ -227,6 +233,10 @@ const personExplorer = createPersonExplorer(document.querySelector('#person-expl
   openJourney: (id) => {
     const selected = JOURNEYS.find((journey) => journey.id === id);
     if (!selected) return;
+    const address = new URL(location.href);
+    address.searchParams.delete('person');
+    history.replaceState(null, '', address);
+    journeySection.classList.remove('is-person-only');
     currentJourney = selected;
     currentJourneyCategory = 'all';
     journeyQuery = '';
@@ -244,9 +254,6 @@ const personExplorer = createPersonExplorer(document.querySelector('#person-expl
     document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
   },
 });
-let heroTourTimer;
-let heroIsVisible = true;
-let heroMotionPaused = false;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const heroVisual = document.querySelector('.hero-visual');
 const heroFallback = document.querySelector('#hero-map-fallback');
@@ -313,6 +320,8 @@ function escapeHtml(value) {
 
 function applyView(scroll = false) {
   const showingJourneys = currentView === 'journeys';
+  const personId = new URLSearchParams(location.search).get('person');
+  journeySection.classList.toggle('is-person-only', showingJourneys && Boolean(personId) && !CURATED_JOURNEYS_BY_PERSON[personId]?.length);
   document.querySelector('.hero').hidden = showingJourneys;
   document.querySelector('#results').hidden = showingJourneys;
   journeySection.hidden = !showingJourneys;
@@ -332,12 +341,15 @@ function applyView(scroll = false) {
       address.searchParams.delete('view');
       address.searchParams.delete('journey');
       address.searchParams.delete('step');
+      address.searchParams.delete('person');
     }
     link.href = `${address.pathname}${address.search}${address.hash}`;
   }
   requestAnimationFrame(() => {
     if (showingJourneys) {
       personExplorer.load();
+      const personId = new URLSearchParams(location.search).get('person');
+      if (personId) personExplorer.focusPerson(personId);
       personExplorer.onShow();
       journeyMapWanted = true;
       setupJourneyMap();
@@ -367,6 +379,7 @@ function switchView(view) {
     address.searchParams.delete('view');
     address.searchParams.delete('journey');
     address.searchParams.delete('step');
+    address.searchParams.delete('person');
   }
   history.pushState(null, '', address);
   applyView(true);
@@ -377,6 +390,14 @@ document.querySelector('.primary-nav').addEventListener('click', (event) => {
   if (!link) return;
   event.preventDefault();
   switchView(link.dataset.viewLink);
+});
+
+document.querySelector('#journey-catalog-reveal').addEventListener('click', () => {
+  const address = new URL(location.href);
+  address.searchParams.delete('person');
+  history.replaceState(null, '', address);
+  journeySection.classList.remove('is-person-only');
+  document.querySelector('.journey-catalog-heading').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
 });
 
 window.addEventListener('popstate', () => {
@@ -552,6 +573,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  document.querySelector('#journey-catalog-reveal').textContent = evidenceMessage(locale).reveal;
   renderSourceVersion();
   renderExamples();
   personExplorer.render();
@@ -583,17 +605,16 @@ function displayName(place) {
 }
 
 function firstMention(place) {
-  return Math.min(...place.references.map(({ chapter, verse }) => chapter * 1000 + verse));
+  return firstPassageMention(place);
 }
 
 function passagePriority(place) {
-  if (!currentPassageContext) return 0;
-  return { scene: 0, background: 1, discussed: 2 }[passageRole(currentPassageContext, place)] ?? 3;
+  return evidencePriority(place, currentPassageContext, currentEvidence);
 }
 
 function spotlightPlace(places) {
   return [...places].filter((place) => place.coordinate)
-    .sort((a, b) => b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))[0];
+    .sort((a, b) => passagePriority(a) - passagePriority(b) || firstMention(a) - firstMention(b))[0];
 }
 
 function renderSourceVersion() {
@@ -672,6 +693,56 @@ function renderPassageContext(places) {
     }).join('')}</div><p class="passage-context-note">${escapeHtml(copy.note)} <a href="${bibleReadingUrl('EXO', 3, 1)}" target="_blank" rel="noopener noreferrer">${escapeHtml(localizedBookName('EXO', locale))} 3:1 ↗</a>${journeyHref ? ` <a href="${escapeHtml(journeyHref)}">${escapeHtml(copy.journeyLink)} ↗</a>` : ''}</p>`;
 }
 
+function renderPassageEvidence(places, reference) {
+  const panel = document.querySelector('#passage-evidence');
+  const m = evidenceMessage(locale);
+  if (!evidenceData) {
+    panel.hidden = false;
+    panel.innerHTML = `<p class="passage-evidence-unavailable">${escapeHtml(m.unavailable)}</p>`;
+    return;
+  }
+  const ko = locale === 'ko';
+  const evidence = currentEvidence;
+  const confirmed = new Set(evidence.confirmedPlaces.map((place) => place.id));
+  const people = evidence.people.filter((person) => person.id !== 'god_1324'
+    && !(person.id === 'israel_682' && reference.code !== 'GEN')
+    && !places.some((place) => place.name === person.name)).slice(0, 5);
+  const events = evidence.events.slice(0, 4);
+  const scenes = evidence.scenes.slice(0, 3);
+  const eventPlaceIds = new Set(evidence.eventPlaceIds);
+  panel.hidden = false;
+  panel.innerHTML = `<div class="passage-evidence-heading"><div><span>${escapeHtml(m.eyebrow)}</span><h3>${escapeHtml(m.title)}</h3></div><a href="https://github.com/robertrouse/theographic-bible-metadata/tree/${escapeHtml(evidenceData.sourceCommit)}" target="_blank" rel="noopener noreferrer">Theographic · CC BY-SA 4.0 ↗</a></div>
+    <div class="passage-evidence-metrics"><span>${escapeHtml(m.direct)} <b>${places.length}</b></span><span>${escapeHtml(m.confirmed)} <b>${evidence.confirmedPlaces.length}</b></span><span>${escapeHtml(m.events)} <b>${evidence.events.length}</b></span><span>${escapeHtml(m.people)} <b>${evidence.people.length}</b></span><span>${escapeHtml(m.journeys)} <b>${evidence.scenes.length}</b></span></div>
+    <div class="passage-evidence-columns"><div><strong>${escapeHtml(m.placeEvents)}</strong><div class="passage-evidence-chips">${places.slice(0, 8).map((place) => `<button type="button" data-evidence-place="${escapeHtml(place.id)}"><span>${escapeHtml(displayName(place))}</span><small>${escapeHtml(eventPlaceIds.has(place.id) ? m.eventLocation : confirmed.has(place.id) ? m.both : m.mention)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPlaces)}</span>`}</div>${events.length ? `<div class="passage-evidence-events">${events.map((event) => `<span><b>${escapeHtml(event.title)}</b><small>${escapeHtml(m.eventCategory)} · ${event.verses} ${escapeHtml(m.linkedVerses)}</small></span>`).join('')}</div>` : ''}</div>
+    <div><strong>${escapeHtml(m.personJourneys)}</strong><div class="passage-evidence-chips">${people.map((person) => `<button type="button" data-evidence-person="${escapeHtml(person.id)}"><span>${escapeHtml(ko ? KOREAN_NAMES[person.id] || person.name : person.name)}</span><small>${person.verses} ${escapeHtml(m.personVerses)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPeople)}</span>`}</div>${scenes.length ? `<div class="passage-evidence-journeys">${scenes.map(({ journey, step, index }) => `<a href="/?view=journeys&journey=${encodeURIComponent(journey.id)}&step=${index + 1}${ko ? '' : `&lang=${encodeURIComponent(locale)}`}">${escapeHtml(journeyName(journey))} · ${escapeHtml(`${localizedBookName(step.code || journey.code, locale)} ${step.chapter}:${step.verse}`)} ↗</a>`).join('')}</div>` : ''}</div></div>
+    <p class="passage-evidence-caveat">${escapeHtml(m.caveat)}</p>`;
+}
+
+document.querySelector('#passage-evidence').addEventListener('click', (event) => {
+  const place = event.target.closest('[data-evidence-place]');
+  if (place) { selectPlace(place.dataset.evidencePlace, true); document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' }); return; }
+  const person = event.target.closest('[data-evidence-person]');
+  if (person) {
+    const id = person.dataset.evidencePerson;
+    const matchingScene = currentEvidence?.scenes.find(({ journey }) => CURATED_JOURNEYS_BY_PERSON[id]?.includes(journey.id));
+    const journey = matchingScene?.journey || JOURNEYS.find((item) => CURATED_JOURNEYS_BY_PERSON[id]?.includes(item.id));
+    if (journey) {
+      currentJourney = journey;
+      journeyStepIndex = matchingScene?.index || 0;
+    }
+    switchView('journeys');
+    if (journey) { updateJourneyAddress(); renderJourney(); fitJourneyMap(); }
+    const address = new URL(location.href);
+    address.searchParams.set('person', id);
+    if (!journey) {
+      address.searchParams.delete('journey');
+      address.searchParams.delete('step');
+      journeySection.classList.add('is-person-only');
+    }
+    history.replaceState(null, '', address);
+  }
+});
+
 document.querySelector('#passage-context').addEventListener('click', (event) => {
   const button = event.target.closest('[data-context-place]');
   if (button) selectPlace(button.dataset.contextPlace);
@@ -729,6 +800,7 @@ function renderMapSelection(place) {
   const candidateName = place.candidateCount > 1 ? candidate?.name || name : name;
   const role = passageRole(currentPassageContext, place);
   const contextCopy = role ? passageContextCopy(locale) : null;
+  const eventLocation = currentEvidence?.eventPlaceIds.includes(place.id);
   const occurrenceCount = placeOccurrences.get(place.id)?.length || 0;
   indexButton.hidden = false;
   indexButton.innerHTML = `<span>${escapeHtml(translate('legendPlace'))}: <strong>${escapeHtml(name)}</strong></span><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</span>`;
@@ -738,7 +810,7 @@ function renderMapSelection(place) {
   panel.classList.toggle('is-alternative', selectedCandidateIndex > 0);
   const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
   panel.hidden = false;
-  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : eventLocation ? evidenceMessage(locale).eventLocation : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
     ${role ? `<span class="map-selection-role">${escapeHtml(contextCopy[`${role}Detail`])}</span>` : ''}
     ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))} · ${escapeHtml(placeStatus(place))}</span>` : ''}
     <button class="map-selection-occurrences" type="button" data-map-occurrences="${escapeHtml(place.id)}">${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</button>
@@ -753,21 +825,10 @@ function clearMarkers() {
 }
 
 function syncHeroTour() {
-  clearInterval(heroTourTimer);
-  heroTourTimer = undefined;
-  const canTour = heroPlaces.length > 1 && !currentPassageContext && !reducedMotion.matches;
-  const playing = canTour && !heroMotionPaused && heroIsVisible && !document.hidden;
-  heroMotionToggle.hidden = !canTour;
-  heroMotionToggle.textContent = translate(heroMotionPaused ? 'play' : 'pause');
-  heroMotionToggle.setAttribute('aria-pressed', String(heroMotionPaused));
-  heroFocus.classList.toggle('is-playing', playing);
-  if (playing) {
-    const progress = document.querySelector('#hero-progress-fill');
-    progress.style.animation = 'none';
-    void progress.offsetWidth;
-    progress.style.animation = '';
-    heroTourTimer = setInterval(() => setHeroFocus(heroActiveIndex + 1), HERO_TOUR_DELAY);
-  }
+  // Automatic focus changes made an unrelated mention look like the scene.
+  // Keep the animated previous/next controls, but let the reader choose each place.
+  heroMotionToggle.hidden = true;
+  heroFocus.classList.remove('is-playing');
 }
 
 function setHeroFocus(index) {
@@ -800,12 +861,6 @@ function setHeroFocus(index) {
       heroActiveMarker.setLngLat(place.coordinate);
     }
     if (currentPassageContext) heroMap.easeTo({ center: place.coordinate, zoom: 5.3, duration: reducedMotion.matches ? 0 : 650 });
-  }
-  if (heroTourTimer) {
-    const progress = document.querySelector('#hero-progress-fill');
-    progress.style.animation = 'none';
-    void progress.offsetWidth;
-    progress.style.animation = '';
   }
 }
 
@@ -841,6 +896,7 @@ function renderHeroMap() {
 }
 
 function renderHeroPreview(places, reference) {
+  heroReferenceLabel = reference.label;
   heroPlaces = places.filter((place) => place.coordinate).sort((a, b) =>
     passagePriority(a) - passagePriority(b) || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   heroActiveIndex = Math.max(0, heroPlaces.findIndex((place) => place.id === spotlightPlaceId));
@@ -865,22 +921,14 @@ function renderHeroPreview(places, reference) {
 
 document.querySelector('#hero-prev').addEventListener('click', () => {
   setHeroFocus(heroActiveIndex - 1);
+  selectPlace(heroPlaces[heroActiveIndex].id, false);
   syncHeroTour();
 });
 document.querySelector('#hero-next').addEventListener('click', () => {
   setHeroFocus(heroActiveIndex + 1);
+  selectPlace(heroPlaces[heroActiveIndex].id, false);
   syncHeroTour();
 });
-heroMotionToggle.addEventListener('click', () => {
-  heroMotionPaused = !heroMotionPaused;
-  syncHeroTour();
-});
-reducedMotion.addEventListener('change', syncHeroTour);
-document.addEventListener('visibilitychange', syncHeroTour);
-new IntersectionObserver(([entry]) => {
-  heroIsVisible = entry.isIntersecting;
-  syncHeroTour();
-}, { threshold: 0.1 }).observe(heroVisual);
 
 function updateMap(places) {
   if (!map) return;
@@ -905,6 +953,8 @@ function updateMap(places) {
   }
   const scene = currentPassageContext && mapped.find((place) => place.id === currentPassageContext.scenePlaceId);
   if (scene) { map.flyTo({ center: scene.coordinate, zoom: 6.3, essential: true }); return; }
+  const eventPlace = currentEvidence?.eventPlaceIds.length === 1 && mapped.find((place) => place.id === currentEvidence.eventPlaceIds[0]);
+  if (eventPlace) { map.flyTo({ center: eventPlace.coordinate, zoom: 6.3, essential: true }); return; }
   if (mapped.length === 1) map.flyTo({ center: mapped[0].coordinate, zoom: 6.3, essential: true });
   else map.fitBounds(bounds, { padding: 68, maxZoom: 6.3, duration: 850 });
 }
@@ -940,6 +990,10 @@ function selectPlace(id, center = true) {
     button.setAttribute('aria-pressed', String(active));
   }
   const place = currentPlaces.find((item) => item.id === id);
+  if (heroReferenceLabel === currentReference?.label) {
+    const heroIndex = heroPlaces.findIndex((item) => item.id === id);
+    if (heroIndex >= 0 && heroIndex !== heroActiveIndex) setHeroFocus(heroIndex);
+  }
   for (const marker of markers) marker.getElement().classList.toggle('is-selected', marker.getElement().dataset.placeId === id);
   renderCandidateMarkers(place);
   renderMapSelection(place);
@@ -973,6 +1027,7 @@ function selectCandidate(placeId, index, fromMap = false) {
 
 function renderPlaces(places, reference) {
   currentPassageContext = passageContext(reference, places);
+  currentEvidence = evidenceForReference(evidenceData, data, reference, JOURNEYS);
   places = [...places].sort((a, b) => passagePriority(a) - passagePriority(b)
     || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   currentPlaces = places;
@@ -992,6 +1047,7 @@ function renderPlaces(places, reference) {
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
   renderPassageContext(places);
+  renderPassageEvidence(places, reference);
   renderDiscovery(places, reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
@@ -1019,7 +1075,7 @@ function renderPlaces(places, reference) {
     return `<article class="place-card" data-place-id="${escapeHtml(place.id)}">
       <button class="place-focus" type="button" aria-pressed="false" data-focus="${escapeHtml(place.id)}">
         <span class="place-number">${String(index + 1).padStart(2, '0')}</span>
-        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small>${role ? `<em class="place-role place-role--${role}">${escapeHtml(passageContextCopy(locale)[role])}</em>` : ''}</span>
+        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small>${role ? `<em class="place-role place-role--${role}">${escapeHtml(passageContextCopy(locale)[role])}</em>` : currentEvidence?.eventPlaceIds.includes(place.id) ? `<em class="place-role place-role--scene">${escapeHtml(evidenceMessage(locale).eventLocation)}</em>` : ''}${currentEvidence?.confirmedPlaces.some((item) => item.id === place.id) ? `<em class="place-role">${escapeHtml(evidenceMessage(locale).both)}</em>` : ''}</span>
         <span class="place-arrow" aria-hidden="true">↗</span>
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
@@ -1380,10 +1436,19 @@ function setupHeroMap() {
 
 async function loadData() {
   try {
-    const response = await fetch(DATA_URL);
+    const [response, evidenceResult] = await Promise.all([
+      fetch(DATA_URL),
+      fetch(EVIDENCE_URL).then(async (result) => {
+        if (!result.ok) throw new Error(`Evidence HTTP ${result.status}`);
+        const payload = await result.json();
+        if (payload.audit?.verses !== 31102 || payload.audit?.people !== 3067 || !payload.index) throw new Error('Incomplete evidence index');
+        return payload;
+      }).catch(() => null),
+    ]);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
+    evidenceData = evidenceResult?.placeSourceCommit === data.sourceCommit ? evidenceResult : null;
     personExplorer.render();
     renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
