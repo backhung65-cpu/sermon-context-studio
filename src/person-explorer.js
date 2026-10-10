@@ -97,7 +97,12 @@ export function createPersonExplorer(root, { getLocale, getPlaces, getMaplibre, 
     <div class="person-layout"><div class="person-browser"><label class="sr-only" for="person-search"></label><input id="person-search" type="search" autocomplete="off" /><div id="person-featured" class="person-featured"></div><div class="person-filters"><label><span id="person-book-label"></span><select id="person-book"></select></label><label><span id="person-scope-label"></span><select id="person-scope"></select></label></div><div class="person-result-heading"><strong id="person-result-label"></strong><span id="person-result-count"></span></div><div id="person-results" class="person-results"></div><button id="person-more" class="person-more" type="button" hidden></button></div>
     <div id="person-detail" class="person-detail"><div id="person-detail-top"></div><div id="person-route-host"></div><div id="person-detail-bottom"></div></div></div>
     <a id="person-attribution" class="person-attribution" href="https://github.com/robertrouse/theographic-bible-metadata" target="_blank" rel="noopener noreferrer"></a>`;
-  const routeViewer = createPersonRouteMap(root.querySelector('#person-route-host'), { getLocale, getMaplibre, onDataReady: () => render() });
+  const routeViewer = createPersonRouteMap(root.querySelector('#person-route-host'), {
+    getLocale, getMaplibre, getPlaces, placeName,
+    getPerson: (id) => index?.people.find((person) => person.id === id),
+    getCodes: () => index?.codes,
+    onDataReady: () => render(),
+  });
   const input = root.querySelector('#person-search');
   input.addEventListener('input', () => {
     query = input.value;
