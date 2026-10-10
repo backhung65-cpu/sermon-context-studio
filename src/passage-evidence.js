@@ -14,8 +14,16 @@ export function firstPassageMention(place) {
 export function evidencePriority(place, context, evidence) {
   const role = context?.roles.get(place.id);
   if (role) return { scene: 0, background: 2, discussed: 3 }[role];
-  if (evidence?.eventPlaceIds.includes(place.id)) return 1;
+  if (evidence?.scenes.some(({ step }) => step.placeId === place.id)) return 0;
+  // An event's location is source metadata, not proof that it is the first
+  // scene of a selected passage. All other mentions retain biblical order.
   return 2;
+}
+
+export function choosePassageFocus(places, context, evidence) {
+  return [...places].filter((place) => place.coordinate)
+    .sort((a, b) => evidencePriority(a, context, evidence) - evidencePriority(b, context, evidence)
+      || firstPassageMention(a) - firstPassageMention(b) || a.name.localeCompare(b.name))[0] || null;
 }
 
 export function evidenceForReference(source, atlas, reference, journeys = []) {
@@ -63,3 +71,30 @@ export const EVIDENCE_MESSAGES = {
 };
 
 export function evidenceMessage(locale = 'ko') { return EVIDENCE_MESSAGES[locale] || EVIDENCE_MESSAGES.en; }
+
+const REVIEWED_SCENE_MESSAGES = {
+  ko: { eyebrow: '검수한 본문 장면', title: '이 본문과 연결된 여정 장면', intro: '본문의 바로 그 절에 나오는 지명을 검수한 여정 장면과 연결했습니다. 장소를 누르면 지도에서 확인할 수 있습니다.', openJourney: '장면 전체 보기', caveat: '한 절에 등장하는 지명과 여행 장면은 구분해 읽어야 합니다. 핀은 고대 장소의 위치 후보이며 여정 사이의 선은 실제 길이 아닙니다.' },
+  en: { eyebrow: 'Reviewed passage scene', title: 'Journey scenes linked to this passage', intro: 'Each scene links a place named in the exact verse to a reviewed journey. Select a place to locate it on the map.', openJourney: 'Open full scene', caveat: 'A place mention and a journey scene are different evidence. Map points are proposed locations and connecting lines are not historical roads.' },
+  ja: { eyebrow: '確認済みの本文場面', title: '本文につながる旅の場面', intro: '同じ節の地名を確認済みの旅の場面に結びます。地名を選ぶと地図で確認できます。', openJourney: '場面を見る', caveat: '地名への言及と旅の場面は異なる根拠です。地図の点は位置候補で、線は実際の道ではありません。' },
+  'zh-CN': { eyebrow: '已核查经文场景', title: '与本段经文相关的旅程场景', intro: '将同一节中的地名与已核查旅程相连。选择地名可在地图上查看。', openJourney: '查看完整场景', caveat: '地名提及与旅程场景是不同证据。地图点为候选位置，连接线不是历史道路。' },
+  es: { eyebrow: 'Escena revisada', title: 'Escenas de viajes vinculadas al pasaje', intro: 'Cada escena enlaza un lugar mencionado en ese mismo versículo. Seleccione el lugar para verlo en el mapa.', openJourney: 'Abrir escena', caveat: 'La mención de un lugar y una escena de viaje son evidencias distintas. Los puntos son ubicaciones propuestas; las líneas no son caminos históricos.' },
+  th: { eyebrow: 'ฉากที่ตรวจสอบแล้ว', title: 'ฉากการเดินทางที่เชื่อมกับตอนนี้', intro: 'แต่ละฉากเชื่อมชื่อสถานที่ในข้อเดียวกัน เลือกสถานที่เพื่อดูบนแผนที่', openJourney: 'ดูฉากเต็ม', caveat: 'การกล่าวถึงสถานที่และฉากการเดินทางเป็นหลักฐานคนละประเภท จุดบนแผนที่เป็นตำแหน่งที่เสนอ และเส้นไม่ใช่ถนนจริง' },
+  hi: { eyebrow: 'जाँचा हुआ दृश्य', title: 'इस अंश से जुड़े यात्रा दृश्य', intro: 'हर दृश्य उसी पद में बताए स्थान से जुड़ा है। मानचित्र पर देखने के लिए स्थान चुनें।', openJourney: 'पूरा दृश्य देखें', caveat: 'स्थान का उल्लेख और यात्रा दृश्य अलग प्रमाण हैं। मानचित्र बिंदु प्रस्तावित स्थान हैं; रेखाएँ ऐतिहासिक सड़कें नहीं हैं।' },
+  fr: { eyebrow: 'Scène vérifiée', title: 'Scènes de parcours liées au passage', intro: 'Chaque scène relie un lieu nommé dans le même verset. Sélectionnez un lieu pour le voir sur la carte.', openJourney: 'Voir la scène', caveat: 'Une mention de lieu et une scène de parcours sont des preuves distinctes. Les points sont des lieux proposés; les lignes ne sont pas des routes historiques.' },
+  de: { eyebrow: 'Geprüfte Szene', title: 'Reiseszenen zu diesem Abschnitt', intro: 'Jede Szene verbindet einen Ort aus demselben Vers mit einer geprüften Reise. Wählen Sie den Ort auf der Karte.', openJourney: 'Szene öffnen', caveat: 'Ortsnennung und Reiseszene sind unterschiedliche Belege. Kartenpunkte sind Ortsvorschläge; Linien sind keine historischen Wege.' },
+};
+
+export function reviewedSceneMessage(locale = 'ko') { return REVIEWED_SCENE_MESSAGES[locale] || REVIEWED_SCENE_MESSAGES.en; }
+
+const AUDIT_MESSAGES = {
+  ko: { scope: '지도 지명이 연결된 절', verses: '절', report: '66권 전체 점검표' },
+  en: { scope: 'Verses with mapped places', verses: 'verses', report: '66-book coverage audit' },
+  ja: { scope: '地図の地名に結びつく節', verses: '節', report: '66巻の点検表' },
+  'zh-CN': { scope: '连接地图地名的节', verses: '节', report: '66卷核查表' },
+  es: { scope: 'Versículos con lugares cartografiados', verses: 'versículos', report: 'Auditoría de 66 libros' },
+  th: { scope: 'ข้อที่เชื่อมกับสถานที่บนแผนที่', verses: 'ข้อ', report: 'รายงานตรวจสอบ 66 เล่ม' },
+  hi: { scope: 'मानचित्र स्थानों से जुड़े पद', verses: 'पद', report: '66 पुस्तकों की जाँच' },
+  fr: { scope: 'Versets avec lieux cartographiés', verses: 'versets', report: 'Audit des 66 livres' },
+  de: { scope: 'Verse mit Kartenorten', verses: 'Verse', report: 'Prüfbericht zu 66 Büchern' },
+};
+export function auditMessage(locale = 'ko') { return AUDIT_MESSAGES[locale] || AUDIT_MESSAGES.en; }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { BOOKS, findPlaces, parseReference } from './reference.js';
-import { EVIDENCE_MESSAGES, evidenceForReference, evidencePriority, firstPassageMention, verseInReference } from './passage-evidence.js';
+import { EVIDENCE_MESSAGES, auditMessage, choosePassageFocus, evidenceForReference, evidencePriority, firstPassageMention, reviewedSceneMessage, verseInReference } from './passage-evidence.js';
 import { passageContext } from './passage-context.js';
 import { JOURNEYS } from './journeys.js';
 import { VERSE_COUNTS } from './verse-counts.js';
@@ -101,4 +101,36 @@ test('two sources must name the place in the exact same verse', () => {
   assert.equal(evidenceForReference(smallSource, smallAtlas, reference).confirmedPlaces.length, 0);
   smallAtlas.index['GEN 1'][1] = [0];
   assert.equal(evidenceForReference(smallSource, smallAtlas, reference).confirmedPlaces.length, 1);
+});
+
+test('event metadata cannot displace a passage’s first named place', () => {
+  const places = [
+    { id: 'later', name: 'Later', coordinate: [35, 32], references: [{ chapter: 4, verse: 38 }] },
+    { id: 'first', name: 'First', coordinate: [34, 32], references: [{ chapter: 4, verse: 8 }] },
+  ];
+  const evidence = { eventPlaceIds: ['later'], scenes: [] };
+  assert.equal(choosePassageFocus(places, null, evidence).id, 'first');
+  evidence.scenes.push({ step: { placeId: 'later' } });
+  assert.equal(choosePassageFocus(places, null, evidence).id, 'later');
+});
+
+test('every reviewed journey scene can surface its exact verse place in passage search', () => {
+  for (const journey of JOURNEYS) for (const step of journey.steps) {
+    const code = step.code || journey.code;
+    const reference = { code, chapter: step.chapter, startVerse: step.verse,
+      endChapter: step.chapter, endVerse: step.verse };
+    const places = findPlaces(atlas, reference);
+    const evidence = evidenceForReference(source, atlas, reference, JOURNEYS);
+    assert.ok(places.some((place) => place.id === step.placeId), `${journey.id} ${code} ${step.chapter}:${step.verse}`);
+    assert.ok(evidence.scenes.some((scene) => scene.journey.id === journey.id && scene.step.placeId === step.placeId));
+    assert.ok(evidence.scenes.some((scene) => scene.step.placeId === choosePassageFocus(places, null, evidence)?.id),
+      `${journey.id}: a different reviewed place may share the verse, but the focus must stay within reviewed scenes`);
+  }
+});
+
+test('reviewed scene explanation is available in every interface language', () => {
+  for (const locale of Object.keys(EVIDENCE_MESSAGES)) {
+    assert.ok(Object.values(reviewedSceneMessage(locale)).every((value) => typeof value === 'string' && value.trim()));
+    assert.ok(Object.values(auditMessage(locale)).every((value) => typeof value === 'string' && value.trim()));
+  }
 });

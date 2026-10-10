@@ -3,12 +3,13 @@ import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from '.
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 import { passageContext, passageContextCopy, passageRole } from './passage-context.js';
-import { evidenceForReference, evidenceMessage, evidencePriority, firstPassageMention } from './passage-evidence.js';
+import { auditMessage, choosePassageFocus, evidenceForReference, evidenceMessage, evidencePriority, firstPassageMention, reviewedSceneMessage } from './passage-evidence.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
+const CORPUS_AUDIT_URL = '/public/data/corpus-audit.json';
 const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
@@ -213,6 +214,7 @@ let currentPlaces = [];
 let currentPassageContext = null;
 let selectedPlaceId = null;
 let spotlightPlaceId = null;
+let corpusAuditData = null;
 let map;
 let heroMap;
 let maplibre;
@@ -613,8 +615,7 @@ function passagePriority(place) {
 }
 
 function spotlightPlace(places) {
-  return [...places].filter((place) => place.coordinate)
-    .sort((a, b) => passagePriority(a) - passagePriority(b) || firstMention(a) - firstMention(b))[0];
+  return choosePassageFocus(places, currentPassageContext, currentEvidence);
 }
 
 function renderSourceVersion() {
@@ -677,8 +678,22 @@ function placeStatus(place) {
 
 function renderPassageContext(places) {
   const panel = document.querySelector('#passage-context');
-  if (!currentPassageContext) { panel.hidden = true; panel.innerHTML = ''; return; }
+  if (!currentPassageContext) {
+    const scenes = (currentEvidence?.scenes || []).filter(({ step }) => places.some((place) => place.id === step.placeId));
+    if (!scenes.length) { panel.hidden = true; panel.innerHTML = ''; panel.classList.remove('is-reviewed-scenes'); return; }
+    const copy = reviewedSceneMessage(locale);
+    panel.hidden = false;
+    panel.classList.add('is-reviewed-scenes');
+    panel.innerHTML = `<div class="passage-context-head"><span>${escapeHtml(copy.eyebrow)} · ${scenes.length}</span><h3>${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div>
+      <div class="passage-context-places">${scenes.map(({ journey, step, index }) => {
+        const place = places.find((item) => item.id === step.placeId);
+        const verse = `${localizedBookName(step.code || journey.code, locale)} ${step.chapter}:${step.verse}`;
+        return `<div class="passage-context-place passage-context-place--scene"><small>${escapeHtml(verse)}</small><button type="button" data-context-place="${escapeHtml(place.id)}"><strong>${escapeHtml(displayName(place))}</strong><span>${escapeHtml(journeyName(journey))} · ${escapeHtml(stepStory(journey, step, index))}</span></button><a href="/?view=journeys&journey=${encodeURIComponent(journey.id)}&step=${index + 1}${locale === 'ko' ? '' : `&lang=${encodeURIComponent(locale)}`}">${escapeHtml(copy.openJourney)} ↗</a></div>`;
+      }).join('')}</div><p class="passage-context-note">${escapeHtml(copy.caveat)}</p>`;
+    return;
+  }
   const copy = passageContextCopy(locale);
+  panel.classList.remove('is-reviewed-scenes');
   const roles = ['scene', 'background', 'discussed'];
   const entries = roles.map((role) => places.find((place) => passageRole(currentPassageContext, place) === role)).filter(Boolean);
   const mosesSceneStep = JOURNEYS.find((journey) => journey.id === 'moses')?.steps
@@ -710,8 +725,11 @@ function renderPassageEvidence(places, reference) {
   const events = evidence.events.slice(0, 4);
   const scenes = evidence.scenes.slice(0, 3);
   const eventPlaceIds = new Set(evidence.eventPlaceIds);
+  const bookAudit = corpusAuditData?.books.find((book) => book.code === reference.code);
+  const auditCopy = auditMessage(locale);
   panel.hidden = false;
   panel.innerHTML = `<div class="passage-evidence-heading"><div><span>${escapeHtml(m.eyebrow)}</span><h3>${escapeHtml(m.title)}</h3></div><a href="https://github.com/robertrouse/theographic-bible-metadata/tree/${escapeHtml(evidenceData.sourceCommit)}" target="_blank" rel="noopener noreferrer">Theographic · CC BY-SA 4.0 ↗</a></div>
+    ${bookAudit ? `<div class="passage-evidence-scope"><span>${escapeHtml(localizedBookName(reference.code, locale))} · ${escapeHtml(auditCopy.scope)} <strong>${bookAudit.versesWithPlaces.toLocaleString()}/${bookAudit.verses.toLocaleString()} ${escapeHtml(auditCopy.verses)}</strong></span><a href="${CORPUS_AUDIT_URL}" target="_blank" rel="noopener noreferrer">${escapeHtml(auditCopy.report)} ↗</a></div>` : ''}
     <div class="passage-evidence-metrics"><span>${escapeHtml(m.direct)} <b>${places.length}</b></span><span>${escapeHtml(m.confirmed)} <b>${evidence.confirmedPlaces.length}</b></span><span>${escapeHtml(m.events)} <b>${evidence.events.length}</b></span><span>${escapeHtml(m.people)} <b>${evidence.people.length}</b></span><span>${escapeHtml(m.journeys)} <b>${evidence.scenes.length}</b></span></div>
     <div class="passage-evidence-columns"><div><strong>${escapeHtml(m.placeEvents)}</strong><div class="passage-evidence-chips">${places.slice(0, 8).map((place) => `<button type="button" data-evidence-place="${escapeHtml(place.id)}"><span>${escapeHtml(displayName(place))}</span><small>${escapeHtml(eventPlaceIds.has(place.id) ? m.eventLocation : confirmed.has(place.id) ? m.both : m.mention)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPlaces)}</span>`}</div>${events.length ? `<div class="passage-evidence-events">${events.map((event) => `<span><b>${escapeHtml(event.title)}</b><small>${escapeHtml(m.eventCategory)} · ${event.verses} ${escapeHtml(m.linkedVerses)}</small></span>`).join('')}</div>` : ''}</div>
     <div><strong>${escapeHtml(m.personJourneys)}</strong><div class="passage-evidence-chips">${people.map((person) => `<button type="button" data-evidence-person="${escapeHtml(person.id)}"><span>${escapeHtml(ko ? KOREAN_NAMES[person.id] || person.name : person.name)}</span><small>${person.verses} ${escapeHtml(m.personVerses)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPeople)}</span>`}</div>${scenes.length ? `<div class="passage-evidence-journeys">${scenes.map(({ journey, step, index }) => `<a href="/?view=journeys&journey=${encodeURIComponent(journey.id)}&step=${index + 1}${ko ? '' : `&lang=${encodeURIComponent(locale)}`}">${escapeHtml(journeyName(journey))} · ${escapeHtml(`${localizedBookName(step.code || journey.code, locale)} ${step.chapter}:${step.verse}`)} ↗</a>`).join('')}</div>` : ''}</div></div>
@@ -749,9 +767,7 @@ document.querySelector('#passage-context').addEventListener('click', (event) => 
 });
 
 function renderDiscovery(places, reference) {
-  const spotlight = currentPassageContext
-    ? places.find((place) => place.id === currentPassageContext.scenePlaceId)
-    : spotlightPlace(places);
+  const spotlight = spotlightPlace(places);
   spotlightPlaceId = spotlight?.id || null;
   const hint = document.querySelector('#example-hint');
   const intro = document.querySelector('#visual-intro-copy');
@@ -799,6 +815,7 @@ function renderMapSelection(place) {
   const name = displayName(place);
   const candidateName = place.candidateCount > 1 ? candidate?.name || name : name;
   const role = passageRole(currentPassageContext, place);
+  const reviewed = currentEvidence?.scenes.some(({ step }) => step.placeId === place.id);
   const contextCopy = role ? passageContextCopy(locale) : null;
   const eventLocation = currentEvidence?.eventPlaceIds.includes(place.id);
   const occurrenceCount = placeOccurrences.get(place.id)?.length || 0;
@@ -810,7 +827,7 @@ function renderMapSelection(place) {
   panel.classList.toggle('is-alternative', selectedCandidateIndex > 0);
   const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
   panel.hidden = false;
-  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : eventLocation ? evidenceMessage(locale).eventLocation : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : reviewed ? reviewedSceneMessage(locale).eyebrow : eventLocation ? evidenceMessage(locale).eventLocation : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
     ${role ? `<span class="map-selection-role">${escapeHtml(contextCopy[`${role}Detail`])}</span>` : ''}
     ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))} · ${escapeHtml(placeStatus(place))}</span>` : ''}
     <button class="map-selection-occurrences" type="button" data-map-occurrences="${escapeHtml(place.id)}">${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</button>
@@ -836,13 +853,14 @@ function setHeroFocus(index) {
   heroActiveIndex = (index + heroPlaces.length) % heroPlaces.length;
   const place = heroPlaces[heroActiveIndex];
   const role = passageRole(currentPassageContext, place);
+  const reviewed = currentEvidence?.scenes.some(({ step }) => step.placeId === place.id);
   const contextCopy = role ? passageContextCopy(locale) : null;
   document.querySelector('#visual-intro-copy').textContent = currentPassageContext
     ? (currentPassageContext.hasEgypt ? passageContextCopy(locale).summary : passageContextCopy(locale).shortSummary)
     : place.candidateCount > 1 ? translate('heroCandidateHint', { name: displayName(place), count: place.candidateCount })
       : translate('previewIntro');
   const verse = place.references[0];
-  document.querySelector('#hero-focus-kicker').textContent = `${role ? contextCopy[role] : translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
+  document.querySelector('#hero-focus-kicker').textContent = `${role ? contextCopy[role] : reviewed ? reviewedSceneMessage(locale).eyebrow : translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
   document.querySelector('#hero-focus-name').textContent = displayName(place);
   document.querySelector('#hero-focus-detail').textContent = verse
     ? `${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse} · ${role ? contextCopy[`${role}Detail`] : placeStatus(place)}`
@@ -951,10 +969,8 @@ function updateMap(places) {
     markers.push(marker);
     bounds.extend(place.coordinate);
   }
-  const scene = currentPassageContext && mapped.find((place) => place.id === currentPassageContext.scenePlaceId);
-  if (scene) { map.flyTo({ center: scene.coordinate, zoom: 6.3, essential: true }); return; }
-  const eventPlace = currentEvidence?.eventPlaceIds.length === 1 && mapped.find((place) => place.id === currentEvidence.eventPlaceIds[0]);
-  if (eventPlace) { map.flyTo({ center: eventPlace.coordinate, zoom: 6.3, essential: true }); return; }
+  const focus = mapped.find((place) => place.id === spotlightPlaceId);
+  if (focus && passagePriority(focus) === 0) { map.flyTo({ center: focus.coordinate, zoom: 6.3, essential: true }); return; }
   if (mapped.length === 1) map.flyTo({ center: mapped[0].coordinate, zoom: 6.3, essential: true });
   else map.fitBounds(bounds, { padding: 68, maxZoom: 6.3, duration: 850 });
 }
@@ -1075,7 +1091,7 @@ function renderPlaces(places, reference) {
     return `<article class="place-card" data-place-id="${escapeHtml(place.id)}">
       <button class="place-focus" type="button" aria-pressed="false" data-focus="${escapeHtml(place.id)}">
         <span class="place-number">${String(index + 1).padStart(2, '0')}</span>
-        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small>${role ? `<em class="place-role place-role--${role}">${escapeHtml(passageContextCopy(locale)[role])}</em>` : currentEvidence?.eventPlaceIds.includes(place.id) ? `<em class="place-role place-role--scene">${escapeHtml(evidenceMessage(locale).eventLocation)}</em>` : ''}${currentEvidence?.confirmedPlaces.some((item) => item.id === place.id) ? `<em class="place-role">${escapeHtml(evidenceMessage(locale).both)}</em>` : ''}</span>
+        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small>${role ? `<em class="place-role place-role--${role}">${escapeHtml(passageContextCopy(locale)[role])}</em>` : currentEvidence?.scenes.some(({ step }) => step.placeId === place.id) ? `<em class="place-role place-role--scene">${escapeHtml(reviewedSceneMessage(locale).eyebrow)}</em>` : currentEvidence?.eventPlaceIds.includes(place.id) ? `<em class="place-role">${escapeHtml(evidenceMessage(locale).eventLocation)}</em>` : ''}${currentEvidence?.confirmedPlaces.some((item) => item.id === place.id) ? `<em class="place-role">${escapeHtml(evidenceMessage(locale).both)}</em>` : ''}</span>
         <span class="place-arrow" aria-hidden="true">↗</span>
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
@@ -1436,7 +1452,7 @@ function setupHeroMap() {
 
 async function loadData() {
   try {
-    const [response, evidenceResult] = await Promise.all([
+    const [response, evidenceResult, auditResult] = await Promise.all([
       fetch(DATA_URL),
       fetch(EVIDENCE_URL).then(async (result) => {
         if (!result.ok) throw new Error(`Evidence HTTP ${result.status}`);
@@ -1444,11 +1460,14 @@ async function loadData() {
         if (payload.audit?.verses !== 31102 || payload.audit?.people !== 3067 || !payload.index) throw new Error('Incomplete evidence index');
         return payload;
       }).catch(() => null),
+      fetch(CORPUS_AUDIT_URL).then(async (result) => result.ok ? result.json() : null).catch(() => null),
     ]);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
     evidenceData = evidenceResult?.placeSourceCommit === data.sourceCommit ? evidenceResult : null;
+    corpusAuditData = auditResult?.sources?.atlas === data.sourceCommit
+      && auditResult?.sources?.theographic === evidenceData?.sourceCommit ? auditResult : null;
     personExplorer.render();
     renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
