@@ -170,8 +170,15 @@ h1 em { font-style: normal; }
 .person-route-picks button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 9px; border: 1px solid #d8cce5; border-radius: 8px; background: #fff; color: #584775; font-size: 10px; font-weight: 800; text-align: left; }
 .person-route-picks button[aria-pressed="true"] { border-color: #8b539e; background: #8b539e; color: #fff; }
 .person-route-picks button small { opacity: .7; font-size: 9px; }
-.person-route-map { width: 100%; height: 350px; border: 1px solid #e5e2ed; border-radius: 10px; overflow: hidden; background: #e9eef6; }
+.person-route-current { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 9px; color: #312747; }
+.person-route-current[hidden] { display: none; }
+.person-route-current strong { font-size: 12px; font-weight: 850; }
+.person-route-current span { color: #786b88; font-size: 10px; font-weight: 700; }
+.person-route-language-note { margin-top: 6px !important; color: #735b80 !important; }
+.person-route-language-note[hidden] { display: none; }
+.person-route-map { position: relative; width: 100%; height: 350px; border: 1px solid #e5e2ed; border-radius: 10px; overflow: hidden; background: #e9eef6; }
 .person-route-map[hidden] { display: none; }
+.person-route-map-fallback { position: absolute; z-index: 5; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(233,238,246,.93); color: #4b5870; font-size: 13px; font-weight: 750; line-height: 1.6; text-align: center; }
 .person-route-itinerary { margin-bottom: 10px; padding: 11px 12px; border: 1px solid #e1d8eb; border-radius: 10px; background: #fbf8fd; }
 .person-route-itinerary[hidden], .person-route-stop-label[hidden] { display: none !important; }
 .person-route-itinerary strong { display: block; margin-bottom: 8px; color: #3a2b4c; font-size: 11px; }

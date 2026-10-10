@@ -25,6 +25,16 @@ const ITINERARY_COPY = {
   'zh-CN': '经文中的地点顺序', es: 'Lugares en orden del relato', th: 'สถานที่ตามลำดับเรื่อง',
   hi: 'कथा क्रम में स्थान', fr: 'Lieux dans l’ordre du récit', de: 'Orte in Erzählreihenfolge',
 };
+const LANGUAGE_NOTE = {
+  en: 'Route titles and place names currently use source English. Bible reading links open the Korean Bible Society.',
+  ja: '経路名と地名は現在、原資料の英語表記です。聖書を読むリンクは韓国語の聖書を開きます。',
+  'zh-CN': '路线名称和地名目前沿用来源资料的英文。阅读经文链接会打开韩语圣经。',
+  es: 'Los nombres de rutas y lugares siguen en inglés de la fuente. Los enlaces de lectura abren la Biblia en coreano.',
+  th: 'ชื่อเส้นทางและสถานที่ยังเป็นภาษาอังกฤษตามข้อมูลต้นทาง ลิงก์อ่านพระคัมภีร์เปิดฉบับภาษาเกาหลี',
+  hi: 'मार्ग और स्थानों के नाम अभी स्रोत की अंग्रेज़ी में हैं। बाइबल पढ़ने के लिंक कोरियाई पाठ खोलते हैं।',
+  fr: 'Les noms des parcours et des lieux restent en anglais, comme dans la source. Les liens bibliques ouvrent le texte coréen.',
+  de: 'Routen- und Ortsnamen stehen derzeit wie in der Quelle auf Englisch. Bibellinks öffnen den koreanischen Text.',
+};
 
 const COPY = {
   ko: { heading: '인물의 경로를 지도에서', intro: 'United Bible Societies의 경로 도형입니다. 본문 장면을 대조한 곳에는 지명과 절을 표시합니다. 선분별 실제 경유지는 확정되지 않았습니다.', noRoute: '이 인물에게 연결할 수 있는 공개 경로 도형이 없습니다. 이동 기록이 없다는 뜻은 아닙니다.', loading: '경로 자료를 불러오는 중입니다.', failed: '경로 자료를 불러오지 못했습니다.', mapFailed: '지도 배경을 불러오지 못했습니다. 아래 원자료 링크를 사용할 수 있습니다.', source: 'UBS 원자료', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '선은 역사적 실제 도로나 확정 이동 경로가 아닌 편집상 재구성입니다. 출애굽에는 복수의 경로안이 있습니다.' },
@@ -51,9 +61,10 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
   let routeId;
   let map;
   let mapLoaded = false;
+  let mapFailed = false;
   let markers = [];
   let stops = [];
-  root.innerHTML = `<section class="person-route-section"><div class="person-route-heading"><h5 id="person-route-title"></h5><p id="person-route-intro"></p></div><div id="person-route-picks" class="person-route-picks"></div><div id="person-route-itinerary" class="person-route-itinerary" hidden></div><div id="person-route-map" class="person-route-map" aria-label="Bible route map"></div><div id="person-route-status" class="person-route-status"></div><div id="person-route-stops" class="person-route-stops" hidden><div class="person-route-stops-heading"><strong id="person-route-stops-title"></strong><p id="person-route-stops-intro"></p></div><div id="person-route-stops-list" class="person-route-stops-list"></div></div><div class="person-route-foot"><p id="person-route-warning"></p><a id="person-route-source" target="_blank" rel="noopener noreferrer"></a><a id="person-route-credit" href="https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/" target="_blank" rel="noopener noreferrer"></a></div></section>`;
+  root.innerHTML = `<section class="person-route-section"><div class="person-route-heading"><h5 id="person-route-title"></h5><p id="person-route-intro"></p><p id="person-route-language-note" class="person-route-language-note" hidden></p></div><div id="person-route-picks" class="person-route-picks"></div><div id="person-route-current" class="person-route-current" aria-live="polite" hidden></div><div id="person-route-itinerary" class="person-route-itinerary" hidden></div><div id="person-route-map" class="person-route-map" aria-label="Bible route map"></div><div id="person-route-status" class="person-route-status"></div><div id="person-route-stops" class="person-route-stops" hidden><div class="person-route-stops-heading"><strong id="person-route-stops-title"></strong><p id="person-route-stops-intro"></p></div><div id="person-route-stops-list" class="person-route-stops-list"></div></div><div class="person-route-foot"><p id="person-route-warning"></p><a id="person-route-source" target="_blank" rel="noopener noreferrer"></a><a id="person-route-credit" href="https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/" target="_blank" rel="noopener noreferrer"></a></div></section>`;
   const mapElement = root.querySelector('#person-route-map');
   root.addEventListener('click', (event) => {
     const button = event.target.closest('[data-ubs-route]');
@@ -61,6 +72,17 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     const stopButton = event.target.closest('[data-route-stop]');
     if (stopButton) focusStop(Number(stopButton.dataset.routeStop));
   });
+
+  function showMapFailure() {
+    let notice = mapElement.querySelector('.person-route-map-fallback');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.className = 'person-route-map-fallback';
+      notice.setAttribute('role', 'status');
+      mapElement.append(notice);
+    }
+    notice.textContent = (COPY[getLocale()] || COPY.en).mapFailed;
+  }
 
   function currentRoutes() {
     return data?.routes.filter((route) => route.people.includes(personId)) || [];
@@ -149,13 +171,22 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
         map.addSource('person-route', { type: 'geojson', data: routeGeoJson(currentRoute()) });
         map.addLayer({ id: 'person-route-line', type: 'line', source: 'person-route', paint: { 'line-color': '#be5ca4', 'line-width': 4, 'line-opacity': .88, 'line-dasharray': [1.5, 1.5] } });
         mapLoaded = true;
+        mapFailed = false;
+        mapElement.querySelector('.person-route-map-fallback')?.remove();
+        root.querySelector('#person-route-status').textContent = '';
         updateMap();
       });
       map.on('moveend', () => requestAnimationFrame(layoutMarkerLabels));
-      map.on('error', () => { if (!mapLoaded) root.querySelector('#person-route-status').textContent = (COPY[getLocale()] || COPY.en).mapFailed; });
+      map.on('error', () => {
+        if (!mapLoaded) {
+          mapFailed = true;
+          showMapFailure();
+        }
+      });
     } catch {
       map = undefined;
-      root.querySelector('#person-route-status').textContent = (COPY[getLocale()] || COPY.en).mapFailed;
+      mapFailed = true;
+      showMapFailure();
     }
   }
 
@@ -166,6 +197,9 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     root.querySelector('#person-route-title').textContent = `${copy.heading}${routes.length ? ` · ${routes.length}` : ''}`;
     mapElement.setAttribute('aria-label', copy.heading);
     root.querySelector('#person-route-intro').textContent = copy.intro;
+    const languageNote = root.querySelector('#person-route-language-note');
+    languageNote.hidden = !LANGUAGE_NOTE[locale] || !routes.length;
+    languageNote.textContent = LANGUAGE_NOTE[locale] || '';
     root.querySelector('#person-route-warning').textContent = copy.warning;
     root.querySelector('#person-route-credit').textContent = `${copy.license} ↗`;
     if (!routes.some((route) => route.id === routeId)) routeId = routes[0]?.id;
@@ -174,6 +208,9 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     const route = currentRoute();
     const stopCopy = STOP_COPY[locale] || STOP_COPY.en;
     stops = passageScenesForRoute(route, getPlaces?.());
+    const current = root.querySelector('#person-route-current');
+    current.hidden = !route;
+    current.innerHTML = route ? `<strong>${escapeHtml(locale === 'ko' ? route.titleKo : route.title)}</strong><span>${escapeHtml(route.code)} · ${escapeHtml(routeStatus[stops.length ? 0 : 1])}</span>` : '';
     const stopsSection = root.querySelector('#person-route-stops');
     stopsSection.hidden = !route;
     root.querySelector('#person-route-stops-title').textContent = `${stopCopy[0]} · ${stops.length}`;
@@ -188,6 +225,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     }).join('') : '';
     mapElement.hidden = !route;
     root.querySelector('#person-route-status').textContent = error ? copy.failed : !data ? copy.loading : !route ? copy.noRoute : '';
+    if (mapFailed) showMapFailure();
     const source = root.querySelector('#person-route-source');
     source.hidden = !route;
     if (route) { source.href = route.sourceUrl; source.textContent = `${copy.source} · ${route.title} ↗`; }

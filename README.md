@@ -4,6 +4,8 @@
 
 배포 주소: [sermon-context-studio.vercel.app](https://sermon-context-studio.vercel.app)
 
+개발·배포 전에는 [사용자 관점 출시 점검표](RELEASE_QA_CHECKLIST.md)를 확인합니다. 지명 ID가 있는지만 검사하지 않고, 지도에서 이름과 장절이 실제로 읽히는지 데스크톱·모바일에서 확인합니다.
+
 소개용 가로 카드뉴스(1600×900): [전체 ZIP](public/cardnews/bible-place-cardnews.zip) · [1장 소개](public/cardnews/01-intro.png) · [2장 사용법](public/cardnews/02-how-it-works.png) · [3장 성경여행](public/cardnews/03-journey.png). 수정 가능한 구성은 [HTML 원본](public/cardnews/source.html)에 있습니다.
 
 ## 실행
