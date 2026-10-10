@@ -2,6 +2,7 @@ import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, 
 import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from './notes.js';
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
+import { passageContext, passageContextCopy, passageRole } from './passage-context.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer } from './person-explorer.js';
 
@@ -41,6 +42,7 @@ const KOREAN_PLACES = {
   'Naioth': '나욧', 'Mizpeh 3': '미스바', 'Carmel 1': '갈멜',
   'Jezreel 3': '이스르엘', 'Bahurim': '바후림', 'Gallim': '갈림',
   'City of David': '다윗 성', 'Baal-perazim': '바알브라심',
+  'Mount Horeb': '호렙산', 'Mount Sinai': '시내산',
 };
 
 const TYPE_LABELS = {
@@ -134,6 +136,7 @@ app.innerHTML = `
           <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
 
+        <div id="passage-context" class="passage-context" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
 
         <div class="workspace">
@@ -202,6 +205,7 @@ let data;
 let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
+let currentPassageContext = null;
 let selectedPlaceId = null;
 let spotlightPlaceId = null;
 let map;
@@ -582,6 +586,11 @@ function firstMention(place) {
   return Math.min(...place.references.map(({ chapter, verse }) => chapter * 1000 + verse));
 }
 
+function passagePriority(place) {
+  if (!currentPassageContext) return 0;
+  return { scene: 0, background: 1, discussed: 2 }[passageRole(currentPassageContext, place)] ?? 3;
+}
+
 function spotlightPlace(places) {
   return [...places].filter((place) => place.coordinate)
     .sort((a, b) => b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))[0];
@@ -645,8 +654,33 @@ function placeStatus(place) {
   return translate('statusAvailable');
 }
 
+function renderPassageContext(places) {
+  const panel = document.querySelector('#passage-context');
+  if (!currentPassageContext) { panel.hidden = true; panel.innerHTML = ''; return; }
+  const copy = passageContextCopy(locale);
+  const roles = ['scene', 'background', 'discussed'];
+  const entries = roles.map((role) => places.find((place) => passageRole(currentPassageContext, place) === role)).filter(Boolean);
+  const mosesSceneStep = JOURNEYS.find((journey) => journey.id === 'moses')?.steps
+    .findIndex((step) => step.code === 'EXO' && step.chapter === 3 && step.verse === 1);
+  const journeyHref = mosesSceneStep >= 0
+    ? `/?view=journeys&journey=moses&step=${mosesSceneStep + 1}${locale === 'ko' ? '' : `&lang=${encodeURIComponent(locale)}`}` : null;
+  panel.hidden = false;
+  panel.innerHTML = `<div class="passage-context-head"><span>${escapeHtml(localizedBookName('EXO', locale))} 3:1</span><h3>${escapeHtml(copy.title)}</h3><p>${escapeHtml(currentPassageContext.hasEgypt ? copy.summary : copy.shortSummary)}</p></div>
+    <div class="passage-context-places">${entries.map((place) => {
+      const role = passageRole(currentPassageContext, place);
+      return `<button type="button" class="passage-context-place passage-context-place--${role}" data-context-place="${escapeHtml(place.id)}"><small>${escapeHtml(copy[role])}</small><strong>${escapeHtml(displayName(place))}</strong><span>${escapeHtml(copy[`${role}Detail`])}</span></button>`;
+    }).join('')}</div><p class="passage-context-note">${escapeHtml(copy.note)} <a href="${bibleReadingUrl('EXO', 3, 1)}" target="_blank" rel="noopener noreferrer">${escapeHtml(localizedBookName('EXO', locale))} 3:1 ↗</a>${journeyHref ? ` <a href="${escapeHtml(journeyHref)}">${escapeHtml(copy.journeyLink)} ↗</a>` : ''}</p>`;
+}
+
+document.querySelector('#passage-context').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-context-place]');
+  if (button) selectPlace(button.dataset.contextPlace);
+});
+
 function renderDiscovery(places, reference) {
-  const spotlight = spotlightPlace(places);
+  const spotlight = currentPassageContext
+    ? places.find((place) => place.id === currentPassageContext.scenePlaceId)
+    : spotlightPlace(places);
   spotlightPlaceId = spotlight?.id || null;
   const hint = document.querySelector('#example-hint');
   const intro = document.querySelector('#visual-intro-copy');
@@ -666,11 +700,15 @@ function renderDiscovery(places, reference) {
     ? translate('heroCandidateHint', { name, count: spotlight.candidateCount })
     : translate('previewIntro');
   const options = [...places].filter((place) => place.coordinate)
-    .sort((a, b) => b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))
+    .sort((a, b) => passagePriority(a) - passagePriority(b) || b.candidateCount - a.candidateCount || firstMention(a) - firstMention(b))
     .slice(0, 3);
   strip.hidden = false;
   strip.innerHTML = `<div class="insight-copy"><span>${escapeHtml(translate('insightTitle'))}</span><strong>${escapeHtml(formatReference(reference, locale))}</strong><small>${escapeHtml(translate('insightHint'))}</small></div>
-    <div class="insight-actions">${options.map((place) => `<button type="button" data-insight-place="${escapeHtml(place.id)}"><strong>${escapeHtml(displayName(place))}</strong><span>${escapeHtml(place.candidateCount > 1 ? translate('mapCandidates', { count: place.candidateCount }) : placeStatus(place))}</span><i aria-hidden="true">↗</i></button>`).join('')}</div>`;
+    <div class="insight-actions">${options.map((place) => {
+      const role = passageRole(currentPassageContext, place);
+      const subtitle = role ? passageContextCopy(locale)[role] : place.candidateCount > 1 ? translate('mapCandidates', { count: place.candidateCount }) : placeStatus(place);
+      return `<button type="button" data-insight-place="${escapeHtml(place.id)}"><strong>${escapeHtml(displayName(place))}</strong><span>${escapeHtml(subtitle)}</span><i aria-hidden="true">↗</i></button>`;
+    }).join('')}</div>`;
   guide.hidden = false;
   guide.innerHTML = `<strong>${escapeHtml(translate('mapGuide'))}</strong><div><span><i class="legend-place"></i>${escapeHtml(translate('legendPlace'))}</span>${places.some((place) => place.candidateCount > 1) ? `<span><i class="legend-candidate"></i>${escapeHtml(translate('legendCandidate'))}</span>` : ''}</div>`;
 }
@@ -689,6 +727,8 @@ function renderMapSelection(place) {
   const candidate = place.candidates?.[selectedCandidateIndex] || place.candidates?.[0];
   const name = displayName(place);
   const candidateName = place.candidateCount > 1 ? candidate?.name || name : name;
+  const role = passageRole(currentPassageContext, place);
+  const contextCopy = role ? passageContextCopy(locale) : null;
   const occurrenceCount = placeOccurrences.get(place.id)?.length || 0;
   indexButton.hidden = false;
   indexButton.innerHTML = `<span>${escapeHtml(translate('legendPlace'))}: <strong>${escapeHtml(name)}</strong></span><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</span>`;
@@ -698,7 +738,8 @@ function renderMapSelection(place) {
   panel.classList.toggle('is-alternative', selectedCandidateIndex > 0);
   const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
   panel.hidden = false;
-  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+    ${role ? `<span class="map-selection-role">${escapeHtml(contextCopy[`${role}Detail`])}</span>` : ''}
     ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))} · ${escapeHtml(placeStatus(place))}</span>` : ''}
     <button class="map-selection-occurrences" type="button" data-map-occurrences="${escapeHtml(place.id)}">${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</button>
     <div class="map-selection-actions">${place.candidateCount > 1 ? `<button type="button" data-map-compare="${escapeHtml(place.id)}">${escapeHtml(translate('compareNow', { count: place.candidateCount }))} ↗</button>` : ''}<a href="${bibleReadingUrl(currentReference.code, verse.chapter, verse.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('readBible'))} ↗</a></div></div>${photoMarkup}`;
@@ -714,7 +755,7 @@ function clearMarkers() {
 function syncHeroTour() {
   clearInterval(heroTourTimer);
   heroTourTimer = undefined;
-  const canTour = heroPlaces.length > 1 && !reducedMotion.matches;
+  const canTour = heroPlaces.length > 1 && !currentPassageContext && !reducedMotion.matches;
   const playing = canTour && !heroMotionPaused && heroIsVisible && !document.hidden;
   heroMotionToggle.hidden = !canTour;
   heroMotionToggle.textContent = translate(heroMotionPaused ? 'play' : 'pause');
@@ -733,14 +774,17 @@ function setHeroFocus(index) {
   if (!heroPlaces.length) return;
   heroActiveIndex = (index + heroPlaces.length) % heroPlaces.length;
   const place = heroPlaces[heroActiveIndex];
-  document.querySelector('#visual-intro-copy').textContent = place.candidateCount > 1
-    ? translate('heroCandidateHint', { name: displayName(place), count: place.candidateCount })
-    : translate('previewIntro');
+  const role = passageRole(currentPassageContext, place);
+  const contextCopy = role ? passageContextCopy(locale) : null;
+  document.querySelector('#visual-intro-copy').textContent = currentPassageContext
+    ? (currentPassageContext.hasEgypt ? passageContextCopy(locale).summary : passageContextCopy(locale).shortSummary)
+    : place.candidateCount > 1 ? translate('heroCandidateHint', { name: displayName(place), count: place.candidateCount })
+      : translate('previewIntro');
   const verse = place.references[0];
-  document.querySelector('#hero-focus-kicker').textContent = `${translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
+  document.querySelector('#hero-focus-kicker').textContent = `${role ? contextCopy[role] : translate('focusPlace')} · ${String(heroActiveIndex + 1).padStart(2, '0')}`;
   document.querySelector('#hero-focus-name').textContent = displayName(place);
   document.querySelector('#hero-focus-detail').textContent = verse
-    ? `${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse} · ${placeStatus(place)}`
+    ? `${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse} · ${role ? contextCopy[`${role}Detail`] : placeStatus(place)}`
     : placeStatus(place);
   document.querySelector('#hero-position').textContent = `${heroActiveIndex + 1} / ${heroPlaces.length}`;
   heroFocus.classList.remove('focus-changing');
@@ -755,6 +799,7 @@ function setHeroFocus(index) {
     } else {
       heroActiveMarker.setLngLat(place.coordinate);
     }
+    if (currentPassageContext) heroMap.easeTo({ center: place.coordinate, zoom: 5.3, duration: reducedMotion.matches ? 0 : 650 });
   }
   if (heroTourTimer) {
     const progress = document.querySelector('#hero-progress-fill');
@@ -780,6 +825,7 @@ function renderHeroMap() {
     heroMap.easeTo({ center: [34, 32], zoom: 3.4, duration: reducedMotion.matches ? 0 : 700 });
     return;
   }
+  if (currentPassageContext) { setHeroFocus(heroActiveIndex); return; }
   if (heroPlaces.length === 1) {
     heroMap.easeTo({ center: heroPlaces[0].coordinate, zoom: 6, duration: reducedMotion.matches ? 0 : 950 });
   } else {
@@ -796,7 +842,7 @@ function renderHeroMap() {
 
 function renderHeroPreview(places, reference) {
   heroPlaces = places.filter((place) => place.coordinate).sort((a, b) =>
-    firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
+    passagePriority(a) - passagePriority(b) || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   heroActiveIndex = Math.max(0, heroPlaces.findIndex((place) => place.id === spotlightPlaceId));
   document.querySelector('#visual-title').textContent = formatReference(reference, locale);
   document.querySelector('#visual-place-count').textContent = heroPlaces.length
@@ -857,6 +903,8 @@ function updateMap(places) {
     markers.push(marker);
     bounds.extend(place.coordinate);
   }
+  const scene = currentPassageContext && mapped.find((place) => place.id === currentPassageContext.scenePlaceId);
+  if (scene) { map.flyTo({ center: scene.coordinate, zoom: 6.3, essential: true }); return; }
   if (mapped.length === 1) map.flyTo({ center: mapped[0].coordinate, zoom: 6.3, essential: true });
   else map.fitBounds(bounds, { padding: 68, maxZoom: 6.3, duration: 850 });
 }
@@ -924,7 +972,9 @@ function selectCandidate(placeId, index, fromMap = false) {
 }
 
 function renderPlaces(places, reference) {
-  places = [...places].sort((a, b) => firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
+  currentPassageContext = passageContext(reference, places);
+  places = [...places].sort((a, b) => passagePriority(a) - passagePriority(b)
+    || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   currentPlaces = places;
   selectedPlaceId = null;
   selectedCandidateIndex = 0;
@@ -937,13 +987,16 @@ function renderPlaces(places, reference) {
   resultDescription.textContent = places.length
     ? translate('resultsFound', { reference: formatReference(reference, locale), count: places.length, mapped: mappedCount })
     : translate('resultsNone', { reference: formatReference(reference, locale) });
+  if (places.length && !currentPassageContext) resultDescription.textContent += ` ${passageContextCopy(locale).genericNote}`;
   placesCaption.textContent = translate('found', { count: places.length });
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
+  renderPassageContext(places);
   renderDiscovery(places, reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
+    const role = passageRole(currentPassageContext, place);
     const english = name === place.name ? translate('sourceSpelling') : place.name;
     const refs = place.references.map(({ chapter, verse }) => readingLink(reference.code, chapter, verse, `${localizedBookName(reference.code, locale)} ${chapter}:${verse}`)).join('');
     const allReferenceCount = placeOccurrences.get(place.id)?.length || 0;
@@ -966,7 +1019,7 @@ function renderPlaces(places, reference) {
     return `<article class="place-card" data-place-id="${escapeHtml(place.id)}">
       <button class="place-focus" type="button" aria-pressed="false" data-focus="${escapeHtml(place.id)}">
         <span class="place-number">${String(index + 1).padStart(2, '0')}</span>
-        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small></span>
+        <span class="place-main"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(english)}</small>${role ? `<em class="place-role place-role--${role}">${escapeHtml(passageContextCopy(locale)[role])}</em>` : ''}</span>
         <span class="place-arrow" aria-hidden="true">↗</span>
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>

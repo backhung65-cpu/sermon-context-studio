@@ -22,6 +22,15 @@ test('every journey scene is backed by the pinned place and verse index', () => 
   }
 });
 
+test('Moses journey includes the Horeb scene before returning to Egypt', () => {
+  const steps = JOURNEYS.find((journey) => journey.id === 'moses').steps;
+  const horebIndex = steps.findIndex((step) => step.code === 'EXO' && step.chapter === 3 && step.verse === 1);
+  const egyptReturnIndex = steps.findIndex((step) => step.code === 'EXO' && step.chapter === 4 && step.verse === 20);
+  assert.ok(horebIndex > 0);
+  assert.ok(egyptReturnIndex > horebIndex);
+  assert.equal(steps[horebIndex].placeId, 'a9bb03e');
+});
+
 test('all interface languages have a scene description for every waypoint', () => {
   const required = Object.keys(JOURNEY_MESSAGES.en).sort();
   for (const [locale, messages] of Object.entries(JOURNEY_MESSAGES)) {

@@ -79,6 +79,7 @@ export const ADDITIONAL_JOURNEYS = [
     intro: { ko: '출애굽기·민수기·신명기의 지명을 본문 순서로 봅니다. 출애굽 노선을 확정하지 않습니다.', en: 'Read places from Exodus, Numbers, and Deuteronomy in biblical order; no single route is asserted.' },
     steps: [
       scene('acc6d8e', 'EXO', 2, 15, 'arrive', '모세가 애굽을 떠나 미디안 땅에 머뭅니다.', 'Moses flees Egypt and stays in Midian.', { broad: true }),
+      scene('a9bb03e', 'EXO', 3, 1, 'arrive', '모세가 양 떼를 이끌고 하나님의 산 호렙에 이릅니다. 산의 정확한 위치는 확정되지 않았습니다.', 'Moses leads the flock to Horeb, the mountain of God. Its exact location is uncertain.'),
       scene('af301ca', 'EXO', 4, 20, 'return', '모세가 가족을 데리고 애굽으로 돌아갑니다.', 'Moses returns to Egypt with his family.', { broad: true }),
       scene('a079b21', 'EXO', 12, 37, 'depart', '이스라엘 자손이 라암셋에서 출발합니다.', 'Israel sets out from Rameses.'),
       scene('aa28709', 'EXO', 12, 37, 'arrive', '일행이 숙곳으로 향합니다.', 'The people travel toward Succoth.'),
