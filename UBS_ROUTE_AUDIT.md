@@ -6,11 +6,11 @@
 
 **중요한 제한:** UBS GeoJSON에는 경로별 인물 ID, 장절, 각 선분의 이동 근거가 들어 있지 않습니다. 아래의 인물 연결은 원본 제목과 이야기 문맥을 바탕으로 한 편집 분류이며, 모든 경로를 성경 본문으로 구간별 검수한 결과가 아닙니다. 지도 선은 UBS의 재구성 도형으로 고대의 실제 길 또는 이동 시간이라는 뜻이 아닙니다. 출애굽 경로안들은 서로 다른 제안을 병렬로 보여줍니다. 이동 기록이 없거나 원자료에서 명확한 경로가 없는 인물에게 선을 만들지 않았습니다. 원자료의 전쟁·영토·성전 도형 등은 인물 개인의 이동으로 무리하게 연결하지 않았습니다. 기존 앱의 본문 검수 여정 7개와 이 경로 도형을 구별해 표시합니다.
 
-## 지도에 함께 표시하는 도시 후보
+## 지도에 함께 표시하는 본문 장면
 
-UBS 선에는 도시 이름이나 순서가 없으므로, 앱은 별도 자료에서 도시 후보를 계산합니다. Theographic 인물 색인의 **인물과 지명이 같은 절에 나온 기록** 중 경로 제목에 해당하는 성경 책의 절을 고르고, OpenBible 지명 자료의 `settlement` 좌표가 UBS 선에서 8km 이내인 경우에만 표시합니다. 다윗의 도피 4개 도형은 사무엘상 19–30장으로 좁혔습니다. 동일 좌표에 붙은 여러 옛 이름은 1km 안에서 하나만 보여 줍니다. 핀 번호는 선에 가까운 순서이며 이동 순서가 아닙니다. 표시한 구절도 방문을 확증하지 않습니다.
+UBS 선에는 도시 이름이나 순서, 구간별 장절 근거가 없습니다. 인물과 지명이 같은 절에 있으면서 선에서 8km 이내라는 이유만으로 도시 후보를 만들던 방식을 폐기했습니다. 비유와 다른 시기의 지명이 해당 여행의 경유지 근거처럼 보였기 때문입니다.
 
-현재 100개 도형과 37개 인명의 연결 114건 중 92건에서 이 기준에 맞는 도시가 한 곳 이상 나오고, 22건은 도시 후보를 표시하지 않습니다. 해당 선의 경유 도시를 모두 확인했다는 뜻이 아닙니다. 나머지 경로는 UBS 원자료에 경유지 표와 장절이 제공되거나 개별 본문 검수를 마쳐야 확정 목록을 만들 수 있습니다.
+현재 100개 도형 중 **10개(001·003·004·031·040·076·153·202·203·204), 49개 장면**에 그 이야기의 본문 장절에 연결된 장소를 표시합니다. 한나의 경로 076에는 사무엘상 1:9의 실로, 1:19의 라마, 1:24의 실로를 본문 순서로 표시합니다. 요셉의 도단처럼 원자료 선과 OpenBible 지명 좌표가 다르면 장소를 숨기지 않고 거리 차이를 표시합니다. 남방·애굽·미디안 같은 넓은 지역은 대표점으로 밝히고 선과의 숫자 거리를 표시하지 않습니다. 나머지 90개 도형에는 아직 본문으로 연결한 도시 목록이 없습니다. 이는 그 경로에 도시가 없다는 뜻이 아니며, 도시를 자동 추정해 채우지 않습니다. 이 10개 도형의 장면 역시 실제 고대 도로와 모든 경유지를 확인한 자료는 아닙니다. [도형별 본문 대조 기록](ROUTE_REVIEW_NOTES.md)과 [경로별 연결 현황](ROUTE_EVIDENCE_STATUS.md)을 함께 공개하며, 후자는 `npm run audit:routes`로 재생성합니다.
 
 | 자료 번호 | 앱의 제목 | 연결한 인명 ID | UBS 원본 |
 | --- | --- | --- | --- |
@@ -77,7 +77,7 @@ UBS 선에는 도시 이름이나 순서가 없으므로, 앱은 별도 자료�
 | 130 | 엘리사와 하사엘 | elisha_1153 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/130.%20Elisha%20and%20Hazael.geojson) |
 | 132 | 예후의 길 | jehu_817 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/132.%20Jehu.geojson) |
 | 152 | 마리아, 엘리사벳을 방문 | mary_1938 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/152.%20Nazareth%20to%20Hebron.geojson) |
-| 153 | 나사렛에서 베들레헴으로 | mary_1938, joseph_1715, jesus_905 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/153.%20Nazareth%20to%20Bethlehem.geojson) |
+| 153 | 나사렛에서 베들레헴으로 | mary_1938, joseph_1715 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/153.%20Nazareth%20to%20Bethlehem.geojson) |
 | 155 | 요나의 길 | jonah_1689 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/155.%20Jonah.geojson) |
 | 155a | 베들레헴에서 애굽으로 | mary_1938, joseph_1715, jesus_905 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/155a.%20Bethlehem%20to%20Egypt.geojson) |
 | 155b | 베들레헴·애굽·나사렛 | mary_1938, joseph_1715, jesus_905 | [원본](https://github.com/ubsicap/ubs-open-license/blob/33dcc8c671511151551804e073f1d461bc5d5b1a/ubs-bible-routes/GeoJsonRoutes/155b.%20Bethlehem-Egypt-Nazareth.geojson) |

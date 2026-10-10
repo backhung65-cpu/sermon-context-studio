@@ -64,6 +64,8 @@ for (const [chapterKey, verses] of Object.entries(atlas.index)) {
 }
 const mappedSourcePlaces = new Map();
 const crosswalk = [];
+const geographyNoteCandidates = new Map();
+let historicalLanguageNotes = 0;
 for (const row of sourcePlaces) {
   const names = new Set([row.fields.kjvName, row.fields.esvName, row.fields.displayTitle].map(norm));
   const named = [...names].flatMap((name) => atlasByName.get(name) || []);
@@ -88,7 +90,70 @@ for (const row of sourcePlaces) {
   if (!valid) continue;
   mappedSourcePlaces.set(row.id, best.index);
   crosswalk.push({ source: row.fields.displayTitle, atlas: atlas.places[best.index].name, overlap: best.overlap, km: Number.isFinite(best.distance) ? Math.round(best.distance) : null });
+  // A dictionary entry must have the same normalized name and a shared verse.
+  // Never attach historical prose on coordinate proximity alone.
+  const paragraphs = (row.fields.dictText || []).map((value) => String(value).trim()).filter(Boolean);
+  const atlasName = atlas.places[best.index].name;
+  const sameName = norm(row.fields.displayTitle) === norm(atlasName);
+  const qualifiedName = norm(row.fields.displayTitle) === norm(atlasName.replace(/^(mount|mt\.?|sea of|river|brook of)\s+/i, ''));
+  const strongQualifiedMatch = qualifiedName && best.overlap >= 3 && best.distance <= 10;
+  if ((sameName && best.named || strongQualifiedMatch) && best.overlap > 0 && paragraphs.length) {
+    // Easton is a 19th-century source. Suppress entries with obsolete racial or
+    // religious classifications rather than displaying them as pastoral context.
+    if (/\brace\b|nigrit|low-class population|mohammedan|\bheathen\b/i.test(paragraphs.join(' '))) {
+      historicalLanguageNotes++;
+      continue;
+    }
+    if (!geographyNoteCandidates.has(best.index)) geographyNoteCandidates.set(best.index, []);
+    geographyNoteCandidates.get(best.index).push({
+      sourcePlaceId: row.fields.placeLookup,
+      sourceName: row.fields.displayTitle,
+      sharedVerses: best.overlap,
+      paragraphs,
+    });
+  }
 }
+
+const geographyNotes = {};
+let ambiguousNotes = 0;
+for (const [index, entries] of geographyNoteCandidates) {
+  // Same-name locations remain unresolved if more than one dictionary record maps here.
+  if (entries.length !== 1) { ambiguousNotes++; continue; }
+  geographyNotes[atlas.places[index].id] = entries[0];
+}
+// Some Theographic place records reuse a full dictionary article for different
+// locations (for example, Brook of Egypt receives the Egypt article). Neither
+// a matching verse nor an alias is enough to decide which use is correct.
+const noteIdsByText = new Map();
+for (const [placeId, note] of Object.entries(geographyNotes)) {
+  const text = note.paragraphs.join('\n').trim();
+  if (!noteIdsByText.has(text)) noteIdsByText.set(text, []);
+  noteIdsByText.get(text).push(placeId);
+}
+let duplicateTextNotes = 0;
+for (const placeIds of noteIdsByText.values()) {
+  if (placeIds.length < 2) continue;
+  duplicateTextNotes += placeIds.length;
+  for (const placeId of placeIds) delete geographyNotes[placeId];
+}
+const geographyOutput = {
+  source: 'Theographic Bible Metadata · Easton’s Bible Dictionary (1897)',
+  sourceCommit,
+  placeSourceCommit: atlas.sourceCommit,
+  license: 'CC BY-SA 4.0',
+  language: 'en',
+  notes: geographyNotes,
+  audit: {
+    sourcePlaces: sourcePlaces.length,
+    sourcePlacesWithDictionaryText: sourcePlaces.filter((row) => row.fields.dictText?.length).length,
+    mappedPlaces: mappedSourcePlaces.size,
+    matchedNotes: Object.keys(geographyNotes).length,
+    ambiguousNotes,
+    duplicateTextNotes,
+    historicalLanguageNotes,
+  },
+};
+writeFileSync(new URL('../public/data/geography-notes.json', import.meta.url), `${JSON.stringify(geographyOutput)}\n`);
 
 const verseRows = new Map();
 for (const row of sourceVerses) {

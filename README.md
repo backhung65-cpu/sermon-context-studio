@@ -4,6 +4,10 @@
 
 배포 주소: [sermon-context-studio.vercel.app](https://sermon-context-studio.vercel.app)
 
+개발·배포 전에는 [사용자 관점 출시 점검표](RELEASE_QA_CHECKLIST.md)와 [목회 현장 사용성 점검](PASTORAL_FIELD_USE_AUDIT.md)을 확인합니다. 지명 ID가 있는지만 검사하지 않고, 지도에서 이름과 장절이 실제로 읽히는지 데스크톱·모바일에서 확인합니다.
+
+소개용 가로 카드뉴스(1600×900): [전체 ZIP](public/cardnews/bible-place-cardnews.zip) · [1장 소개](public/cardnews/01-intro.png) · [2장 사용법](public/cardnews/02-how-it-works.png) · [3장 성경여행](public/cardnews/03-journey.png). 수정 가능한 구성은 [HTML 원본](public/cardnews/source.html)에 있습니다.
+
 ## 실행
 
 ```powershell
@@ -20,7 +24,10 @@ npm start
 - 66권의 한글 책 이름·약어와 일반적인 영문 책 이름으로 장·절, 장 범위, 장을 넘는 절 범위 검색
 - 한국어·영어·일본어·중국어 간체·스페인어·태국어·힌디어·프랑스어·독일어 화면 전환. ‘인도어’는 힌디어로 구현했습니다. 언어 선택은 `?lang=ja`처럼 주소에 남아 공유할 수 있고, 언어별 성경 책 이름으로 검색할 수 있습니다.
 - 예: `창 12`, `행 16:6-15`, `창 12:8-13:3`, `사 10장 15절`
-- 첫 화면의 지도는 현재 검색한 본문에 따라 바뀝니다. 처음 열면 위치 후보를 직접 비교해 볼 수 있는 `왕하 4:1-44`가 입력되어 있습니다. 검색 결과 위의 장소 바로가기에서 길갈 등 본문 지명을 선택하면 지도가 해당 장소로 이동합니다. 지도 안에는 선택한 장소의 이름·구절·위치 후보 수·대표 후보·현장 사진·성경 읽기 링크를 표시합니다. 후보 비교 버튼을 누르면 상세 후보 목록이 열립니다.
+- 첫 화면의 지도는 현재 검색한 본문에 따라 바뀝니다. 처음 열면 사건 장소와 언급된 장소를 구분해 볼 수 있는 `출애굽기 3장`이 입력되어 있습니다. 검색하면 결과로 이동하고, `지도로 보기 → 한국어 성경 읽기 → 설교 준비 시트 → 설교 준비 메모` 단축 동선이 나옵니다. 지도 앞의 지명 목록은 본문 등장 절 순서이며, 이름을 누르면 지도와 장소 카드가 함께 선택됩니다. 출처 통계는 지도 아래에서 펼쳐 확인할 수 있습니다. 지도 안에는 선택한 장소의 이름·구절·위치 후보 수·대표 후보·현장 사진·성경 읽기 링크를 표시합니다. 후보 비교 버튼을 누르면 상세 후보 목록이 열립니다.
+- 지도 아래의 **설교 준비 · 본문 관찰 시트**는 지명이 실제로 나온 절을 순서대로 묶고, 검토된 장면과 단순 언급을 구별합니다. 절별 개역개정 읽기 링크를 열고 한 절의 관찰 질문을 개인 메모로 보낼 수 있습니다. 전체 절 목록·위치 주의사항·개인 메모는 Markdown 연구 시트로 내려받습니다. 지명이 없는 본문에서는 임의의 현장을 만들지 않습니다. 이 시트는 설교 해석이나 적용을 자동 작성하지 않습니다.
+- 지명 카드의 **지리 배경 사전**을 펼치면 『이스턴 성경 사전』(1897)의 영어 원문을 읽을 수 있습니다. Theographic 지명과 OpenBible 지도 지명을 이름·공통 절·좌표로 엄격하게 대조하고, 중복 설명·낡은 인종/종교 분류 문구를 제외한 **681곳**에만 표시합니다. 이는 오래된 역사 사전의 지리 설명이며 해당 본문에 대한 현대 주석이나 확정 위치가 아닙니다. [연결·누락 점검](GEOGRAPHY_NOTES_AUDIT.md)을 공개합니다.
+- 사용자 제공 **성경지도선도 96쪽판·32쪽판**을 검토해 본문과 성경여정에 맞는 도판 쪽수, 확인 질문, 발행처 원본 PDF 링크를 `이 본문과 함께 펼칠 도판`에 연결했습니다. 출애굽기 3장은 이후의 탈출 경로보다 시내 반도 지형과 산 위치의 불확실성을 먼저 보게 합니다. 지도 이미지·좌표·경로·교리 주석은 PDF에서 복제하지 않았습니다. [도판별 적용과 한계](ATLAS_PDF_AUDIT.md)를 공개합니다.
 - 다른 본문을 검색하면 지도 좌표·지명 수·장소 카드와 지도 안내가 함께 갱신됩니다. 검수한 여정 장면이 검색한 정확한 절의 지명과 만날 때만 먼저 강조하고, 나머지는 **본문에 나온 절 순서**로 보여줍니다. 사건 자료의 위치만으로 첫 장면을 정하지 않습니다. 강조 지명은 자동으로 바뀌지 않으며 이전·다음 버튼으로 직접 넘길 수 있습니다. 역사적 이동 경로를 추정해 그리지 않습니다. **본문에 지명이 나온다는 사실만으로 사건 현장이라고 판정하지 않습니다.**
 - **66권 전체 연결 점검**: `npm test`는 각 절의 지명·인물·사건 ID, 지도 자료 간 판본 일치, 70개 여정 장면의 정확한 절·지명 연결 및 본문 첫 강조 우선순위를 점검합니다. 책별 지명 연결 범위는 검색 결과의 `66권 전체 점검표`와 [감사 보고서](CORPUS_INTEGRITY_AUDIT.md)에 공개합니다. 재생성 명령은 `npm run audit:integrity`입니다. 이 점검은 자료 연결의 무결성을 보장하는 절차이며, 31,102절 모두의 역사적 장소·이동을 확정하는 주석학적 검수는 아닙니다.
 - 검수한 여정의 70장면은 본문 검색에서도 해당 정확한 절에 등장한 장소 카드로 표시합니다. 장면 카드에서 지도를 선택하거나 성경여행의 같은 장면으로 이동할 수 있습니다. 다수 지명이 한 절에 나와도 관련 없는 사건 자료 위치를 현장으로 승격하지 않습니다.
@@ -32,7 +39,7 @@ npm start
 - 직접 연결된 지명이 없는 절에는 빈 지도 안내를 표시하고, 같은 장의 참고 지명은 별도 버튼으로 탐색
 - 위치 후보가 여러 곳이면 모든 좌표·현대 지명·원자료 점수·판정 기록 수를 비교하고, 후보를 누르면 지도가 해당 지점으로 이동합니다. 점수는 확률이 아닙니다.
 - **인물·본문 색인**: 성경여행 메뉴 안에서 Theographic의 66권 31,102절과 3,067개 인명 기록을 검색합니다. 성경 책과 같은 절의 지명 여부로 목록을 좁힐 수 있습니다. 인물마다 그 인물이 언급된 절과 지명도 같은 절에 등장하는 절을 구분해 보여주고, 본문 지도와 성경 읽기로 연결합니다. **같은 절에서 인명·지명이 발견되어도 이동의 증거가 아닙니다.** [66권별 기계 점검표](PERSON_INDEX_AUDIT.md)에 검사 범위와 한계를 공개합니다. 원자료의 인명은 영어이며, 주요 인물만 편집한 한국어 표기를 제공합니다. 그 밖의 인물은 원자료 영문명으로 검색합니다.
-- **인물 경로 지도**: [United Bible Societies Project MARBLE Bible Routes](https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/)의 GeoJSON 179개 중 인물과 연결을 확인할 수 있는 경로 도형 100개를 37개 인명 기록에 연결했습니다. 인물 범위에서 `UBS 경로 지도가 있는 인물`만 골라 볼 수 있습니다. 원자료에는 인물 ID나 선분별 장절이 없어, 원본 제목과 성경 이야기 문맥을 근거로 앱에서 인물을 분류했습니다. 선은 UBS의 **편집상 재구성**이며, 실제 고대 도로나 확정 이동을 뜻하지 않습니다. [적용한 도형과 제외 기준](UBS_ROUTE_AUDIT.md)을 공개합니다.
+- **인물 경로 지도**: [United Bible Societies Project MARBLE Bible Routes](https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/)의 GeoJSON 179개 중 인물과 연결을 확인할 수 있는 경로 도형 100개를 37개 인명 기록에 연결했습니다. 인물 범위에서 `UBS 경로 지도가 있는 인물`만 골라 볼 수 있습니다. 원자료에는 인물 ID나 선분별 장절이 없어, 원본 제목과 성경 이야기 문맥을 근거로 앱에서 인물을 분류했습니다. 현재 10개 도형의 49개 본문 장면에 지명과 정확한 절을 연결했고, 한나의 길에는 **실로(삼상 1:9) → 라마(1:19) → 실로(1:24)**를 표시합니다. 미대조 90개 도형에는 지도 앞에서 상태를 밝히고 추정 도시를 경유지로 붙이지 않습니다. 선은 UBS의 **편집상 재구성**이며, 실제 고대 도로나 확정 이동을 뜻하지 않습니다. [적용한 도형과 제외 기준](UBS_ROUTE_AUDIT.md), [도형별 대조 기록](ROUTE_REVIEW_NOTES.md)을 공개합니다.
 - **검수된 성경여행**: 인물 색인과 분리된 여정 목록에서 현재 공개된 7개 여정을 고릅니다. 예수님의 탄생·성장과 갈릴리에서 예루살렘까지, 바울의 1·2·3차 선교 여행, 아브라함, 모세의 주요 장면 등 총 70장면입니다. 지도 번호·장절·성경 읽기·본문 지도 바로가기를 연결했습니다. `?view=journeys&journey=paul-2&step=3`처럼 공유할 수 있습니다. 점선은 이야기 순서만 연결하며 실제 도로나 거리가 아닙니다. 출애굽 여정에는 이동선을 그리지 않습니다. 한국어·영어 장면 설명을 제공하고, 나머지 7개 언어에서는 번역된 행동별 간략 설명을 보여줍니다. 다른 인물의 이동은 본문 근거를 검수한 뒤 추가합니다.
 - 이용 조건이 확인된 현재 지역 사진을 지명 카드에 표시하고 저작자·원본·라이선스 링크 제공
 - 일부 주요 지명의 한글 이름 제공; 나머지는 원자료 영문 이름으로 표시
@@ -71,6 +78,7 @@ Theographic의 인명·장절 연결과 좁은 범위의 사건 자료를 함께
 - 성경 본문 전체 텍스트는 앱에 포함하지 않습니다. 대한성서공회 성경 읽기 링크를 제공합니다.
 - 인물·장절 색인: [Theographic Bible Metadata](https://github.com/robertrouse/theographic-bible-metadata), **CC BY-SA 4.0**. 고정 판본 `cfb1c485d4da6fb63a69cb3b7f5b0752792f46bc`의 `books.json`·`people.json`·`verses.json`에서 본문 텍스트를 제외하고 인명 ID·이름·장절 연결만 가공했습니다. 파생 파일 [`public/data/people-index.json`](public/data/people-index.json)은 같은 CC BY-SA 4.0 조건으로 제공합니다. 사람과 지명이 같은 절에 등장하는지 확인할 때는 위 OpenBible.info 색인을 사용합니다. [말씀숲 저장소 검토](MALSSUMSOOP_REVIEW.md)도 참고하세요.
 - 본문 근거 연결: 같은 Theographic 고정 판본의 `books.json`·`verses.json`·`people.json`·`places.json`·`events.json`을 `scripts/build_passage_evidence.mjs`로 대조해 [`public/data/passage-evidence.json`](public/data/passage-evidence.json)을 만들었습니다. 지명 대조에는 OpenBible 고정 판본의 동일 절·이름·좌표를 함께 요구합니다. 파생 파일도 **CC BY-SA 4.0**으로 제공합니다. 사건 장소는 편집 자료의 분류이고, 동명이소와 인물·민족명 혼동은 [감사 문서](PASSAGE_EVIDENCE_AUDIT.md)에 설명합니다.
+- 지리 배경 사전: 같은 Theographic `places.json`에 연결된 [『이스턴 성경 사전』(1897)](https://ccel.org/ccel/easton/ebd2/ebd2) 원문을 고정 판본에서 추출해 [`public/data/geography-notes.json`](public/data/geography-notes.json)에 담았습니다. 사전 원전은 퍼블릭 도메인이고 Theographic 연결 데이터는 **CC BY-SA 4.0**입니다. 원문의 영어를 임의 번역하거나 현대 학계의 결론으로 다시 쓰지 않았습니다. 사전이 없는 곳·다른 장소일 가능성이 있는 곳은 표시하지 않습니다.
 - 인물 경로 도형: [United Bible Societies Project MARBLE](https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/) · Dr. Leen Ritmeyer · **CC BY-SA 4.0**. [원본 저장소](https://github.com/ubsicap/ubs-open-license/tree/main/ubs-bible-routes)의 GeoJSON을 `scripts/build_ubs_routes.mjs`로 가공했습니다. 배포하는 [`public/data/ubs-person-routes.json`](public/data/ubs-person-routes.json)도 CC BY-SA 4.0으로 제공합니다. 원본 파일별 링크는 [UBS 경로 적용 점검표](UBS_ROUTE_AUDIT.md)와 앱 지도 아래에 표시합니다. SVG 파일은 복제하지 않았습니다.
 - 성경여행의 순서와 한 문장 요약은 [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV), [출애굽기](https://www.biblegateway.com/passage/?search=Exodus&version=KJV), [민수기](https://www.biblegateway.com/passage/?search=Numbers&version=KJV), [신명기 34장](https://www.biblegateway.com/passage/?search=Deuteronomy+34&version=KJV), [마가복음](https://www.biblegateway.com/passage/?search=Mark&version=KJV), [누가복음 2장](https://www.biblegateway.com/passage/?search=Luke+2&version=KJV), [사도행전 13–21장](https://www.biblegateway.com/passage/?search=Acts+13-21&version=KJV)을 바탕으로 수작업으로 정리했습니다. 각 장면의 지명 ID와 구절은 위 OpenBible.info 고정 판본의 색인에서 검증합니다. 지명의 실제 위치는 추정일 수 있습니다.
 - 성경 절 링크는 대한성서공회 [개역개정 성경읽기](https://www.bskorea.or.kr/bible/korbibReadpage.php?book=gen&chap=12&sec=5&version=GAE)의 장·절 주소로 연결합니다. OpenBible.info의 영어 역본 기반 지명 색인을 역으로 모아 보여주므로 한국어 본문의 지명 표기와 다를 수 있습니다.

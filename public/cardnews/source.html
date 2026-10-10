@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>본문의 장소 · 가로형 카드뉴스</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e8edf4; color: #0a1020; font-family: Pretendard, 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+    .card { position: relative; width: 1600px; height: 900px; margin: 32px auto; overflow: hidden; background: white; }
+    .card::before { content: ''; position: absolute; top: -180px; right: -140px; width: 850px; height: 750px; background: radial-gradient(ellipse at 35% 47%, rgba(234,72,225,.10), rgba(168,174,254,.11) 42%, rgba(21,128,253,.08) 66%, transparent 78%); filter: blur(55px); pointer-events: none; }
+    .card::after { content: ''; position: absolute; left: 80px; right: 80px; bottom: 69px; height: 4px; border-radius: 4px; background: linear-gradient(115deg,#ea48e1 0%,#fa8af9 18%,#a8aefe 48%,#6496fd 68%,#1580fd 84%,#154fdf 100%); }
+    .masthead { position: absolute; top: 62px; left: 80px; right: 80px; display: flex; justify-content: space-between; align-items: center; }
+    .brand { display: flex; gap: 15px; align-items: center; }
+    .brand-mark { position: relative; width: 62px; height: 62px; border-radius: 15px; overflow: hidden; background: #ebe8f8; }
+    .brand-mark img { position: absolute; width: 210px; max-width: none; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+    .brand-name { font-size: 20px; font-weight: 850; letter-spacing: -.045em; line-height: 1.12; }
+    .brand-name small { display: block; margin-top: 6px; color: #64748b; font-size: 10px; letter-spacing: .18em; }
+    .series { color: #64748b; font-size: 16px; font-weight: 650; letter-spacing: .015em; }
+    .copy { position: absolute; left: 82px; top: 221px; width: 740px; }
+    .eyebrow { display: flex; gap: 14px; align-items: center; margin: 0 0 30px; color: #334155; font-size: 19px; font-weight: 750; letter-spacing: .08em; }
+    .eyebrow::before { content: ''; width: 48px; height: 4px; border-radius: 4px; background: linear-gradient(90deg,#ea48e1,#1580fd); }
+    h1 { margin: 0; color: #111827; font-size: 79px; letter-spacing: -.055em; line-height: 1.18; font-weight: 850; }
+    .description { max-width: 670px; margin: 37px 0 0; color: #334155; font-size: 26px; line-height: 1.6; letter-spacing: -.02em; }
+    .subline { margin-top: 44px; color: #64748b; font-size: 17px; font-weight: 620; }
+    .visual { position: absolute; z-index: 1; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 22px; background: white; box-shadow: 0 20px 60px rgba(25,45,90,.10); }
+    .visual img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .map-visual { top: 215px; right: 90px; width: 575px; height: 505px; transform: rotate(1deg); }
+    .map-visual img { object-position: center; }
+    .foot { position: absolute; left: 82px; right: 82px; bottom: 100px; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 17px; font-weight: 650; }
+    .foot span:last-child { letter-spacing: .1em; }
+    .card.two .copy { width: 660px; top: 210px; }
+    .card.two h1 { font-size: 72px; }
+    .card.two .description { font-size: 24px; }
+    .steps { position: absolute; top: 202px; right: 87px; width: 640px; height: 540px; padding: 8px 0; }
+    .steps::before { content: ''; position: absolute; left: 37px; top: 70px; bottom: 70px; width: 3px; background: linear-gradient(#ea48e1,#a8aefe,#1580fd); opacity: .55; }
+    .step { position: relative; display: grid; grid-template-columns: 75px 1fr; align-items: start; gap: 22px; min-height: 174px; }
+    .step .num { position: relative; z-index: 1; display: grid; place-items: center; width: 75px; height: 75px; border: 1px solid #dce4f1; border-radius: 50%; background: #fff; color: #154fdf; font-size: 24px; font-weight: 850; }
+    .step .text { margin-top: 3px; padding: 18px 21px 20px; border: 1px solid #e2e8f0; border-radius: 16px; background: rgba(255,255,255,.91); }
+    .step small { display: block; margin-bottom: 7px; color: #64748b; font-size: 18px; font-weight: 700; }
+    .step strong { display: block; color: #111827; font-size: 31px; letter-spacing: -.035em; line-height: 1.28; }
+    .step em { display: block; margin-top: 5px; color: #475569; font-size: 17px; font-style: normal; }
+    .card.three .copy { width: 710px; top: 191px; }
+    .card.three h1 { font-size: 70px; }
+    .card.three .description { max-width: 590px; font-size: 24px; }
+    .route-sequence { display: flex; align-items: center; gap: 13px; margin-top: 34px; color: #154fdf; font-size: 25px; font-weight: 850; }
+    .route-sequence b { padding: 11px 17px; border: 1px solid #dce6f4; border-radius: 100px; background: #fff; color: #132d5a; }
+    .route-sequence i { color: #7d8da8; font-style: normal; font-weight: 550; }
+    .route-visual { top: 157px; right: 98px; width: 586px; height: 603px; transform: rotate(1deg); }
+    .route-visual img { object-fit: cover; object-position: top; }
+    .notice { margin-top: 34px; padding-left: 16px; border-left: 3px solid #a8aefe; color: #64748b; font-size: 18px; line-height: 1.55; }
+    @media screen and (max-width: 1650px) { body { overflow-x: auto; } }
+  </style>
+</head>
+<body>
+  <article class="card one" aria-label="카드뉴스 1장: 본문의 장소 소개">
+    <div class="masthead"><div class="brand"><span class="brand-mark"><img src="../assets/ministry-ai-lab-original.png" alt=""></span><span class="brand-name">목회 AI 연구소<small>MINISTRY AI LAB</small></span></div><span class="series">BIBLE PLACE ATLAS</span></div>
+    <div class="copy"><p class="eyebrow">성경 지리 연구 도구</p><h1>본문을 입력하면<br>장소가 보입니다.</h1><p class="description">성경에 나오는 지명을 지도 위에서 찾고,<br>해당 구절과 자료의 근거를 함께 살펴보세요.</p><p class="subline">무료 · 회원가입 없음 · 광고 없음</p></div>
+    <div class="visual map-visual"><img src="app-map-preview.png" alt="사무엘상 본문의 실로를 보여 주는 실제 앱 화면"></div>
+    <div class="foot"><span>sermon-context-studio.vercel.app</span><span>01 / 03</span></div>
+  </article>
+
+  <article class="card two" aria-label="카드뉴스 2장: 사용 방법">
+    <div class="masthead"><div class="brand"><span class="brand-mark"><img src="../assets/ministry-ai-lab-original.png" alt=""></span><span class="brand-name">목회 AI 연구소<small>MINISTRY AI LAB</small></span></div><span class="series">BIBLE PLACE ATLAS</span></div>
+    <div class="copy"><p class="eyebrow">말씀에서 지도로</p><h1>한 구절에서<br>지도와 근거까지.</h1><p class="description">본문 주소를 입력하면 지명이 나온 절을 찾고, 지도에서 위치 후보를 비교한 뒤 성경 본문으로 돌아갈 수 있습니다.</p></div>
+    <div class="steps"><div class="step"><span class="num">01</span><div class="text"><small>본문 입력</small><strong>사무엘상 1:9–24</strong><em>읽고 있는 본문에서 시작합니다.</em></div></div><div class="step"><span class="num">02</span><div class="text"><small>지명 확인</small><strong>실로 · 라마</strong><em>장절과 위치 자료를 함께 봅니다.</em></div></div><div class="step"><span class="num">03</span><div class="text"><small>본문으로 돌아가기</small><strong>구절을 직접 읽기</strong><em>대한성서공회 성경읽기로 연결됩니다.</em></div></div></div>
+    <div class="foot"><span>본문 속 지명 → 위치 자료 → 성경 읽기</span><span>02 / 03</span></div>
+  </article>
+
+  <article class="card three" aria-label="카드뉴스 3장: 성경여행의 장소 순서">
+    <div class="masthead"><div class="brand"><span class="brand-mark"><img src="../assets/ministry-ai-lab-original.png" alt=""></span><span class="brand-name">목회 AI 연구소<small>MINISTRY AI LAB</small></span></div><span class="series">BIBLE PLACE ATLAS</span></div>
+    <div class="copy"><p class="eyebrow">지명·구절을 연결한 성경여행</p><h1>길 위에<br>도시 이름을.</h1><p class="description">본문과 대조한 장소를 지도에서 찾고,<br>장절과 함께 순서대로 살펴보세요.</p><div class="route-sequence"><b>실로</b><i>→</i><b>라마</b><i>→</i><b>실로</b></div><p class="notice">한나의 길 · 사무엘상 1:9, 1:19, 1:24<br>지도선은 실제 고대 도로가 아닌 자료의 재구성입니다.</p></div>
+    <div class="visual route-visual"><img src="hannah-route-preview.png" alt="실로와 라마 이름이 표시된 실제 앱 지도"></div>
+    <div class="foot"><span>UBS 경로 · OpenBible.info 위치 · 본문 장절 대조</span><span>03 / 03</span></div>
+  </article>
+</body>
+</html>

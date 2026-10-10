@@ -6,15 +6,19 @@ import { passageContext, passageContextCopy, passageRole } from './passage-conte
 import { auditMessage, choosePassageFocus, evidenceForReference, evidenceMessage, evidencePriority, firstPassageMention, reviewedSceneMessage } from './passage-evidence.js';
 import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
+import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMarkdown } from './pastoral-study.js';
+import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geography-notes.js';
+import { ATLAS_COMPACT_PDF, ATLAS_PUBLISHER_PAGE, ATLAS_STUDY_PDF, atlasCompanionCopy, atlasPlatesForJourney, atlasPlatesForPassage, atlasPlateText } from './atlas-companion.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
+const GEOGRAPHY_NOTES_URL = '/public/data/geography-notes.json';
 const CORPUS_AUDIT_URL = '/public/data/corpus-audit.json';
-const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
+const EXAMPLES = ['출애굽기 3장', '왕하 4:1-44', '행 16:6-15', '창 12:1-9'];
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
-  'Moreh 1': '모레', 'Negeb': '네겝',
+  'Moreh 1': '모레', 'Negeb': '남방(네겝)',
   'Nazareth': '나사렛', 'Capernaum': '가버나움', 'Galilee': '갈릴리', 'Galilee 1': '갈릴리',
   'Judea 1': '유대', 'Samaria 1': '사마리아', 'Jordan': '요단강',
   'Egypt': '애굽', 'Babylon 1': '바벨론', 'Damascus': '다메섹',
@@ -26,7 +30,7 @@ const KOREAN_PLACES = {
   'Cyprus': '구브로', 'Paphos': '바보', 'Salamis': '살라미',
   'Asia': '아시아', 'Galatia': '갈라디아', 'Greece': '헬라',
   'Phrygia': '브루기아', 'Samothrace': '사모드라게', 'Thyatira': '두아디라',
-  'Haran': '하란', 'Ur': '우르', 'Canaan': '가나안', 'Shechem': '세겜',
+  'Haran': '하란', 'Ur': '우르', 'Ur 1': '우르', 'Canaan': '가나안', 'Shechem': '세겜', 'Dothan': '도단',
   'Bethel': '벧엘', 'Ai': '아이', 'Hebron': '헤브론', 'Beersheba': '브엘세바',
   'Gaza': '가사', 'Tyre': '두로', 'Sidon': '시돈', 'Bethany 1': '베다니',
   'Bethsaida 1': '벳새다', 'Sea of Galilee': '갈릴리 바다', 'Dead Sea': '사해',
@@ -40,7 +44,7 @@ const KOREAN_PLACES = {
   'Marah': '마라', 'Elim': '엘림', 'Wilderness of Sinai': '시내 광야',
   'Kadesh-barnea': '가데스', 'Mount Hor 1': '호르 산', 'Mount Nebo': '느보 산',
   'Nob': '놉', 'Gibeah 1': '기브아', 'Ziph 1': '십', 'Gath 1': '가드',
-  'Keilah': '그일라', 'Adullam': '아둘람', 'Ramah 4': '라마',
+  'Keilah': '그일라', 'Adullam': '아둘람', 'Ramah 4': '라마', 'Shiloh': '실로',
   'Naioth': '나욧', 'Mizpeh 3': '미스바', 'Carmel 1': '갈멜',
   'Jezreel 3': '이스르엘', 'Bahurim': '바후림', 'Gallim': '갈림',
   'City of David': '다윗 성', 'Baal-perazim': '바알브라심',
@@ -79,7 +83,7 @@ app.innerHTML = `
         <form id="reference-form" class="search-form" novalidate>
           <label for="reference-input" data-i18n="reference">성경 본문</label>
           <div class="search-row">
-            <input id="reference-input" name="reference" type="text" value="왕하 4:1-44" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
+            <input id="reference-input" name="reference" type="text" value="출애굽기 3장" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
             <button type="submit"><span data-i18n="search">장소 찾기</span><span aria-hidden="true">↗</span></button>
           </div>
           <p id="search-error" class="search-error" role="alert" hidden></p>
@@ -94,7 +98,7 @@ app.innerHTML = `
           <span class="visual-live"><i aria-hidden="true"></i> <span data-i18n="mapBadge">본문 지도</span></span>
           <span id="visual-place-count" class="visual-count" data-i18n="checking">지명 확인 중</span>
         </div>
-        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">열왕기하 4:1–44</strong><p id="visual-intro-copy" data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
+        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">출애굽기 3장</strong><p id="visual-intro-copy" data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
         <p id="hero-map-fallback" class="visual-map-fallback" data-i18n="previewLoading">본문 지도를 불러오고 있습니다.</p>
         <div class="visual-bottom">
           <div id="hero-focus" class="visual-focus">
@@ -115,8 +119,6 @@ app.innerHTML = `
       <div class="shell">
         <div class="section-topline"></div>
         <div class="journey-heading"><div><div id="journey-eyebrow" class="section-kicker">본문을 따라 걷는 지도</div><h2 id="journey-title">여행 이야기</h2><p id="journey-intro">지명이 나오는 순서대로 장면을 넘기며, 본문과 지도 근거를 함께 살펴보세요.</p></div></div>
-        <div id="person-explorer" class="person-explorer"></div>
-        <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 검수 여정 보기 ↗</button>
         <div class="journey-catalog-heading"><div><h3 id="journey-catalog-title"></h3><p id="journey-catalog-intro"></p></div><span id="journey-catalog-count"></span></div>
         <input id="journey-search" class="journey-search" type="search" autocomplete="off" />
         <div id="journey-filters" class="journey-filters" role="group"></div>
@@ -127,7 +129,10 @@ app.innerHTML = `
           <div class="journey-map-shell"><div id="journey-map" class="journey-map" aria-label="여행 이야기 지도"><span id="journey-map-loading">여정 지도를 불러오는 중입니다.</span></div><button id="journey-fit" class="journey-fit" type="button">전체 여정 ↗</button></div>
           <div class="journey-story"><div class="journey-story-top"><span id="journey-scene-count"></span><span id="journey-step-reference"></span></div><div id="journey-current" class="journey-current" aria-live="polite"></div><div class="journey-controls"><button id="journey-prev" type="button"></button><button id="journey-next" type="button"></button></div><div id="journey-timeline" class="journey-timeline" aria-label="Journey scenes"></div></div>
         </div>
+        <div id="journey-atlas-companion" class="atlas-companion atlas-companion--journey" hidden></div>
         <a class="journey-data-credit" href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info · CC BY 4.0 ↗</a>
+        <div id="person-explorer" class="person-explorer"></div>
+        <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 본문 연결 여정 보기 ↗</button>
       </div>
     </section>
 
@@ -139,13 +144,21 @@ app.innerHTML = `
           <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
 
+        <div class="results-quick-actions">
+          <button id="quick-map" type="button"><span aria-hidden="true">1</span><span data-i18n="mapView">지도로 보기</span> ↗</button>
+          <a id="quick-bible" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">2</span><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a>
+          <button id="quick-study" type="button"><span aria-hidden="true">3</span><span id="quick-study-label">설교 준비 시트</span> ↗</button>
+          <button id="quick-note" type="button"><span aria-hidden="true">4</span><span data-i18n="noteTitle">설교 준비 메모</span> ↗</button>
+        </div>
+
         <div id="passage-context" class="passage-context" hidden></div>
-        <div id="passage-evidence" class="passage-evidence" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
+        <div id="passage-atlas-companion" class="atlas-companion" hidden></div>
 
         <div class="workspace">
           <div class="map-pane">
             <div class="pane-head"><div><span class="pane-index">01</span><strong data-i18n="mapView">지도로 보기</strong></div><span id="map-caption" data-i18n="bibleWorld">성경 세계</span></div>
+            <div id="passage-place-index" class="passage-place-index" role="group" data-i18n-aria-label="currentVerses" aria-label="현재 본문의 등장 절" hidden></div>
             <div class="map-frame"><div id="map" class="map" role="img" data-i18n-aria-label="mapView" aria-label="본문과 연결된 지명 지도"></div><div id="map-guide" class="map-guide" hidden></div><div id="map-selection" class="map-selection" aria-live="polite" hidden></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong data-i18n="mapEmptyTitle">이 본문에 연결된 지도 지점이 없습니다.</strong><p data-i18n="mapEmptyDesc">지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
             <p class="map-footnote" data-i18n="mapFootnote">핀은 선택된 대표 좌표입니다. 지역·강 또는 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.</p>
           </div>
@@ -156,10 +169,14 @@ app.innerHTML = `
           </div>
         </div>
 
+        <section id="study-sheet" class="study-sheet" aria-labelledby="study-title" hidden></section>
+        <details id="research-details" class="research-details" hidden><summary><span data-i18n="sourceTop">자료 출처와 사용 범위</span><span data-i18n="showAll">모두 보기</span></summary><div id="passage-evidence" class="passage-evidence" hidden></div></details>
+
         <div class="lower-grid">
           <div class="note-panel">
             <div class="note-title"><span class="pane-index">03</span><h3 data-i18n="noteTitle">설교 준비 메모</h3></div>
             <p data-i18n="noteIntro">본문을 읽으며 떠오른 관찰과 확인할 질문을 적어 두세요.</p>
+            <button id="note-starter" class="note-starter" type="button">관찰 질문 틀 넣기</button>
             <label class="sr-only" for="sermon-note" data-i18n="noteTitle">설교 준비 메모</label><textarea id="sermon-note" data-i18n-placeholder="notePlaceholder" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
             <span id="note-status" class="note-save" role="status" data-i18n="noteAuto">입력하면 이 브라우저에 자동 저장됩니다.</span>
             <div class="note-actions"><button id="download-note" type="button" disabled><span data-i18n="noteDownload">이 메모 파일로 저장</span> ↗</button><button id="backup-notes" type="button" disabled><span data-i18n="noteBackup">전체 메모 백업</span> ↗</button><button id="import-trigger" type="button"><span data-i18n="noteImport">백업 불러오기</span> ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
@@ -167,6 +184,7 @@ app.innerHTML = `
           </div>
           <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div id="source-version" class="source-version"></div><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
         </div>
+        <p class="print-attribution">OpenBible.info · CC BY 4.0 | Theographic · CC BY-SA 4.0</p>
       </div>
     </section>
   </main>
@@ -207,11 +225,13 @@ let journeyMapFailed = false;
 let journeyMarkers = [];
 let data;
 let evidenceData;
+let geographyNotesData;
 let currentEvidence;
 let placeOccurrences = new Map();
 let currentReference;
 let currentPlaces = [];
 let currentPassageContext = null;
+let currentStudy = null;
 let selectedPlaceId = null;
 let spotlightPlaceId = null;
 let corpusAuditData = null;
@@ -414,6 +434,7 @@ window.addEventListener('popstate', () => {
   }
   currentView = params.get('view') === 'journeys' || journey ? 'journeys' : 'places';
   applyView();
+  if (currentView === 'places') syncReferenceFromAddress();
 });
 
 function journeyName(journey) {
@@ -433,6 +454,18 @@ function stepStory(journey, step, index) {
   if (step.story) return step.story[locale] || (locale === 'en' ? step.story.en : journeyMessage(locale, `action${step.action[0].toUpperCase()}${step.action.slice(1)}`));
   return journeyMessage(locale, `${journey.id}Events`)?.[index] || journeyMessage(locale, 'storyFallback');
 }
+
+const CANDIDATE_COPY = {
+  ko: (count) => `위치 후보 ${count}곳 · 지도 핀은 대표 후보입니다.`,
+  en: (count) => `${count} location candidates · the map pin shows one proposal.`,
+  ja: (count) => `位置候補 ${count}か所 · 地図の印は代表候補です。`,
+  'zh-CN': (count) => `${count}个位置候选 · 地图标记仅代表其中一种提案。`,
+  es: (count) => `${count} ubicaciones posibles · el marcador muestra una propuesta.`,
+  th: (count) => `มีตำแหน่งที่เป็นไปได้ ${count} แห่ง · หมุดแสดงหนึ่งข้อเสนอ`,
+  hi: (count) => `${count} संभावित स्थान · मानचित्र का चिह्न एक प्रस्ताव दिखाता है।`,
+  fr: (count) => `${count} emplacements proposés · le repère n'en montre qu'un.`,
+  de: (count) => `${count} mögliche Orte · die Markierung zeigt einen Vorschlag.`,
+};
 
 function journeyRange(journey) {
   const first = journey.steps[0];
@@ -455,6 +488,21 @@ function updateJourneyAddress() {
   url.searchParams.set('journey', currentJourney.id);
   url.searchParams.set('step', String(journeyStepIndex + 1));
   history.replaceState(null, '', url);
+}
+
+function renderAtlasCompanion(target, plates) {
+  const panel = document.querySelector(target);
+  panel.hidden = !plates.length;
+  if (!plates.length) { panel.innerHTML = ''; return; }
+  const copy = atlasCompanionCopy(locale);
+  const pageLabel = (page) => copy.page.replace('{page}', String(page));
+  panel.innerHTML = `<div class="atlas-companion-heading"><div><span class="section-kicker">${escapeHtml(copy.eyebrow)}</span><h3>${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div><span class="atlas-companion-count">${String(plates.length).padStart(2, '0')}</span></div>
+    <div class="atlas-companion-plates">${plates.map((entry) => {
+      const text = atlasPlateText(entry, locale);
+      return `<article class="atlas-companion-plate"><span class="atlas-companion-plate-mark" aria-hidden="true">⌖</span><div><small>${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))}${entry.compactPage ? ` <span> / ${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))}</span>` : ''}</small><strong lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.title)}</strong><p lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.prompt)}</p><div class="atlas-companion-plate-links"><a class="atlas-companion-plate-open" href="${ATLAS_STUDY_PDF}#page=${entry.studyPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))} ↗</a>${entry.compactPage ? `<a class="atlas-companion-plate-open" href="${ATLAS_COMPACT_PDF}#page=${entry.compactPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))} ↗</a>` : ''}</div></div></article>`;
+    }).join('')}</div>
+    <p class="atlas-companion-caveat">${escapeHtml(copy.caveat)}</p>
+    <div class="atlas-companion-links"><a href="${ATLAS_STUDY_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openStudy)} ↗</a><a href="${ATLAS_COMPACT_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openCompact)} ↗</a><a href="${ATLAS_PUBLISHER_PAGE}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.source)} ↗</a></div>`;
 }
 
 function renderJourney() {
@@ -482,6 +530,7 @@ function renderJourney() {
     ? visible.map((journey) => `<button type="button" data-journey="${escapeHtml(journey.id)}" aria-pressed="${journey.id === currentJourney.id}"><span>${escapeHtml(j(`category${journey.category[0].toUpperCase()}${journey.category.slice(1)}`))}</span><strong>${escapeHtml(journeyName(journey))}</strong><small>${escapeHtml(journeyRange(journey))} · ${escapeHtml(j('steps', { count: journey.steps.length }))}</small><i aria-hidden="true">↗</i></button>`).join('')
     : `<p class="journey-empty">${escapeHtml(j('noJourneyResults'))}</p>`;
   document.querySelector('#journey-active-head').innerHTML = `<span>${escapeHtml(j(`category${currentJourney.category[0].toUpperCase()}${currentJourney.category.slice(1)}`))} · ${escapeHtml(journeyRange(currentJourney))}</span><h3>${escapeHtml(journeyName(currentJourney))}</h3><p>${escapeHtml(journeyIntro(currentJourney))}</p>`;
+  renderAtlasCompanion('#journey-atlas-companion', atlasPlatesForJourney(currentJourney.id));
   document.querySelector('#journey-timeline').setAttribute('aria-label', j('steps', { count: currentJourney.steps.length }));
   document.querySelector('#journey-map').setAttribute('aria-label', `${j('title')} · ${j('all')}`);
   document.querySelector('#journey-route-note').textContent = j(currentJourney.linePolicy === 'none' ? 'noRouteNote' : 'routeNote');
@@ -502,6 +551,7 @@ function renderJourney() {
   document.querySelector('#journey-step-reference').textContent = journeyReference(step);
   document.querySelector('#journey-current').innerHTML = `<div class="journey-current-heading"><span>${escapeHtml(scene)}</span><h3>${escapeHtml(name)}</h3><p>${escapeHtml(story)}</p></div>
     ${step.broad ? `<p class="journey-broad">${escapeHtml(j('broad'))}</p>` : ''}
+    ${place.candidateCount > 1 ? `<p class="journey-broad journey-uncertain">${escapeHtml((CANDIDATE_COPY[locale] || CANDIDATE_COPY.en)(place.candidateCount))}</p>` : ''}
     ${photo ? `<figure class="journey-photo"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><figcaption>${escapeHtml(j('photo'))} · <a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></figcaption></figure>` : ''}
     <div class="journey-links"><a href="${bibleReadingUrl(stepCode(currentJourney, step), step.chapter, step.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('read'))} ↗</a><button type="button" data-journey-open-place>${escapeHtml(j('place'))} ↗</button>${currentJourney.source ? `<a class="journey-source-link" href="${escapeHtml(currentJourney.source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('source'))} · KJV ↗</a>` : ''}</div>`;
   document.querySelector('#journey-timeline').innerHTML = currentJourney.steps.map((item, index) => {
@@ -575,6 +625,8 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  document.querySelector('#quick-study-label').textContent = pastoralStudyCopy(locale).title;
+  document.querySelector('#note-starter').textContent = pastoralStudyCopy(locale).starter;
   document.querySelector('#journey-catalog-reveal').textContent = evidenceMessage(locale).reveal;
   renderSourceVersion();
   renderExamples();
@@ -710,6 +762,7 @@ function renderPassageContext(places) {
 
 function renderPassageEvidence(places, reference) {
   const panel = document.querySelector('#passage-evidence');
+  document.querySelector('#research-details').hidden = false;
   const m = evidenceMessage(locale);
   if (!evidenceData) {
     panel.hidden = false;
@@ -734,6 +787,28 @@ function renderPassageEvidence(places, reference) {
     <div class="passage-evidence-columns"><div><strong>${escapeHtml(m.placeEvents)}</strong><div class="passage-evidence-chips">${places.slice(0, 8).map((place) => `<button type="button" data-evidence-place="${escapeHtml(place.id)}"><span>${escapeHtml(displayName(place))}</span><small>${escapeHtml(eventPlaceIds.has(place.id) ? m.eventLocation : confirmed.has(place.id) ? m.both : m.mention)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPlaces)}</span>`}</div>${events.length ? `<div class="passage-evidence-events">${events.map((event) => `<span><b>${escapeHtml(event.title)}</b><small>${escapeHtml(m.eventCategory)} · ${event.verses} ${escapeHtml(m.linkedVerses)}</small></span>`).join('')}</div>` : ''}</div>
     <div><strong>${escapeHtml(m.personJourneys)}</strong><div class="passage-evidence-chips">${people.map((person) => `<button type="button" data-evidence-person="${escapeHtml(person.id)}"><span>${escapeHtml(ko ? KOREAN_NAMES[person.id] || person.name : person.name)}</span><small>${person.verses} ${escapeHtml(m.personVerses)}</small></button>`).join('') || `<span class="passage-evidence-muted">${escapeHtml(m.noPeople)}</span>`}</div>${scenes.length ? `<div class="passage-evidence-journeys">${scenes.map(({ journey, step, index }) => `<a href="/?view=journeys&journey=${encodeURIComponent(journey.id)}&step=${index + 1}${ko ? '' : `&lang=${encodeURIComponent(locale)}`}">${escapeHtml(journeyName(journey))} · ${escapeHtml(`${localizedBookName(step.code || journey.code, locale)} ${step.chapter}:${step.verse}`)} ↗</a>`).join('')}</div>` : ''}</div></div>
     <p class="passage-evidence-caveat">${escapeHtml(m.caveat)}</p>`;
+}
+
+function renderPastoralStudy(places, reference) {
+  const copy = pastoralStudyCopy(locale);
+  const panel = document.querySelector('#study-sheet');
+  currentStudy = buildPastoralStudy(reference,
+    places.map((place) => ({ ...place, displayName: displayName(place) })),
+    currentPassageContext, currentEvidence);
+  const verseMarkup = (row) => `<li class="study-verse">
+    <div class="study-verse-head">${readingLink(reference.code, row.chapter, row.verse, `${localizedBookName(reference.code, locale)} ${row.chapter}:${row.verse}`)}</div>
+    <div class="study-verse-places">${row.places.map((place) => {
+      const role = place.role ? copy[place.role] : place.reviewed ? copy.reviewed : copy.mention;
+      return `<div class="study-place"><button class="study-add" type="button" data-study-place="${escapeHtml(place.id)}" data-study-verse="${row.chapter}:${row.verse}" aria-label="${escapeHtml(`${copy.note}: ${place.name} ${row.chapter}:${row.verse}`)}">＋</button><button class="study-map-link" type="button" data-study-focus="${escapeHtml(place.id)}" aria-label="${escapeHtml(`${translate('candidateMap')}: ${place.name}`)}"><strong>${escapeHtml(place.name)}</strong><span>${escapeHtml(role)}</span></button></div>`;
+    }).join('')}</div>
+  </li>`;
+  const visible = currentStudy.verses.slice(0, 6);
+  const rest = currentStudy.verses.slice(6, 150);
+  panel.hidden = false;
+  panel.innerHTML = `<div class="study-heading"><div><span class="section-kicker">${escapeHtml(formatReference(reference, locale))}</span><h3 id="study-title">${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div><div class="study-heading-actions"><a href="${bibleReadingUrl(reference.code, reference.chapter, reference.startVerse || 1)}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.read)} ↗</a><button id="download-study" type="button">${escapeHtml(copy.download)} ↓</button></div></div>
+    <div class="study-content"><div class="study-flow"><strong>${escapeHtml(copy.flow)} · ${currentStudy.verseCount}</strong>
+    ${visible.length ? `<ol class="study-verses">${visible.map(verseMarkup).join('')}</ol>${rest.length ? `<details class="study-more"><summary>${escapeHtml(copy.more)} · ${rest.length}</summary><ol class="study-verses">${rest.map(verseMarkup).join('')}</ol></details>` : ''}${currentStudy.verses.length > 150 ? `<p class="study-caveat">${escapeHtml(copy.narrow)}</p>` : ''}` : `<p class="study-empty">${escapeHtml(copy.noPlaces)}</p>`}</div>
+    <aside class="study-check"><strong>${escapeHtml(copy.cautionTitle)}</strong><ul><li>${escapeHtml(copy.cautionRole)}</li>${currentStudy.candidatePlaceCount ? `<li>${escapeHtml(copy.cautionCandidates)}</li>` : ''}${!currentStudy.reviewedVerseCount ? `<li>${escapeHtml(copy.cautionReview)}</li>` : ''}<li>${escapeHtml(copy.cautionText)}</li></ul></aside></div>`;
 }
 
 document.querySelector('#passage-evidence').addEventListener('click', (event) => {
@@ -995,6 +1070,7 @@ function renderCandidateMarkers(place) {
 function selectPlace(id, center = true) {
   selectedPlaceId = id;
   selectedCandidateIndex = 0;
+  for (const button of document.querySelectorAll('#passage-place-index [data-index-place]')) button.setAttribute('aria-pressed', String(button.dataset.indexPlace === id));
   for (const card of placeList.querySelectorAll('.place-card')) {
     const selected = card.dataset.placeId === id;
     card.classList.toggle('selected', selected);
@@ -1044,8 +1120,8 @@ function selectCandidate(placeId, index, fromMap = false) {
 function renderPlaces(places, reference) {
   currentPassageContext = passageContext(reference, places);
   currentEvidence = evidenceForReference(evidenceData, data, reference, JOURNEYS);
-  places = [...places].sort((a, b) => passagePriority(a) - passagePriority(b)
-    || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
+  places = [...places].sort((a, b) => firstMention(a) - firstMention(b)
+    || passagePriority(a) - passagePriority(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   currentPlaces = places;
   selectedPlaceId = null;
   selectedCandidateIndex = 0;
@@ -1055,6 +1131,16 @@ function renderPlaces(places, reference) {
     ? parseReference(`${reference.short} ${reference.chapter}`) : null;
   const chapterPlaceCount = chapterReference ? findPlaces(data, chapterReference).length : 0;
   resultCount.textContent = translate('count', { count: places.length });
+  const placeIndex = document.querySelector('#passage-place-index');
+  placeIndex.hidden = !places.length;
+  placeIndex.innerHTML = `<strong class="passage-place-index-title">${escapeHtml(translate('currentVerses'))}</strong>${places.map((place) => {
+    const first = place.references[0];
+    const referenceLabel = first ? `${first.chapter}:${first.verse}` : '';
+    return `<button type="button" data-index-place="${escapeHtml(place.id)}" aria-pressed="false"><strong>${escapeHtml(displayName(place))}</strong>${referenceLabel ? `<small>${escapeHtml(referenceLabel)}</small>` : ''}</button>`;
+  }).join('')}`;
+  const quickBible = document.querySelector('#quick-bible');
+  quickBible.href = bibleReadingUrl(reference.code, reference.chapter, reference.startVerse || 1);
+  quickBible.setAttribute('aria-label', translate('readAria', { reference: formatReference(reference, locale) }));
   resultDescription.textContent = places.length
     ? translate('resultsFound', { reference: formatReference(reference, locale), count: places.length, mapped: mappedCount })
     : translate('resultsNone', { reference: formatReference(reference, locale) });
@@ -1063,8 +1149,10 @@ function renderPlaces(places, reference) {
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
   renderPassageContext(places);
+  renderAtlasCompanion('#passage-atlas-companion', atlasPlatesForPassage(reference));
   renderPassageEvidence(places, reference);
   renderDiscovery(places, reference);
+  renderPastoralStudy(places, reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
@@ -1084,6 +1172,14 @@ function renderPlaces(places, reference) {
         <p class="candidate-help">${escapeHtml(translate('candidateScoreHelp'))}</p><a href="${escapeHtml(place.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('sourceRecord'))} ↗</a>
       </div></details>` : '';
     const photo = place.photo;
+    const dictionaryNote = noteForPlace(geographyNotesData, data.sourceCommit, place.id);
+    const dictionaryCopy = geographyNoteCopy(locale);
+    const dictionaryMarkup = dictionaryNote ? `<details class="place-dictionary">
+      <summary><strong>${escapeHtml(dictionaryCopy.title)}</strong><span>${escapeHtml(dictionaryCopy.original)} <i aria-hidden="true">⌄</i></span></summary>
+      <div class="place-dictionary-content"><p class="place-dictionary-caution">${escapeHtml(dictionaryCopy.caution)}</p>
+      ${dictionaryNote.paragraphs.map((paragraph) => `<p lang="en">${escapeHtml(dictionaryPlainText(paragraph))}</p>`).join('')}
+      <div class="place-dictionary-sources"><a href="https://ccel.org/ccel/easton/ebd2/ebd2" target="_blank" rel="noopener noreferrer">${escapeHtml(dictionaryCopy.source)} ↗</a><a href="https://github.com/robertrouse/theographic-bible-metadata/tree/${escapeHtml(geographyNotesData.sourceCommit)}" target="_blank" rel="noopener noreferrer">${escapeHtml(dictionaryCopy.data)} · Theographic ↗</a></div></div>
+    </details>` : '';
     const photoMarkup = photo ? `<div class="place-photo">
       <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
       <div class="place-photo-copy"><span>${escapeHtml(translate('currentPhoto'))}${place.candidateCount > 1 ? ` · ${escapeHtml(translate('candidatePhoto'))}` : ''}</span><p>${escapeHtml(photo.alt)}</p><small>${escapeHtml(translate('photoCredit'))}: ${escapeHtml(photo.credit)}${photo.edited ? ` · ${escapeHtml(translate('previewEdited'))}` : ''}</small><div class="photo-links"><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('photoOriginal'))} ↗</a><a href="${escapeHtml(photo.licenseUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.license)} ↗</a></div></div>
@@ -1096,6 +1192,7 @@ function renderPlaces(places, reference) {
       </button>
       <div class="place-meta"><span>${escapeHtml(translate(TYPE_LABELS[place.type] || 'genericPlace'))}</span><span class="meta-dot"></span><span>${escapeHtml(placeStatus(place))}</span></div>
       <div class="verse-list" aria-label="${escapeHtml(translate('currentVerses'))}">${refs}</div>
+      ${dictionaryMarkup}
       <details class="place-occurrences" data-occurrence-place="${escapeHtml(place.id)}"><summary><span>${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(allReferenceCount))}</strong></span><span class="occurrence-summary-action">${escapeHtml(translate('showAll'))} <i aria-hidden="true">⌄</i></span></summary><div class="occurrence-content"></div></details>
       ${candidateMarkup}
       ${photoMarkup}
@@ -1196,9 +1293,10 @@ function downloadText(filename, content, type) {
 function search() {
   clearError();
   const reference = parseReference(input.value);
-  if (reference.error) return showError(translate(reference.errorKey || 'badFormat'));
-  if (!data) return showError(translate('loadingTry'));
+  if (reference.error) { showError(translate(reference.errorKey || 'badFormat')); return false; }
+  if (!data) { showError(translate('loadingTry')); return false; }
   currentReference = reference;
+  document.querySelector('#research-details').open = false;
   renderPlaces(findPlaces(data, reference), reference);
   try {
     note.value = localStorage.getItem(`${NOTE_PREFIX}${reference.label}`) || '';
@@ -1211,11 +1309,81 @@ function search() {
   const url = new URL(location.href);
   if (currentView !== 'journeys' || location.hash) url.hash = encodeURIComponent(input.value.trim());
   history.replaceState(null, '', url);
+  return true;
 }
+
+function syncReferenceFromAddress() {
+  if (!data || currentView !== 'places') return;
+  let requested;
+  try { requested = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : EXAMPLES[0]; }
+  catch { return; }
+  if (requested === input.value && currentReference) return;
+  input.value = requested;
+  search();
+}
+
+window.addEventListener('hashchange', syncReferenceFromAddress);
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  search();
+  if (search()) requestAnimationFrame(() => document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' }));
+});
+document.querySelector('#quick-map').addEventListener('click', () => {
+  document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+});
+document.querySelector('#quick-study').addEventListener('click', () => {
+  document.querySelector('#study-sheet').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+});
+document.querySelector('#passage-place-index').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-index-place]');
+  if (!button) return;
+  selectPlace(button.dataset.indexPlace, false);
+  const place = currentPlaces.find((item) => item.id === button.dataset.indexPlace);
+  if (place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
+});
+document.querySelector('#quick-note').addEventListener('click', () => {
+  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  note.focus({ preventScroll: true });
+});
+document.querySelector('#study-sheet').addEventListener('click', (event) => {
+  if (event.target.closest('#download-study') && currentReference && currentStudy) {
+    const part = currentReference.label.replace(/[^\p{L}\p{N}-]+/gu, '-');
+    const markdown = pastoralStudyMarkdown(formatReference(currentReference, locale),
+      localizedBookName(currentReference.code, locale), currentStudy, pastoralStudyCopy(locale),
+      (chapter = currentReference.chapter, verse = currentReference.startVerse || 1) =>
+        bibleReadingUrl(currentReference.code, chapter, verse), note.value);
+    downloadText(`passage-study-${part}.md`, markdown, 'text/markdown;charset=utf-8');
+    return;
+  }
+  const focus = event.target.closest('[data-study-focus]');
+  if (focus) {
+    selectPlace(focus.dataset.studyFocus, false);
+    document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+    return;
+  }
+  const button = event.target.closest('[data-study-place]');
+  if (!button || !currentReference || !currentStudy) return;
+  const row = currentStudy.verses.find(({ chapter, verse }) => `${chapter}:${verse}` === button.dataset.studyVerse);
+  const place = row?.places.find(({ id }) => id === button.dataset.studyPlace);
+  if (!place) return;
+  const line = observationLine(localizedBookName(currentReference.code, locale), row, place,
+    pastoralStudyCopy(locale), bibleReadingUrl(currentReference.code, row.chapter, row.verse));
+  if (!note.value.includes(line)) {
+    note.value = `${note.value.trimEnd()}${note.value.trim() ? '\n' : ''}${line}\n`;
+    note.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  note.focus({ preventScroll: true });
+  setNoteStatus(pastoralStudyCopy(locale).noteAdded);
+});
+document.querySelector('#note-starter').addEventListener('click', () => {
+  const copy = pastoralStudyCopy(locale);
+  if (!note.value.includes(copy.starterText.trim())) {
+    note.value = `${note.value.trimEnd()}${note.value.trim() ? '\n\n' : ''}${copy.starterText}`;
+    note.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  note.focus();
+  setNoteStatus(copy.starterAdded);
 });
 note.addEventListener('input', () => {
   if (!currentReference) return;
@@ -1274,6 +1442,16 @@ importNotesInput.addEventListener('change', async () => {
 });
 importTrigger.addEventListener('click', () => importNotesInput.click());
 printButton.addEventListener('click', () => window.print());
+let studyMoreWasOpen = false;
+window.addEventListener('beforeprint', () => {
+  const details = document.querySelector('.study-more');
+  studyMoreWasOpen = Boolean(details?.open);
+  if (details) details.open = true;
+});
+window.addEventListener('afterprint', () => {
+  const details = document.querySelector('.study-more');
+  if (details) details.open = studyMoreWasOpen;
+});
 
 function journeyLineData() {
   const features = [];
@@ -1313,6 +1491,7 @@ function updateJourneyMap(fit = false) {
   for (const marker of journeyMarkers) marker.remove();
   journeyMarkers = [];
   const groups = new Map();
+  const placedLabels = [];
   currentJourney.steps.forEach((step, index) => {
     const group = groups.get(step.placeId) || [];
     group.push(index);
@@ -1321,12 +1500,24 @@ function updateJourneyMap(fit = false) {
   for (const [placeId, indices] of groups) {
     const place = data.places.find((item) => item.id === placeId);
     if (!place?.coordinate) continue;
+    const [lng, lat] = place.coordinate;
+    const nearby = placedLabels.filter(({ coordinate }) => Math.hypot((lng - coordinate[0]) * 111.2 * Math.cos(lat * Math.PI / 180), (lat - coordinate[1]) * 111.2) < 22);
+    const labelSide = nearby.length && nearby.at(-1).side === 'right' ? 'left' : 'right';
+    placedLabels.push({ coordinate: place.coordinate, side: labelSide });
     const element = document.createElement('button');
     element.type = 'button';
     element.className = 'journey-marker';
+    element.classList.toggle('label-left', labelSide === 'left');
     element.classList.toggle('active', indices.includes(journeyStepIndex));
     element.classList.toggle('broad', currentJourney.steps[indices[0]].broad === true);
-    element.textContent = indices.map((index) => index + 1).join('·');
+    element.classList.toggle('uncertain', place.candidateCount > 1);
+    const number = document.createElement('span');
+    number.className = 'journey-marker-number';
+    number.textContent = indices.length > 1 ? `${indices[0] + 1}+` : String(indices[0] + 1);
+    const label = document.createElement('span');
+    label.className = 'journey-marker-label';
+    label.textContent = displayName(place);
+    element.append(number, label);
     element.setAttribute('aria-label', `${displayName(place)} · ${indices.map((index) => index + 1).join(', ')}`);
     element.addEventListener('click', () => selectJourneyStep(indices.find((index) => index > journeyStepIndex) ?? indices[0]));
     journeyMarkers.push(new maplibre.Marker({ element, anchor: 'bottom' }).setLngLat(place.coordinate).addTo(journeyMap));
@@ -1452,7 +1643,7 @@ function setupHeroMap() {
 
 async function loadData() {
   try {
-    const [response, evidenceResult, auditResult] = await Promise.all([
+    const [response, evidenceResult, auditResult, geographyResult] = await Promise.all([
       fetch(DATA_URL),
       fetch(EVIDENCE_URL).then(async (result) => {
         if (!result.ok) throw new Error(`Evidence HTTP ${result.status}`);
@@ -1461,11 +1652,14 @@ async function loadData() {
         return payload;
       }).catch(() => null),
       fetch(CORPUS_AUDIT_URL).then(async (result) => result.ok ? result.json() : null).catch(() => null),
+      fetch(GEOGRAPHY_NOTES_URL).then(async (result) => result.ok ? result.json() : null).catch(() => null),
     ]);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     data = await response.json();
     if (!Array.isArray(data.places) || !data.index) throw new Error('자료 형식 오류');
     evidenceData = evidenceResult?.placeSourceCommit === data.sourceCommit ? evidenceResult : null;
+    geographyNotesData = geographyResult?.placeSourceCommit === data.sourceCommit
+      && geographyResult?.sourceCommit === evidenceData?.sourceCommit ? geographyResult : null;
     corpusAuditData = auditResult?.sources?.atlas === data.sourceCommit
       && auditResult?.sources?.theographic === evidenceData?.sourceCommit ? auditResult : null;
     personExplorer.render();

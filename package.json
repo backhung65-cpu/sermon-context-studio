@@ -7,8 +7,9 @@
     "start": "node server.mjs",
     "build": "node scripts/build_site.mjs",
     "preview": "node server.mjs dist",
-    "test": "node scripts/audit_corpus.mjs --check && node --test src/*.test.js",
+    "test": "node scripts/audit_corpus.mjs --check && node scripts/audit_route_evidence.mjs --check && node scripts/audit_geography_notes.mjs && node --test src/*.test.js",
     "audit:coverage": "node scripts/audit_coverage.mjs",
-    "audit:integrity": "node scripts/audit_corpus.mjs"
+    "audit:integrity": "node scripts/audit_corpus.mjs",
+    "audit:routes": "node scripts/audit_route_evidence.mjs"
   }
 }
