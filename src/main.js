@@ -10,7 +10,7 @@ import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from '
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
 const CORPUS_AUDIT_URL = '/public/data/corpus-audit.json';
-const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
+const EXAMPLES = ['출애굽기 3장', '왕하 4:1-44', '행 16:6-15', '창 12:1-9'];
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
@@ -79,7 +79,7 @@ app.innerHTML = `
         <form id="reference-form" class="search-form" novalidate>
           <label for="reference-input" data-i18n="reference">성경 본문</label>
           <div class="search-row">
-            <input id="reference-input" name="reference" type="text" value="왕하 4:1-44" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
+            <input id="reference-input" name="reference" type="text" value="출애굽기 3장" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
             <button type="submit"><span data-i18n="search">장소 찾기</span><span aria-hidden="true">↗</span></button>
           </div>
           <p id="search-error" class="search-error" role="alert" hidden></p>
@@ -94,7 +94,7 @@ app.innerHTML = `
           <span class="visual-live"><i aria-hidden="true"></i> <span data-i18n="mapBadge">본문 지도</span></span>
           <span id="visual-place-count" class="visual-count" data-i18n="checking">지명 확인 중</span>
         </div>
-        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">열왕기하 4:1–44</strong><p id="visual-intro-copy" data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
+        <div class="visual-intro"><span data-i18n="nowPassage">지금 살펴보는 본문</span><strong id="visual-title">출애굽기 3장</strong><p id="visual-intro-copy" data-i18n="previewIntro">본문에 연결된 지명이 지도 위에 펼쳐집니다.</p></div>
         <p id="hero-map-fallback" class="visual-map-fallback" data-i18n="previewLoading">본문 지도를 불러오고 있습니다.</p>
         <div class="visual-bottom">
           <div id="hero-focus" class="visual-focus">
@@ -139,13 +139,19 @@ app.innerHTML = `
           <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
 
+        <div class="results-quick-actions">
+          <button id="quick-map" type="button"><span aria-hidden="true">1</span><span data-i18n="mapView">지도로 보기</span> ↗</button>
+          <a id="quick-bible" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">2</span><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a>
+          <button id="quick-note" type="button"><span aria-hidden="true">3</span><span data-i18n="noteTitle">설교 준비 메모</span> ↗</button>
+        </div>
+
         <div id="passage-context" class="passage-context" hidden></div>
-        <div id="passage-evidence" class="passage-evidence" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
 
         <div class="workspace">
           <div class="map-pane">
             <div class="pane-head"><div><span class="pane-index">01</span><strong data-i18n="mapView">지도로 보기</strong></div><span id="map-caption" data-i18n="bibleWorld">성경 세계</span></div>
+            <div id="passage-place-index" class="passage-place-index" role="group" data-i18n-aria-label="currentVerses" aria-label="현재 본문의 등장 절" hidden></div>
             <div class="map-frame"><div id="map" class="map" role="img" data-i18n-aria-label="mapView" aria-label="본문과 연결된 지명 지도"></div><div id="map-guide" class="map-guide" hidden></div><div id="map-selection" class="map-selection" aria-live="polite" hidden></div><div id="map-empty" class="map-empty" hidden><span aria-hidden="true">○</span><strong data-i18n="mapEmptyTitle">이 본문에 연결된 지도 지점이 없습니다.</strong><p data-i18n="mapEmptyDesc">지명이 없는 절에는 임의의 장소를 표시하지 않습니다.</p></div></div>
             <p class="map-footnote" data-i18n="mapFootnote">핀은 선택된 대표 좌표입니다. 지역·강 또는 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.</p>
           </div>
@@ -155,6 +161,8 @@ app.innerHTML = `
             <div id="place-list" class="place-list" aria-live="polite"><div class="empty-state" data-i18n="dataLoading">자료를 불러오는 중입니다.</div></div>
           </div>
         </div>
+
+        <details id="research-details" class="research-details" hidden><summary><span data-i18n="sourceTop">자료 출처와 사용 범위</span><span data-i18n="showAll">모두 보기</span></summary><div id="passage-evidence" class="passage-evidence" hidden></div></details>
 
         <div class="lower-grid">
           <div class="note-panel">
@@ -167,6 +175,7 @@ app.innerHTML = `
           </div>
           <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div id="source-version" class="source-version"></div><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
         </div>
+        <p class="print-attribution">OpenBible.info · CC BY 4.0 | Theographic · CC BY-SA 4.0</p>
       </div>
     </section>
   </main>
@@ -724,6 +733,7 @@ function renderPassageContext(places) {
 
 function renderPassageEvidence(places, reference) {
   const panel = document.querySelector('#passage-evidence');
+  document.querySelector('#research-details').hidden = false;
   const m = evidenceMessage(locale);
   if (!evidenceData) {
     panel.hidden = false;
@@ -1009,6 +1019,7 @@ function renderCandidateMarkers(place) {
 function selectPlace(id, center = true) {
   selectedPlaceId = id;
   selectedCandidateIndex = 0;
+  for (const button of document.querySelectorAll('#passage-place-index [data-index-place]')) button.setAttribute('aria-pressed', String(button.dataset.indexPlace === id));
   for (const card of placeList.querySelectorAll('.place-card')) {
     const selected = card.dataset.placeId === id;
     card.classList.toggle('selected', selected);
@@ -1058,8 +1069,8 @@ function selectCandidate(placeId, index, fromMap = false) {
 function renderPlaces(places, reference) {
   currentPassageContext = passageContext(reference, places);
   currentEvidence = evidenceForReference(evidenceData, data, reference, JOURNEYS);
-  places = [...places].sort((a, b) => passagePriority(a) - passagePriority(b)
-    || firstMention(a) - firstMention(b) || displayName(a).localeCompare(displayName(b), 'ko'));
+  places = [...places].sort((a, b) => firstMention(a) - firstMention(b)
+    || passagePriority(a) - passagePriority(b) || displayName(a).localeCompare(displayName(b), 'ko'));
   currentPlaces = places;
   selectedPlaceId = null;
   selectedCandidateIndex = 0;
@@ -1069,6 +1080,16 @@ function renderPlaces(places, reference) {
     ? parseReference(`${reference.short} ${reference.chapter}`) : null;
   const chapterPlaceCount = chapterReference ? findPlaces(data, chapterReference).length : 0;
   resultCount.textContent = translate('count', { count: places.length });
+  const placeIndex = document.querySelector('#passage-place-index');
+  placeIndex.hidden = !places.length;
+  placeIndex.innerHTML = `<strong class="passage-place-index-title">${escapeHtml(translate('currentVerses'))}</strong>${places.map((place) => {
+    const first = place.references[0];
+    const referenceLabel = first ? `${first.chapter}:${first.verse}` : '';
+    return `<button type="button" data-index-place="${escapeHtml(place.id)}" aria-pressed="false"><strong>${escapeHtml(displayName(place))}</strong>${referenceLabel ? `<small>${escapeHtml(referenceLabel)}</small>` : ''}</button>`;
+  }).join('')}`;
+  const quickBible = document.querySelector('#quick-bible');
+  quickBible.href = bibleReadingUrl(reference.code, reference.chapter, reference.startVerse || 1);
+  quickBible.setAttribute('aria-label', translate('readAria', { reference: formatReference(reference, locale) }));
   resultDescription.textContent = places.length
     ? translate('resultsFound', { reference: formatReference(reference, locale), count: places.length, mapped: mappedCount })
     : translate('resultsNone', { reference: formatReference(reference, locale) });
@@ -1210,9 +1231,10 @@ function downloadText(filename, content, type) {
 function search() {
   clearError();
   const reference = parseReference(input.value);
-  if (reference.error) return showError(translate(reference.errorKey || 'badFormat'));
-  if (!data) return showError(translate('loadingTry'));
+  if (reference.error) { showError(translate(reference.errorKey || 'badFormat')); return false; }
+  if (!data) { showError(translate('loadingTry')); return false; }
   currentReference = reference;
+  document.querySelector('#research-details').open = false;
   renderPlaces(findPlaces(data, reference), reference);
   try {
     note.value = localStorage.getItem(`${NOTE_PREFIX}${reference.label}`) || '';
@@ -1225,6 +1247,7 @@ function search() {
   const url = new URL(location.href);
   if (currentView !== 'journeys' || location.hash) url.hash = encodeURIComponent(input.value.trim());
   history.replaceState(null, '', url);
+  return true;
 }
 
 function syncReferenceFromAddress() {
@@ -1241,7 +1264,21 @@ window.addEventListener('hashchange', syncReferenceFromAddress);
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  search();
+  if (search()) requestAnimationFrame(() => document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' }));
+});
+document.querySelector('#quick-map').addEventListener('click', () => {
+  document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+});
+document.querySelector('#passage-place-index').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-index-place]');
+  if (!button) return;
+  selectPlace(button.dataset.indexPlace, false);
+  const place = currentPlaces.find((item) => item.id === button.dataset.indexPlace);
+  if (place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
+});
+document.querySelector('#quick-note').addEventListener('click', () => {
+  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  note.focus({ preventScroll: true });
 });
 note.addEventListener('input', () => {
   if (!currentReference) return;
