@@ -70,8 +70,26 @@ test('Hannah names Shiloh and Ramah in the order of the account', () => {
   assert.ok(scenes.every(({ distanceKm }) => distanceKm < 3));
 });
 
+test('Abram and Moses routes distinguish named stops from intended lands and broad regions', () => {
+  const scenes = (id) => passageScenesForRoute(routes.routes.find((route) => route.id === id), places);
+  assert.deepEqual(scenes('001').map(({ place, chapter, verse }) => [place.name, chapter, verse]),
+    [['Ur 1', 11, 31], ['Haran', 11, 31]]);
+  assert.ok(!scenes('001').some(({ place }) => place.name === 'Canaan'), 'Canaan is only the intended destination in Genesis 11:31');
+  assert.deepEqual(scenes('003').map(({ place, chapter, verse }) => [place.name, chapter, verse]),
+    [['Shechem', 12, 6]]);
+  assert.ok(!scenes('003').some(({ place }) => place.name === 'Haran'), 'Haran is 446 km outside this UBS segment');
+  assert.deepEqual(scenes('004').map(({ place, chapter, verse }) => [place.name, chapter, verse]),
+    [['Negeb', 12, 9], ['Egypt', 12, 10]]);
+  assert.ok(scenes('004').every(({ broad }) => broad));
+  assert.equal(scenes('004')[0].movementRole, 'toward', 'Genesis 12:9 gives a direction, not an arrival');
+  assert.deepEqual(scenes('040').map(({ place, chapter, verse }) => [place.name, chapter, verse]),
+    [['Midian', 2, 15], ['Mount Horeb', 3, 1]]);
+  assert.equal(scenes('040')[0].broad, true);
+  assert.ok(scenes('040')[1].place.candidateCount > 1, 'Horeb must retain its location uncertainty');
+});
+
 test('only route-specific scenes have map markers and each one names its exact verse', () => {
-  assert.equal(new Set(PASSAGE_SCENE_ROUTE_IDS).size, 6);
+  assert.equal(new Set(PASSAGE_SCENE_ROUTE_IDS).size, 10);
   for (const route of routes.routes) {
     const scenes = passageScenesForRoute(route, places);
     assert.equal(scenes.length > 0, PASSAGE_SCENE_ROUTE_IDS.includes(route.id), route.id);

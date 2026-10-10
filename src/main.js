@@ -14,7 +14,7 @@ const EXAMPLES = ['왕하 4:1-44', '행 16:6-15', '창 12:1-9', '눅 10:25-37'];
 const KOREAN_PLACES = {
   'Jerusalem': '예루살렘', 'Jericho': '여리고', 'Bethlehem 1': '베들레헴', 'Moab 1': '모압',
   'Jericho 2': '여리고', 'Ai 1': '아이', 'Bethel 1': '벧엘',
-  'Moreh 1': '모레', 'Negeb': '네겝',
+  'Moreh 1': '모레', 'Negeb': '남방(네겝)',
   'Nazareth': '나사렛', 'Capernaum': '가버나움', 'Galilee': '갈릴리', 'Galilee 1': '갈릴리',
   'Judea 1': '유대', 'Samaria 1': '사마리아', 'Jordan': '요단강',
   'Egypt': '애굽', 'Babylon 1': '바벨론', 'Damascus': '다메섹',
@@ -26,7 +26,7 @@ const KOREAN_PLACES = {
   'Cyprus': '구브로', 'Paphos': '바보', 'Salamis': '살라미',
   'Asia': '아시아', 'Galatia': '갈라디아', 'Greece': '헬라',
   'Phrygia': '브루기아', 'Samothrace': '사모드라게', 'Thyatira': '두아디라',
-  'Haran': '하란', 'Ur': '우르', 'Canaan': '가나안', 'Shechem': '세겜', 'Dothan': '도단',
+  'Haran': '하란', 'Ur': '우르', 'Ur 1': '우르', 'Canaan': '가나안', 'Shechem': '세겜', 'Dothan': '도단',
   'Bethel': '벧엘', 'Ai': '아이', 'Hebron': '헤브론', 'Beersheba': '브엘세바',
   'Gaza': '가사', 'Tyre': '두로', 'Sidon': '시돈', 'Bethany 1': '베다니',
   'Bethsaida 1': '벳새다', 'Sea of Galilee': '갈릴리 바다', 'Dead Sea': '사해',

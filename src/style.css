@@ -188,6 +188,7 @@ h1 em { font-style: normal; }
 .person-route-itinerary button:hover, .person-route-itinerary button:focus-visible { border-color: #8b539e; outline: 1px solid #8b539e; }
 .person-route-stop-marker { position: absolute; display: grid; place-items: center; width: 35px; height: 35px; padding: 2px; border: 2px solid #fff; border-radius: 50%; background: #864a96; box-shadow: 0 3px 13px #35264b52; color: #fff; cursor: pointer; white-space: nowrap; }
 .person-route-stop-marker.uncertain { border-style: dashed; border-color: #fff; background: #775093; }
+.person-route-stop-marker.broad { border-style: dashed; border-radius: 10px; background: #736399; }
 .person-route-stop-marker:hover, .person-route-stop-marker:focus-visible, .person-route-stop-marker[aria-pressed="true"] { outline: 2px solid #923b9c; outline-offset: 2px; z-index: 3; }
 .person-route-stop-number { font-size: 10px; font-weight: 900; }
 .person-route-stop-label { position: absolute; top: 50%; left: calc(100% + 4px); transform: translateY(-50%); max-width: 120px; overflow: hidden; padding: 5px 8px; border: 1px solid #e1d8eb; border-radius: 99px; background: #fff; box-shadow: 0 2px 8px #35264b35; color: #292039; font-size: 11px; font-weight: 850; text-overflow: ellipsis; pointer-events: none; }

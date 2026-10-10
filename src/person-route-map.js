@@ -35,6 +35,24 @@ const LANGUAGE_NOTE = {
   fr: 'Les noms des parcours et des lieux restent en anglais, comme dans la source. Les liens bibliques ouvrent le texte coréen.',
   de: 'Routen- und Ortsnamen stehen derzeit wie in der Quelle auf Englisch. Bibellinks öffnen den koreanischen Text.',
 };
+const REGION_COPY = {
+  ko: ['지역 대표점', '넓은 지역의 핀은 범위 전체가 아닌 지도 표시용 대표점입니다.', '선과 거리 비교 대상 아님'],
+  en: ['representative point for a region', 'A region pin is a representative map point, not its full area.', 'not comparable with line distance'],
+  ja: ['地域の代表点', '広い地域のピンは範囲全体ではなく、地図表示用の代表点です。', '線との距離比較対象外'],
+  'zh-CN': ['区域代表点', '大区域的图钉只是地图上的代表点，不表示整个范围。', '不用于与路线比较距离'],
+  es: ['punto representativo de una región', 'El marcador de una región representa un punto, no toda su extensión.', 'no comparable con la distancia al trazado'],
+  th: ['จุดตัวแทนของภูมิภาค', 'หมุดของภูมิภาคเป็นเพียงจุดตัวแทน ไม่ใช่ขอบเขตทั้งหมด', 'ไม่ใช้เปรียบเทียบระยะกับเส้นทาง'],
+  hi: ['क्षेत्र का प्रतिनिधि बिंदु', 'क्षेत्र का पिन केवल प्रतिनिधि स्थान है, उसकी पूरी सीमा नहीं।', 'रेखा से दूरी की तुलना के लिए नहीं'],
+  fr: ['point représentatif d’une région', 'Le repère d’une région est un point indicatif, pas sa superficie entière.', 'distance au tracé non comparable'],
+  de: ['repräsentativer Punkt einer Region', 'Eine Regionsmarkierung zeigt nur einen repräsentativen Punkt, nicht das ganze Gebiet.', 'kein Vergleich mit der Entfernung zur Linie'],
+};
+const DIRECTION_COPY = {
+  ko: ['방향', '쪽으로 이동 · 도착 확인 안 됨'], en: ['toward', 'moving toward · arrival not established'],
+  ja: ['方面', 'その方向へ移動・到着は未確認'], 'zh-CN': ['方向', '朝此方向移动 · 未确认抵达'],
+  es: ['hacia', 'desplazamiento hacia allí · llegada no confirmada'], th: ['มุ่งไปทาง', 'เคลื่อนที่ไปทางนั้น · ไม่ยืนยันว่าไปถึง'],
+  hi: ['की ओर', 'उस दिशा में यात्रा · पहुँचने की पुष्टि नहीं'], fr: ['vers', 'déplacement vers ce lieu · arrivée non attestée'],
+  de: ['Richtung', 'Bewegung in diese Richtung · Ankunft nicht belegt'],
+};
 
 const COPY = {
   ko: { heading: '인물의 경로를 지도에서', intro: 'United Bible Societies의 경로 도형입니다. 본문 장면을 대조한 곳에는 지명과 절을 표시합니다. 선분별 실제 경유지는 확정되지 않았습니다.', noRoute: '이 인물에게 연결할 수 있는 공개 경로 도형이 없습니다. 이동 기록이 없다는 뜻은 아닙니다.', loading: '경로 자료를 불러오는 중입니다.', failed: '경로 자료를 불러오지 못했습니다.', mapFailed: '지도 배경을 불러오지 못했습니다. 아래 원자료 링크를 사용할 수 있습니다.', source: 'UBS 원자료', license: 'Dr. Leen Ritmeyer · UBS · CC BY-SA 4.0', warning: '선은 역사적 실제 도로나 확정 이동 경로가 아닌 편집상 재구성입니다. 출애굽에는 복수의 경로안이 있습니다.' },
@@ -62,6 +80,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
   let map;
   let mapLoaded = false;
   let mapFailed = false;
+  let resizeObserver;
   let markers = [];
   let stops = [];
   root.innerHTML = `<section class="person-route-section"><div class="person-route-heading"><h5 id="person-route-title"></h5><p id="person-route-intro"></p><p id="person-route-language-note" class="person-route-language-note" hidden></p></div><div id="person-route-picks" class="person-route-picks"></div><div id="person-route-current" class="person-route-current" aria-live="polite" hidden></div><div id="person-route-itinerary" class="person-route-itinerary" hidden></div><div id="person-route-map" class="person-route-map" aria-label="Bible route map"></div><div id="person-route-status" class="person-route-status"></div><div id="person-route-stops" class="person-route-stops" hidden><div class="person-route-stops-heading"><strong id="person-route-stops-title"></strong><p id="person-route-stops-intro"></p></div><div id="person-route-stops-list" class="person-route-stops-list"></div></div><div class="person-route-foot"><p id="person-route-warning"></p><a id="person-route-source" target="_blank" rel="noopener noreferrer"></a><a id="person-route-credit" href="https://translation.bible/tools-resources/bible-routes-from-ubs-project-marble/" target="_blank" rel="noopener noreferrer"></a></div></section>`;
@@ -107,13 +126,22 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     const accepted = [];
     const ordered = [...markers].sort((a, b) => Number(b.marker.getElement().getAttribute('aria-pressed') === 'true') - Number(a.marker.getElement().getAttribute('aria-pressed') === 'true'));
     for (const { marker } of ordered) {
-      const label = marker.getElement().querySelector('.person-route-stop-label');
+      const element = marker.getElement();
+      const label = element.querySelector('.person-route-stop-label');
       label.hidden = false;
-      const box = label.getBoundingClientRect();
-      const outside = box.left < mapBox.left + 4 || box.right > mapBox.right - 4 || box.top < mapBox.top + 4 || box.bottom > mapBox.bottom - 4;
-      const overlap = accepted.some((other) => box.left < other.right + 4 && box.right + 4 > other.left && box.top < other.bottom + 4 && box.bottom + 4 > other.top);
-      if (outside || overlap) label.hidden = true;
-      else accepted.push(box);
+      const preferredLeft = element.dataset.preferredLabelSide === 'left';
+      let placed = false;
+      for (const left of [preferredLeft, !preferredLeft]) {
+        element.classList.toggle('label-left', left);
+        const box = label.getBoundingClientRect();
+        const outside = box.left < mapBox.left + 4 || box.right > mapBox.right - 4 || box.top < mapBox.top + 4 || box.bottom > mapBox.bottom - 4;
+        const overlap = accepted.some((other) => box.left < other.right + 4 && box.right + 4 > other.left && box.top < other.bottom + 4 && box.bottom + 4 > other.top);
+        if (outside || overlap) continue;
+        accepted.push(box);
+        placed = true;
+        break;
+      }
+      label.hidden = !placed;
     }
   }
 
@@ -132,8 +160,10 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
       placedLabels.push({ coordinate: stop.place.coordinate, side: labelSide });
       const element = document.createElement('button');
       element.type = 'button';
-      element.className = `person-route-stop-marker${labelSide === 'left' ? ' label-left' : ''}${stop.place.candidateCount > 1 ? ' uncertain' : ''}`;
-      element.setAttribute('aria-label', `${indices.map((index) => stops[index].order).join(', ')} · ${placeName(stop.place)}`);
+      const broad = stop.broad || stop.place.type === 'region';
+      element.className = `person-route-stop-marker${labelSide === 'left' ? ' label-left' : ''}${stop.place.candidateCount > 1 ? ' uncertain' : ''}${broad ? ' broad' : ''}`;
+      element.dataset.preferredLabelSide = labelSide;
+      element.setAttribute('aria-label', `${indices.map((index) => stops[index].order).join(', ')} · ${placeName(stop.place)}${stop.movementRole === 'toward' ? ` · ${(DIRECTION_COPY[getLocale()] || DIRECTION_COPY.en)[1]}` : ''}${broad ? ` · ${(REGION_COPY[getLocale()] || REGION_COPY.en)[0]}` : ''}`);
       const number = document.createElement('span');
       number.className = 'person-route-stop-number';
       number.textContent = indices.map((index) => stops[index].order).join('·');
@@ -158,7 +188,8 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     for (const line of route.lines) for (const coordinate of line) bounds.extend(coordinate);
     for (const stop of stops) if (stop.place.coordinate) bounds.extend(stop.place.coordinate);
     map.resize();
-    map.fitBounds(bounds, { padding: 42, maxZoom: 9, duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450 });
+    const padding = mapElement.clientWidth < 500 ? 82 : 42;
+    map.fitBounds(bounds, { padding, maxZoom: 9, duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450 });
   }
 
   function setupMap() {
@@ -166,6 +197,16 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     const lib = getMaplibre();
     try {
       map = new lib.Map({ container: mapElement, style: 'https://tiles.openfreemap.org/styles/positron', center: [34, 33], zoom: 4, attributionControl: true });
+      if (!resizeObserver && typeof ResizeObserver !== 'undefined') {
+        let lastWidth = mapElement.clientWidth;
+        resizeObserver = new ResizeObserver(() => {
+          const width = mapElement.clientWidth;
+          if (!mapLoaded || !width || width === lastWidth) return;
+          lastWidth = width;
+          requestAnimationFrame(updateMap);
+        });
+        resizeObserver.observe(mapElement);
+      }
       map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right');
       map.on('load', () => {
         map.addSource('person-route', { type: 'geojson', data: routeGeoJson(currentRoute()) });
@@ -214,14 +255,18 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
     const stopsSection = root.querySelector('#person-route-stops');
     stopsSection.hidden = !route;
     root.querySelector('#person-route-stops-title').textContent = `${stopCopy[0]} · ${stops.length}`;
-    root.querySelector('#person-route-stops-intro').textContent = stops.length ? stopCopy[1] : stopCopy[6];
+    const regionCopy = REGION_COPY[locale] || REGION_COPY.en;
+    root.querySelector('#person-route-stops-intro').textContent = stops.length ? `${stopCopy[1]}${stops.some((stop) => stop.broad || stop.place.type === 'region') ? ` ${regionCopy[1]}` : ''}` : stopCopy[6];
     const itinerary = root.querySelector('#person-route-itinerary');
     itinerary.hidden = !route;
-    itinerary.innerHTML = stops.length ? `<strong>${escapeHtml(ITINERARY_COPY[locale] || ITINERARY_COPY.en)}</strong><div>${stops.map((stop, index) => `<button type="button" data-route-stop="${index}">${stop.order}. ${escapeHtml(placeName(stop.place))} · ${escapeHtml(localizedBookName(stop.code, locale))} ${stop.chapter}:${stop.verse}</button>`).join('')}</div>` : `<strong>${escapeHtml(routeStatus[1])}</strong><p>${escapeHtml(stopCopy[6])}</p>`;
+    itinerary.innerHTML = stops.length ? `<strong>${escapeHtml(ITINERARY_COPY[locale] || ITINERARY_COPY.en)}</strong><div>${stops.map((stop, index) => `<button type="button" data-route-stop="${index}">${stop.order}. ${escapeHtml(placeName(stop.place))}${stop.movementRole === 'toward' ? ` · ${escapeHtml((DIRECTION_COPY[locale] || DIRECTION_COPY.en)[0])}` : ''} · ${escapeHtml(localizedBookName(stop.code, locale))} ${stop.chapter}:${stop.verse}</button>`).join('')}</div>` : `<strong>${escapeHtml(routeStatus[1])}</strong><p>${escapeHtml(stopCopy[6])}</p>`;
     root.querySelector('#person-route-stops-list').innerHTML = stops.length ? stops.map((stop, index) => {
       const reference = `${localizedBookName(stop.code, locale)} ${stop.chapter}:${stop.verse}`;
       const uncertainty = stop.place.candidateCount > 1 ? ` · ${stop.place.candidateCount} ${locale === 'ko' ? '위치 후보' : 'location candidates'}` : '';
-      return `<div class="person-route-stop-card"><button type="button" data-route-stop="${index}" aria-pressed="false"><span class="person-route-stop-card-number">${stop.order}</span><span><strong>${escapeHtml(placeName(stop.place))}</strong><small>${escapeHtml(stop.place.name)}${escapeHtml(uncertainty)} · ${escapeHtml(stopCopy[3])} ${stop.distanceKm.toFixed(1)} ${escapeHtml(stopCopy[4])}</small></span></button><span class="person-route-stop-evidence">${escapeHtml(stopCopy[2])} · ${escapeHtml(reference)}</span><a href="${bibleReadingUrl(stop.code, stop.chapter, stop.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(stopCopy[5])} ↗</a></div>`;
+      const broad = stop.broad || stop.place.type === 'region';
+      const positionDetail = broad ? `${regionCopy[0]} · ${regionCopy[2]}` : `${stopCopy[3]} ${stop.distanceKm.toFixed(1)} ${stopCopy[4]}`;
+      const direction = stop.movementRole === 'toward' ? ` · ${(DIRECTION_COPY[locale] || DIRECTION_COPY.en)[1]}` : '';
+      return `<div class="person-route-stop-card"><button type="button" data-route-stop="${index}" aria-pressed="false"><span class="person-route-stop-card-number">${stop.order}</span><span><strong>${escapeHtml(placeName(stop.place))}</strong><small>${escapeHtml(stop.place.name)}${escapeHtml(direction)}${escapeHtml(uncertainty)} · ${escapeHtml(positionDetail)}</small></span></button><span class="person-route-stop-evidence">${escapeHtml(stopCopy[2])} · ${escapeHtml(reference)}</span><a href="${bibleReadingUrl(stop.code, stop.chapter, stop.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(stopCopy[5])} ↗</a></div>`;
     }).join('') : '';
     mapElement.hidden = !route;
     root.querySelector('#person-route-status').textContent = error ? copy.failed : !data ? copy.loading : !route ? copy.noRoute : '';

@@ -5,7 +5,7 @@ const atlas = JSON.parse(readFileSync(new URL('../public/data/openbible-places.j
 const people = JSON.parse(readFileSync(new URL('../public/data/people-index.json', import.meta.url), 'utf8'));
 const source = JSON.parse(readFileSync(new URL('../public/data/ubs-person-routes.json', import.meta.url), 'utf8'));
 const knownPeople = new Set(people.people.map((person) => person.id));
-const expectedPerson = { '031': 'joseph_1710', '076': 'hannah_1400', '153': 'joseph_1715', '202': 'paul_2479', '203': 'paul_2479', '204': 'paul_2479' };
+const expectedPerson = { '001': 'abraham_58', '003': 'abraham_58', '004': 'abraham_58', '031': 'joseph_1710', '040': 'moses_2108', '076': 'hannah_1400', '153': 'joseph_1715', '202': 'paul_2479', '203': 'paul_2479', '204': 'paul_2479' };
 const errors = [];
 const rows = source.routes.map((route) => {
   const scenes = passageScenesForRoute(route, atlas.places);
