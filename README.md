@@ -27,14 +27,14 @@ npm start
 - 각 지명 카드에서 현재 본문의 절을 개역개정 읽기 페이지로 연결하고, 성경 전체 색인에서 해당 지명이 등장하는 모든 절을 책별로 펼쳐 확인
 - 직접 연결된 지명이 없는 절에는 빈 지도 안내를 표시하고, 같은 장의 참고 지명은 별도 버튼으로 탐색
 - 위치 후보가 여러 곳이면 모든 좌표·현대 지명·원자료 점수·판정 기록 수를 비교하고, 후보를 누르면 지도가 해당 지점으로 이동합니다. 점수는 확률이 아닙니다.
-- **여행 이야기**: 첫 화면의 「여행 이야기 따라가기」에서 [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV)의 아브라함 여정 7장면과 [사도행전 13–14장](https://www.biblegateway.com/passage/?search=Acts+13-14&version=KJV)의 바울 첫 선교 여행 11장면을 본문 순서대로 탐색합니다. 지도 번호·장면 설명·현대 지역 사진·성경 읽기·현재 본문 지도 바로가기를 연결했습니다. `?journey=paul&step=3`처럼 장면 링크를 공유할 수 있습니다. 지도 점선은 장소가 나오는 순서만 이어 주며 실제 이동 경로나 거리가 아닙니다. 애굽·네겝 같은 넓은 지역은 대표 핀으로 표시하고, 정확한 경로를 그리지 않습니다. 여정과 화면 문구는 9개 언어의 정적 번역으로 제공하며 AI 기능은 사용하지 않습니다.
+- **성경여행**: 상단의 별도 메뉴에서 인물·여정을 검색하거나 분과별로 고릅니다. 현재 공개된 7개 여정은 예수님의 탄생·성장과 갈릴리에서 예루살렘까지, 바울의 1·2·3차 선교 여행, 아브라함, 모세의 주요 장면입니다. 총 69장면을 본문 순서대로 탐색하고, 지도 번호·장절·성경 읽기·본문 지도로 돌아가기를 연결했습니다. `?view=journeys&journey=paul-2&step=3`처럼 장면 링크를 공유할 수 있습니다. 점선은 이야기 순서만 연결하며 실제 도로나 거리가 아닙니다. 출애굽 여정에는 위치·경로 논쟁을 고려해 이동선을 그리지 않습니다. 한국어·영어 장면 설명을 제공하고, 나머지 7개 언어에서는 번역된 행동별 간략 설명을 보여줍니다. 화면 메뉴와 여정 제목은 9개 언어로 제공하며 AI 기능은 사용하지 않습니다. [확장 기획](JOURNEY_CATALOG_PLAN.md)에 따라 다른 인물은 본문 근거를 검수한 뒤 추가합니다.
 - 이용 조건이 확인된 현재 지역 사진을 지명 카드에 표시하고 저작자·원본·라이선스 링크 제공
 - 일부 주요 지명의 한글 이름 제공; 나머지는 원자료 영문 이름으로 표시
 - 본문별 설교 메모를 해당 브라우저에 자동 저장, 저장된 본문 목록에서 다시 열기
 - 현재 메모 Markdown 파일 저장, 전체 메모 JSON 백업·불러오기(기존 메모는 덮어쓰지 않음)
 - 인쇄용 레이아웃
 
-현재 버전은 지명 연구의 출발점입니다. **AI 기능은 제공하지 않습니다.** 인물·연표와 자동 해설도 포함하지 않았습니다. 원자료가 열 가지 영어 역본의 지명 언급을 합친 것이므로 한국어 본문과 표기가 다를 수 있습니다. 한 역본에만 나타나는 이름을 줄이기 위해 다섯 역본 이상에서 확인된 언급만 색인에 넣었습니다. 위치가 여러 후보로 제시된 경우 지도에는 원자료 점수가 가장 높은 후보의 대표 좌표 하나를 표시합니다. 이는 확정 위치를 뜻하지 않습니다.
+현재 버전은 지명 연구의 출발점입니다. **AI 기능은 제공하지 않습니다.** 여행 장면은 수작업으로 정리했으며 자동 인물 연표나 자동 해설은 제공하지 않습니다. 원자료가 열 가지 영어 역본의 지명 언급을 합친 것이므로 한국어 본문과 표기가 다를 수 있습니다. 한 역본에만 나타나는 이름을 줄이기 위해 다섯 역본 이상에서 확인된 언급만 색인에 넣었습니다. 위치가 여러 후보로 제시된 경우 지도에는 원자료 점수가 가장 높은 후보의 대표 좌표 하나를 표시합니다. 이는 확정 위치를 뜻하지 않습니다.
 
 Theographic 사건 색인은 일부 본문을 지나치게 넓은 한 사건으로 묶습니다(예: 열왕기하 4장을 포함하는 `Prophecies of Elisha`). 따라서 사건 제목·연대·인물 관계를 자동 병합하지 않았습니다. 본문과 지명의 관계는 현재 직접 연결된 절을 기준으로 보여 주며, 사건 해설은 본문별 검토를 거쳐야 합니다.
 
@@ -63,7 +63,7 @@ Theographic 사건 색인은 일부 본문을 지나치게 넓은 한 사건으�
 - 다국어 성경 책 이름·검색 별칭: [OpenBible.info Bible-Passage-Reference-Parser-Languages](https://github.com/openbibleinfo/Bible-Passage-Reference-Parser-Languages)의 언어별 자료를 `scripts/build_book_names.py`로 `src/book-names.js`에 담았습니다. 원자료 라이선스는 MIT입니다.
 - 화면 번역: `src/i18n-source.json`의 한국어·영어 문구를 바탕으로 빌드 시 번역 초안을 생성해 `src/i18n.js`에 저장했고, 주요 표현은 `src/i18n-overrides.js`에서 수정했습니다. 앱 실행 중 외부 번역 서비스를 호출하지 않습니다.
 - 성경 본문 전체 텍스트는 앱에 포함하지 않습니다. 대한성서공회 성경 읽기 링크를 제공합니다.
-- 여행 이야기의 순서와 한 문장 요약은 KJV [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV), [사도행전 13–14장](https://www.biblegateway.com/passage/?search=Acts+13-14&version=KJV)을 확인해 수작업으로 정리했습니다. 각 장면의 위치와 구절은 위 OpenBible.info 고정 판본의 지명 색인에서 검증합니다. 지명의 실제 위치는 추정일 수 있습니다.
+- 성경여행의 순서와 한 문장 요약은 [창세기 12–13장](https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV), [출애굽기](https://www.biblegateway.com/passage/?search=Exodus&version=KJV), [민수기](https://www.biblegateway.com/passage/?search=Numbers&version=KJV), [신명기 34장](https://www.biblegateway.com/passage/?search=Deuteronomy+34&version=KJV), [마가복음](https://www.biblegateway.com/passage/?search=Mark&version=KJV), [누가복음 2장](https://www.biblegateway.com/passage/?search=Luke+2&version=KJV), [사도행전 13–21장](https://www.biblegateway.com/passage/?search=Acts+13-21&version=KJV)을 바탕으로 수작업으로 정리했습니다. 각 장면의 지명 ID와 구절은 위 OpenBible.info 고정 판본의 색인에서 검증합니다. 지명의 실제 위치는 추정일 수 있습니다.
 - 성경 절 링크는 대한성서공회 [개역개정 성경읽기](https://www.bskorea.or.kr/bible/korbibReadpage.php?book=gen&chap=12&sec=5&version=GAE)의 장·절 주소로 연결합니다. OpenBible.info의 영어 역본 기반 지명 색인을 역으로 모아 보여주므로 한국어 본문의 지명 표기와 다를 수 있습니다.
 
 원자료를 새로 받아 색인을 갱신하려면 다음 명령을 사용합니다.

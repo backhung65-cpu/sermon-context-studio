@@ -1,19 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { JOURNEYS, JOURNEY_MESSAGES } from './journeys.js';
+import { JOURNEYS, JOURNEY_CATEGORIES, JOURNEY_MESSAGES } from './journeys.js';
 
 const atlas = JSON.parse(readFileSync(new URL('../public/data/openbible-places.json', import.meta.url), 'utf8'));
 
 test('every journey scene is backed by the pinned place and verse index', () => {
+  assert.equal(new Set(JOURNEYS.map((journey) => journey.id)).size, JOURNEYS.length);
+  assert.deepEqual(JOURNEYS.filter((journey) => journey.category === 'paul').map((journey) => journey.id), ['paul', 'paul-2', 'paul-3']);
   for (const journey of JOURNEYS) {
     assert.ok(journey.steps.length >= 5);
+    assert.ok(JOURNEY_CATEGORIES.includes(journey.category));
     for (const step of journey.steps) {
       const index = atlas.places.findIndex((place) => place.id === step.placeId);
       assert.ok(index >= 0, `${journey.id}: missing place ${step.placeId}`);
       assert.ok(atlas.places[index].coordinate, `${journey.id}: missing coordinate`);
-      const versePlaces = atlas.index[`${journey.code} ${step.chapter}`]?.[step.verse] || [];
-      assert.ok(versePlaces.includes(index), `${journey.id}: ${journey.code} ${step.chapter}:${step.verse} does not name ${atlas.places[index].name}`);
+      const code = step.code || journey.code;
+      const versePlaces = atlas.index[`${code} ${step.chapter}`]?.[step.verse] || [];
+      assert.ok(versePlaces.includes(index), `${journey.id}: ${code} ${step.chapter}:${step.verse} does not name ${atlas.places[index].name}`);
     }
   }
 });
@@ -23,9 +27,19 @@ test('all interface languages have a scene description for every waypoint', () =
   for (const [locale, messages] of Object.entries(JOURNEY_MESSAGES)) {
     assert.deepEqual(Object.keys(messages).sort(), required, `${locale}: missing journey message`);
     for (const journey of JOURNEYS) {
-      assert.equal(messages[`${journey.id}Events`]?.length, journey.steps.length, `${locale}: ${journey.id} scene count`);
-      for (const line of messages[`${journey.id}Events`]) assert.ok(line.trim(), `${locale}: empty story scene`);
-      assert.ok(messages[journey.id] && messages[`${journey.id}Intro`], `${locale}: missing journey name`);
+      if (journey.title) {
+        assert.ok(journey.title[locale]?.trim(), `${locale}: missing ${journey.id} title`);
+        assert.ok(journey.intro.ko?.trim() && journey.intro.en?.trim());
+        for (const step of journey.steps) {
+          assert.ok(step.story.ko?.trim() && step.story.en?.trim(), `${journey.id}: missing story`);
+          const actionKey = `action${step.action[0].toUpperCase()}${step.action.slice(1)}`;
+          assert.ok(messages[actionKey]?.trim(), `${locale}: missing ${actionKey}`);
+        }
+      } else {
+        assert.equal(messages[`${journey.id}Events`]?.length, journey.steps.length, `${locale}: ${journey.id} scene count`);
+        for (const line of messages[`${journey.id}Events`]) assert.ok(line.trim(), `${locale}: empty story scene`);
+        assert.ok(messages[journey.id] && messages[`${journey.id}Intro`], `${locale}: missing journey name`);
+      }
     }
   }
 });

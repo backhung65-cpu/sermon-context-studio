@@ -1,8 +1,12 @@
+import { ADDITIONAL_JOURNEYS, CATALOG_MESSAGES, JOURNEY_CATEGORIES, JOURNEY_SEARCH_MESSAGES } from './journey-expansion.js';
+
+export { JOURNEY_CATEGORIES };
+
 // Each waypoint is tied to a place and verse in the pinned OpenBible.info index.
 // Repeated places remain separate scenes because the passage returns to them.
 export const JOURNEYS = [
   {
-    id: 'abraham', code: 'GEN', chapterRange: '12–13',
+    id: 'abraham', category: 'patriarch', code: 'GEN', chapterRange: '12–13',
     source: 'https://www.biblegateway.com/passage/?search=Genesis+12-13&version=KJV',
     steps: [
       { placeId: 'a6d9af3', chapter: 12, verse: 4 }, // Haran
@@ -15,7 +19,7 @@ export const JOURNEYS = [
     ],
   },
   {
-    id: 'paul', code: 'ACT', chapterRange: '13–14',
+    id: 'paul', category: 'paul', code: 'ACT', chapterRange: '13–14',
     source: 'https://www.biblegateway.com/passage/?search=Acts+13-14&version=KJV',
     steps: [
       { placeId: 'ae41ab4', chapter: 13, verse: 1 }, // Syrian Antioch
@@ -31,6 +35,7 @@ export const JOURNEYS = [
       { placeId: 'ae41ab4', chapter: 14, verse: 26, endVerse: 27 }, // return
     ],
   },
+  ...ADDITIONAL_JOURNEYS,
 ];
 
 export const JOURNEY_MESSAGES = {
@@ -127,6 +132,10 @@ export const JOURNEY_MESSAGES = {
     paulEvents: ['Die Gemeinde in Antiochia sendet Barnabas und Saulus aus.', 'Sie fahren von Seleuzia nach Zypern.', 'Sie sprechen in den Synagogen von Salamis.', 'Sie durchqueren die Insel bis Paphos.', 'Sie fahren von Paphos nach Perge.', 'Sie sprechen in der Synagoge von Antiochia in Pisidien.', 'Sie ziehen weiter nach Ikonion.', 'Wegen Widerstands fliehen sie nach Lystra.', 'In Derbe verkünden sie das Evangelium und gewinnen Jünger.', 'Über Perge gelangen sie zum Hafen Attalia.', 'Sie kehren nach Antiochia zurück und berichten der Gemeinde.'],
   },
 };
+
+for (const [locale, messages] of Object.entries(CATALOG_MESSAGES)) {
+  Object.assign(JOURNEY_MESSAGES[locale], messages, JOURNEY_SEARCH_MESSAGES[locale]);
+}
 
 export function journeyMessage(locale, key, vars = {}) {
   const text = JOURNEY_MESSAGES[locale]?.[key] ?? JOURNEY_MESSAGES.en[key];
