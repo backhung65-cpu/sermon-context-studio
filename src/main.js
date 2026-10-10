@@ -26,7 +26,7 @@ const KOREAN_PLACES = {
   'Cyprus': '구브로', 'Paphos': '바보', 'Salamis': '살라미',
   'Asia': '아시아', 'Galatia': '갈라디아', 'Greece': '헬라',
   'Phrygia': '브루기아', 'Samothrace': '사모드라게', 'Thyatira': '두아디라',
-  'Haran': '하란', 'Ur': '우르', 'Canaan': '가나안', 'Shechem': '세겜',
+  'Haran': '하란', 'Ur': '우르', 'Canaan': '가나안', 'Shechem': '세겜', 'Dothan': '도단',
   'Bethel': '벧엘', 'Ai': '아이', 'Hebron': '헤브론', 'Beersheba': '브엘세바',
   'Gaza': '가사', 'Tyre': '두로', 'Sidon': '시돈', 'Bethany 1': '베다니',
   'Bethsaida 1': '벳새다', 'Sea of Galilee': '갈릴리 바다', 'Dead Sea': '사해',
@@ -115,8 +115,6 @@ app.innerHTML = `
       <div class="shell">
         <div class="section-topline"></div>
         <div class="journey-heading"><div><div id="journey-eyebrow" class="section-kicker">본문을 따라 걷는 지도</div><h2 id="journey-title">여행 이야기</h2><p id="journey-intro">지명이 나오는 순서대로 장면을 넘기며, 본문과 지도 근거를 함께 살펴보세요.</p></div></div>
-        <div id="person-explorer" class="person-explorer"></div>
-        <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 검수 여정 보기 ↗</button>
         <div class="journey-catalog-heading"><div><h3 id="journey-catalog-title"></h3><p id="journey-catalog-intro"></p></div><span id="journey-catalog-count"></span></div>
         <input id="journey-search" class="journey-search" type="search" autocomplete="off" />
         <div id="journey-filters" class="journey-filters" role="group"></div>
@@ -128,6 +126,8 @@ app.innerHTML = `
           <div class="journey-story"><div class="journey-story-top"><span id="journey-scene-count"></span><span id="journey-step-reference"></span></div><div id="journey-current" class="journey-current" aria-live="polite"></div><div class="journey-controls"><button id="journey-prev" type="button"></button><button id="journey-next" type="button"></button></div><div id="journey-timeline" class="journey-timeline" aria-label="Journey scenes"></div></div>
         </div>
         <a class="journey-data-credit" href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info · CC BY 4.0 ↗</a>
+        <div id="person-explorer" class="person-explorer"></div>
+        <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 본문 연결 여정 보기 ↗</button>
       </div>
     </section>
 
@@ -414,6 +414,7 @@ window.addEventListener('popstate', () => {
   }
   currentView = params.get('view') === 'journeys' || journey ? 'journeys' : 'places';
   applyView();
+  if (currentView === 'places') syncReferenceFromAddress();
 });
 
 function journeyName(journey) {
@@ -433,6 +434,18 @@ function stepStory(journey, step, index) {
   if (step.story) return step.story[locale] || (locale === 'en' ? step.story.en : journeyMessage(locale, `action${step.action[0].toUpperCase()}${step.action.slice(1)}`));
   return journeyMessage(locale, `${journey.id}Events`)?.[index] || journeyMessage(locale, 'storyFallback');
 }
+
+const CANDIDATE_COPY = {
+  ko: (count) => `위치 후보 ${count}곳 · 지도 핀은 대표 후보입니다.`,
+  en: (count) => `${count} location candidates · the map pin shows one proposal.`,
+  ja: (count) => `位置候補 ${count}か所 · 地図の印は代表候補です。`,
+  'zh-CN': (count) => `${count}个位置候选 · 地图标记仅代表其中一种提案。`,
+  es: (count) => `${count} ubicaciones posibles · el marcador muestra una propuesta.`,
+  th: (count) => `มีตำแหน่งที่เป็นไปได้ ${count} แห่ง · หมุดแสดงหนึ่งข้อเสนอ`,
+  hi: (count) => `${count} संभावित स्थान · मानचित्र का चिह्न एक प्रस्ताव दिखाता है।`,
+  fr: (count) => `${count} emplacements proposés · le repère n'en montre qu'un.`,
+  de: (count) => `${count} mögliche Orte · die Markierung zeigt einen Vorschlag.`,
+};
 
 function journeyRange(journey) {
   const first = journey.steps[0];
@@ -502,6 +515,7 @@ function renderJourney() {
   document.querySelector('#journey-step-reference').textContent = journeyReference(step);
   document.querySelector('#journey-current').innerHTML = `<div class="journey-current-heading"><span>${escapeHtml(scene)}</span><h3>${escapeHtml(name)}</h3><p>${escapeHtml(story)}</p></div>
     ${step.broad ? `<p class="journey-broad">${escapeHtml(j('broad'))}</p>` : ''}
+    ${place.candidateCount > 1 ? `<p class="journey-broad journey-uncertain">${escapeHtml((CANDIDATE_COPY[locale] || CANDIDATE_COPY.en)(place.candidateCount))}</p>` : ''}
     ${photo ? `<figure class="journey-photo"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><figcaption>${escapeHtml(j('photo'))} · <a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></figcaption></figure>` : ''}
     <div class="journey-links"><a href="${bibleReadingUrl(stepCode(currentJourney, step), step.chapter, step.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('read'))} ↗</a><button type="button" data-journey-open-place>${escapeHtml(j('place'))} ↗</button>${currentJourney.source ? `<a class="journey-source-link" href="${escapeHtml(currentJourney.source)}" target="_blank" rel="noopener noreferrer">${escapeHtml(j('source'))} · KJV ↗</a>` : ''}</div>`;
   document.querySelector('#journey-timeline').innerHTML = currentJourney.steps.map((item, index) => {
@@ -1213,6 +1227,18 @@ function search() {
   history.replaceState(null, '', url);
 }
 
+function syncReferenceFromAddress() {
+  if (!data || currentView !== 'places') return;
+  let requested;
+  try { requested = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : EXAMPLES[0]; }
+  catch { return; }
+  if (requested === input.value && currentReference) return;
+  input.value = requested;
+  search();
+}
+
+window.addEventListener('hashchange', syncReferenceFromAddress);
+
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   search();
@@ -1313,6 +1339,7 @@ function updateJourneyMap(fit = false) {
   for (const marker of journeyMarkers) marker.remove();
   journeyMarkers = [];
   const groups = new Map();
+  const placedLabels = [];
   currentJourney.steps.forEach((step, index) => {
     const group = groups.get(step.placeId) || [];
     group.push(index);
@@ -1321,12 +1348,24 @@ function updateJourneyMap(fit = false) {
   for (const [placeId, indices] of groups) {
     const place = data.places.find((item) => item.id === placeId);
     if (!place?.coordinate) continue;
+    const [lng, lat] = place.coordinate;
+    const nearby = placedLabels.filter(({ coordinate }) => Math.hypot((lng - coordinate[0]) * 111.2 * Math.cos(lat * Math.PI / 180), (lat - coordinate[1]) * 111.2) < 22);
+    const labelSide = nearby.length && nearby.at(-1).side === 'right' ? 'left' : 'right';
+    placedLabels.push({ coordinate: place.coordinate, side: labelSide });
     const element = document.createElement('button');
     element.type = 'button';
     element.className = 'journey-marker';
+    element.classList.toggle('label-left', labelSide === 'left');
     element.classList.toggle('active', indices.includes(journeyStepIndex));
     element.classList.toggle('broad', currentJourney.steps[indices[0]].broad === true);
-    element.textContent = indices.map((index) => index + 1).join('·');
+    element.classList.toggle('uncertain', place.candidateCount > 1);
+    const number = document.createElement('span');
+    number.className = 'journey-marker-number';
+    number.textContent = indices.length > 1 ? `${indices[0] + 1}+` : String(indices[0] + 1);
+    const label = document.createElement('span');
+    label.className = 'journey-marker-label';
+    label.textContent = displayName(place);
+    element.append(number, label);
     element.setAttribute('aria-label', `${displayName(place)} · ${indices.map((index) => index + 1).join(', ')}`);
     element.addEventListener('click', () => selectJourneyStep(indices.find((index) => index > journeyStepIndex) ?? indices[0]));
     journeyMarkers.push(new maplibre.Marker({ element, anchor: 'bottom' }).setLngLat(place.coordinate).addTo(journeyMap));

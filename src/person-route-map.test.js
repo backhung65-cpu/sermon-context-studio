@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { routeGeoJson } from './person-route-map.js';
-import { nearbyBiblicalSettlements, distanceToRouteKm, routePassageScope } from './route-stop-candidates.js';
+import { passageScenesForRoute, PASSAGE_SCENE_ROUTE_IDS } from './route-passage-scenes.js';
 
 const routes = JSON.parse(readFileSync(new URL('../public/data/ubs-person-routes.json', import.meta.url), 'utf8'));
 const people = JSON.parse(readFileSync(new URL('../public/data/people-index.json', import.meta.url), 'utf8'));
-const places = JSON.parse(readFileSync(new URL('../public/data/openbible-places.json', import.meta.url), 'utf8')).places;
+const atlas = JSON.parse(readFileSync(new URL('../public/data/openbible-places.json', import.meta.url), 'utf8'));
+const places = atlas.places;
 
 test('UBS route drawings are validated and linked only to known distinct person IDs', () => {
   const personIds = new Set(people.people.map((person) => person.id));
@@ -42,43 +43,35 @@ test('clearly different names are not merged into one Bible person', () => {
   assert.ok(byPerson('jesus_905').length >= 20);
   assert.ok(byPerson('paul_2479').length >= 9);
   assert.equal(routes.routes.find((route) => route.id === '153').sourceFile, '153. Nazareth to Bethlehem.geojson');
+  assert.deepEqual(routes.routes.find((route) => route.id === '153').people, ['mary_1938', 'joseph_1715']);
   assert.equal(routes.routes.filter((route) => route.code === '199b').length, 2);
   assert.ok(!routes.routes.some((route) => route.id === '061'));
 });
 
-test('David route shows distinct named towns with same-verse evidence, not just a line', () => {
-  const route = routes.routes.find((item) => item.id === '086');
-  const person = people.people.find((item) => item.id === 'david_994');
-  const stops = nearbyBiblicalSettlements(route, person, places, { codes: people.codes });
-  assert.ok(stops.length >= 6);
-  for (const name of ['Nob', 'Gibeah 1', 'Hebron', 'Ziph 1', 'Gath 1']) {
-    assert.ok(stops.some((stop) => stop.place.name === name), `${name} missing`);
-  }
-  for (const stop of stops) {
-    assert.equal(stop.place.type, 'settlement');
-    assert.ok(stop.distanceKm <= 8);
-    assert.ok(stop.references.some((row) => row[3].includes(stop.placeIndex)));
-    assert.ok(stop.references.every((row) => people.codes[row[0]] === '1SA' && row[1] >= 19 && row[1] <= 30));
-  }
-  for (let i = 0; i < stops.length; i++) for (let j = i + 1; j < stops.length; j++) {
-    assert.ok(distanceToRouteKm(stops[i].place.coordinate, [[stops[j].place.coordinate, stops[j].place.coordinate]]) >= 1);
-  }
+test('Nazareth to Bethlehem shows only places in the family travel passage', () => {
+  const scenes = passageScenesForRoute(routes.routes.find((route) => route.id === '153'), places);
+  assert.deepEqual(scenes.map(({ place }) => place.name), ['Nazareth', 'Bethlehem 1']);
+  assert.ok(scenes.every(({ code, chapter, verse }) => code === 'LUK' && chapter === 2 && verse === 4));
+  assert.ok(!scenes.some(({ place }) => ['Bethany 1', 'Jericho 2'].includes(place.name)));
 });
 
-test('all linked route maps only expose nearby settlements with person references', () => {
-  const byId = new Map(people.people.map((person) => [person.id, person]));
-  let routesWithCities = 0;
-  for (const route of routes.routes) for (const personId of route.people) {
-    const stops = nearbyBiblicalSettlements(route, byId.get(personId), places, { codes: people.codes });
-    if (stops.length) routesWithCities++;
-    assert.ok(stops.length <= 12);
-    for (const stop of stops) {
-      assert.ok(stop.distanceKm <= 8, `${route.id} / ${stop.place.name}`);
-      assert.ok(stop.references.length, `${route.id} / ${stop.place.name}`);
-      assert.equal(stop.place.type, 'settlement');
+test('Joseph to Dothan retains the biblical destination despite a coordinate disagreement', () => {
+  const scenes = passageScenesForRoute(routes.routes.find((route) => route.id === '031'), places);
+  assert.deepEqual(scenes.map(({ place }) => place.name), ['Shechem', 'Dothan']);
+  assert.deepEqual(scenes.map(({ verse }) => verse), [14, 17]);
+  assert.ok(scenes[1].distanceKm > 20, 'the map must not hide the source discrepancy');
+});
+
+test('only route-specific scenes have map markers and each one names its exact verse', () => {
+  assert.equal(new Set(PASSAGE_SCENE_ROUTE_IDS).size, 5);
+  for (const route of routes.routes) {
+    const scenes = passageScenesForRoute(route, places);
+    assert.equal(scenes.length > 0, PASSAGE_SCENE_ROUTE_IDS.includes(route.id), route.id);
+    for (const scene of scenes) {
+      assert.ok(atlas.index[`${scene.code} ${scene.chapter}`]?.[scene.verse]?.includes(scene.placeIndex),
+        `${route.id}: ${scene.place.name} absent from ${scene.code} ${scene.chapter}:${scene.verse}`);
+      assert.ok(Number.isFinite(scene.distanceKm), `${route.id}: missing source distance`);
     }
   }
-  assert.equal(routesWithCities, 92);
-  assert.deepEqual(routePassageScope(routes.routes.find((route) => route.id === '155')).books, ['JON']);
-  assert.deepEqual(routePassageScope(routes.routes.find((route) => route.id === '155a')).books, ['MAT', 'MRK', 'LUK', 'JHN']);
+  assert.equal(passageScenesForRoute(routes.routes.find((route) => route.id === '086'), places).length, 0);
 });

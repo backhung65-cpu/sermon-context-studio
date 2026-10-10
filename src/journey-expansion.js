@@ -97,15 +97,15 @@ export const ADDITIONAL_JOURNEYS = [
 export const JOURNEY_CATEGORIES = ['all', 'jesus', 'paul', 'patriarch', 'exodus'];
 
 export const JOURNEY_SEARCH_MESSAGES = {
-  ko: { catalogTitle: '본문으로 검수한 여정', searchJourneys: '검수된 여정 검색', noJourneyResults: '일치하는 공개 여정이 없습니다.' },
-  en: { catalogTitle: 'Reviewed journeys', searchJourneys: 'Search reviewed journeys', noJourneyResults: 'No published journey matches.' },
-  ja: { catalogTitle: '本文で検証した旅', searchJourneys: '検証済みの旅を検索', noJourneyResults: '一致する公開済みの旅はありません。' },
-  'zh-CN': { catalogTitle: '经文核查的旅程', searchJourneys: '搜索已核查旅程', noJourneyResults: '没有匹配的已发布旅程。' },
-  es: { catalogTitle: 'Viajes revisados', searchJourneys: 'Buscar viajes revisados', noJourneyResults: 'No hay viajes publicados que coincidan.' },
-  th: { catalogTitle: 'การเดินทางที่ตรวจสอบแล้ว', searchJourneys: 'ค้นหาการเดินทางที่ตรวจสอบแล้ว', noJourneyResults: 'ไม่พบการเดินทางที่เผยแพร่ซึ่งตรงกัน' },
-  hi: { catalogTitle: 'जाँची गई यात्राएँ', searchJourneys: 'जाँची गई यात्रा खोजें', noJourneyResults: 'कोई प्रकाशित यात्रा नहीं मिली।' },
-  fr: { catalogTitle: 'Voyages vérifiés', searchJourneys: 'Rechercher des voyages vérifiés', noJourneyResults: 'Aucun voyage publié ne correspond.' },
-  de: { catalogTitle: 'Geprüfte Reisen', searchJourneys: 'Geprüfte Reisen suchen', noJourneyResults: 'Keine passende veröffentlichte Reise gefunden.' },
+  ko: { catalogTitle: '본문에 연결한 여정', searchJourneys: '본문 연결 여정 검색', noJourneyResults: '일치하는 공개 여정이 없습니다.' },
+  en: { catalogTitle: 'Passage-linked journeys', searchJourneys: 'Search passage-linked journeys', noJourneyResults: 'No published journey matches.' },
+  ja: { catalogTitle: '本文に結び付いた旅', searchJourneys: '本文に結び付いた旅を検索', noJourneyResults: '一致する公開済みの旅はありません。' },
+  'zh-CN': { catalogTitle: '与经文相连的旅程', searchJourneys: '搜索经文关联旅程', noJourneyResults: '没有匹配的已发布旅程。' },
+  es: { catalogTitle: 'Viajes vinculados al pasaje', searchJourneys: 'Buscar viajes vinculados al pasaje', noJourneyResults: 'No hay viajes publicados que coincidan.' },
+  th: { catalogTitle: 'การเดินทางที่เชื่อมกับพระคัมภีร์', searchJourneys: 'ค้นหาการเดินทางตามพระคัมภีร์', noJourneyResults: 'ไม่พบการเดินทางที่เผยแพร่ซึ่งตรงกัน' },
+  hi: { catalogTitle: 'बाइबल पाठ से जुड़ी यात्राएँ', searchJourneys: 'पाठ से जुड़ी यात्राएँ खोजें', noJourneyResults: 'कोई प्रकाशित यात्रा नहीं मिली।' },
+  fr: { catalogTitle: 'Voyages liés au passage', searchJourneys: 'Rechercher les voyages liés au passage', noJourneyResults: 'Aucun voyage publié ne correspond.' },
+  de: { catalogTitle: 'Mit Bibelstellen verknüpfte Reisen', searchJourneys: 'Reisen nach Bibelstelle suchen', noJourneyResults: 'Keine passende veröffentlichte Reise gefunden.' },
 };
 
 export const CATALOG_MESSAGES = {

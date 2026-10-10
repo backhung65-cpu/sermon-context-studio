@@ -114,7 +114,7 @@ h1 em { font-style: normal; }
 .journey-heading { display: flex; justify-content: space-between; align-items: end; gap: 20px; padding: 35px 0 25px; }
 .journey-heading h2 { margin: 7px 0 7px; color: #15213c; font-size: 32px; letter-spacing: -.05em; }
 .journey-heading p { max-width: 660px; margin: 0; color: #65718a; font-size: 13px; line-height: 1.6; }
-.person-explorer { margin-bottom: 48px; border: 1px solid #dce4f2; border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgba(29,51,91,.07); overflow: hidden; }
+.person-explorer { margin: 35px 0 48px; border: 1px solid #dce4f2; border-radius: 20px; background: #fff; box-shadow: 0 18px 48px rgba(29,51,91,.07); overflow: hidden; }
 .person-intro { display: flex; justify-content: space-between; gap: 24px; padding: 27px 30px; color: #fff; background: radial-gradient(circle at 82% 14%, rgba(172,139,252,.24), transparent 29%), linear-gradient(115deg, #13294b 10%, #284179 64%, #463c82); }
 .person-intro > div:first-child { max-width: 650px; }
 .person-intro #person-eyebrow { color: #cbbdff; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
@@ -172,13 +172,18 @@ h1 em { font-style: normal; }
 .person-route-picks button small { opacity: .7; font-size: 9px; }
 .person-route-map { width: 100%; height: 350px; border: 1px solid #e5e2ed; border-radius: 10px; overflow: hidden; background: #e9eef6; }
 .person-route-map[hidden] { display: none; }
-.person-route-stop-marker { display: flex; align-items: center; gap: 4px; max-width: 150px; padding: 3px 7px 3px 3px; border: 2px solid #fff; border-radius: 99px; background: #fff; box-shadow: 0 3px 13px #35264b52; color: #292039; cursor: pointer; white-space: nowrap; }
+.person-route-itinerary { margin-top: 10px; padding: 11px 12px; border: 1px solid #e1d8eb; border-radius: 10px; background: #fbf8fd; }
+.person-route-itinerary[hidden], .person-route-stop-label[hidden] { display: none !important; }
+.person-route-itinerary strong { display: block; margin-bottom: 8px; color: #3a2b4c; font-size: 11px; }
+.person-route-itinerary div { display: flex; flex-wrap: wrap; gap: 6px; }
+.person-route-itinerary button { padding: 5px 8px; border: 1px solid #ddd0e8; border-radius: 99px; background: #fff; color: #47315a; font-size: 10px; font-weight: 750; cursor: pointer; }
+.person-route-itinerary button:hover, .person-route-itinerary button:focus-visible { border-color: #8b539e; outline: 1px solid #8b539e; }
+.person-route-stop-marker { position: absolute; display: grid; place-items: center; width: 30px; height: 30px; padding: 2px; border: 2px solid #fff; border-radius: 50%; background: #864a96; box-shadow: 0 3px 13px #35264b52; color: #fff; cursor: pointer; white-space: nowrap; }
+.person-route-stop-marker.uncertain { border-style: dashed; border-color: #fff; background: #775093; }
 .person-route-stop-marker:hover, .person-route-stop-marker:focus-visible, .person-route-stop-marker[aria-pressed="true"] { outline: 2px solid #923b9c; outline-offset: 2px; z-index: 3; }
-.person-route-stop-number { display: grid; place-items: center; flex: 0 0 21px; height: 21px; border-radius: 50%; background: #864a96; color: #fff; font-size: 11px; font-weight: 900; }
-.person-route-stop-label { overflow: hidden; text-overflow: ellipsis; font-size: 11px; font-weight: 850; }
-.person-route-stop-marker--compact { padding: 2px; }
-.person-route-stop-marker--compact .person-route-stop-label { display: none; }
-.person-route-stop-marker--compact:hover .person-route-stop-label, .person-route-stop-marker--compact:focus-visible .person-route-stop-label, .person-route-stop-marker--compact[aria-pressed="true"] .person-route-stop-label { display: inline; margin-right: 5px; }
+.person-route-stop-number { font-size: 11px; font-weight: 900; }
+.person-route-stop-label { position: absolute; top: 50%; left: calc(100% + 4px); transform: translateY(-50%); max-width: 120px; overflow: hidden; padding: 5px 8px; border: 1px solid #e1d8eb; border-radius: 99px; background: #fff; box-shadow: 0 2px 8px #35264b35; color: #292039; font-size: 11px; font-weight: 850; text-overflow: ellipsis; pointer-events: none; }
+.person-route-stop-marker.label-left .person-route-stop-label { right: calc(100% + 4px); left: auto; }
 .person-route-stops { margin-top: 12px; border: 1px solid #e1d8eb; border-radius: 12px; background: #fff; overflow: hidden; }
 .person-route-stops[hidden] { display: none; }
 .person-route-stops-heading { padding: 12px 14px 10px; background: #f8f3fb; }
@@ -250,9 +255,15 @@ h1 em { font-style: normal; }
 #journey-map-loading { position: absolute; z-index: 2; left: 50%; top: 50%; width: min(260px, 70%); padding: 14px; border-radius: 9px; background: rgba(255,255,255,.93); color: #667794; font-size: 12px; line-height: 1.5; text-align: center; transform: translate(-50%, -50%); }
 #journey-map-loading[hidden] { display: none; }
 .journey-fit { position: absolute; z-index: 3; top: 15px; left: 15px; padding: 9px 12px; border: 1px solid #dbe5f3; border-radius: 8px; background: rgba(255,255,255,.96); color: #294b82; box-shadow: 0 7px 18px rgba(25,48,94,.13); font-size: 11px; font-weight: 800; }
-.journey-marker { min-width: 31px; height: 31px; padding: 0 6px; border: 2px solid #fff; border-radius: 17px; background: #6453a4; color: #fff; box-shadow: 0 3px 10px rgba(46,33,102,.29); font-size: 10px; font-weight: 800; }
+.journey-marker { position: absolute; display: grid; place-items: center; width: 30px; height: 30px; padding: 2px; border: 2px solid #fff; border-radius: 50%; background: #6453a4; color: #fff; box-shadow: 0 3px 10px rgba(46,33,102,.29); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.journey-marker-number { font-size: 10px; }
+.journey-marker-label { position: absolute; top: 50%; left: calc(100% + 4px); transform: translateY(-50%); max-width: 116px; overflow: hidden; padding: 5px 8px; border: 1px solid #d9d2ee; border-radius: 99px; background: #fff; color: #352a68; box-shadow: 0 2px 8px rgba(46,33,102,.21); text-overflow: ellipsis; pointer-events: none; }
+.journey-marker.label-left .journey-marker-label { right: calc(100% + 4px); left: auto; }
 .journey-marker.broad { border-style: dashed; background: #7f87a7; }
-.journey-marker.active { height: 39px; min-width: 39px; padding: 0 9px; background: #214fa1; box-shadow: 0 0 0 6px rgba(70,108,225,.21), 0 5px 15px rgba(25,55,120,.35); font-size: 12px; }
+.journey-marker.uncertain { border-style: dashed; background: #684795; }
+.journey-marker.active { width: 36px; height: 36px; background: #214fa1; box-shadow: 0 0 0 6px rgba(70,108,225,.21), 0 5px 15px rgba(25,55,120,.35); font-size: 11px; z-index: 2; }
+.journey-marker.active.uncertain { border-color: #e3ccff; }
+.journey-uncertain { color: #754394; }
 .journey-marker:focus-visible { outline: 3px solid #1d3d84; outline-offset: 3px; }
 .journey-story { display: flex; flex-direction: column; min-width: 0; padding: 22px 23px; border-left: 1px solid #e1e7f0; }
 .journey-story-top { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 13px; color: #6c7895; font-size: 11px; font-weight: 800; }
