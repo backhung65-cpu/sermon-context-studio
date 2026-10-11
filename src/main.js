@@ -1,5 +1,5 @@
 import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, localizedBookName, parseReference } from './reference.js';
-import { NOTE_PREFIX, VERSE_NOTE_PREFIX, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, parseStudyBackup } from './notes.js';
+import { NOTE_PREFIX, VERSE_NOTE_PREFIX, allNotesMarkdown, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, parseStudyBackup } from './notes.js';
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 import { passageContext, passageContextCopy, passageRole } from './passage-context.js';
@@ -10,6 +10,7 @@ import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMa
 import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geography-notes.js';
 import { notesForPassage, passageVerses, studyReaderCopy } from './study-reader.js';
 import { firstVisitCopy } from './first-visit.js';
+import { memoDrawerCopy } from './memo-drawer.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
@@ -209,6 +210,23 @@ app.innerHTML = `
     </section>
   </main>
 
+  <button id="memo-toggle" class="memo-toggle" type="button" aria-controls="memo-drawer" aria-expanded="false"><span aria-hidden="true">✎</span><span id="memo-toggle-label">메모</span><small id="memo-toggle-count"></small></button>
+  <aside id="memo-drawer" class="memo-drawer" aria-labelledby="memo-drawer-title" hidden>
+    <div class="memo-drawer-head"><div><span class="memo-drawer-kicker">SERMON NOTES</span><h2 id="memo-drawer-title">따라다니는 연구 메모</h2><p id="memo-current-reference"></p></div><button id="memo-close" type="button" aria-label="메모 접기">×</button></div>
+    <div class="memo-drawer-body">
+      <p id="memo-storage-hint" class="memo-storage-hint">이 브라우저에 입력 즉시 저장됩니다.</p>
+      <div class="memo-verse-head"><label for="memo-verse-input" id="memo-verse-heading">이 절의 메모</label><span id="memo-verse-reference"></span></div>
+      <label class="sr-only" for="memo-verse-select" id="memo-jump-label">기록할 절</label><div class="memo-verse-nav"><button id="memo-prev" type="button" aria-label="이전 절">←</button><select id="memo-verse-select" aria-labelledby="memo-jump-label"></select><button id="memo-next" type="button" aria-label="다음 절">→</button></div>
+      <a id="memo-read-link" class="memo-read-link" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer">이 절 성경 읽기 ↗</a>
+      <textarea id="memo-verse-input" aria-labelledby="memo-verse-heading"></textarea>
+      <label for="memo-passage-input" id="memo-passage-heading">본문 전체 메모</label>
+      <textarea id="memo-passage-input"></textarea>
+      <button id="memo-starter" class="memo-starter" type="button">관찰 질문 틀 넣기</button>
+      <details class="memo-saved"><summary id="memo-saved-summary">저장된 메모</summary><div id="memo-saved-list"></div></details>
+    </div>
+    <div class="memo-drawer-footer"><div class="memo-export-actions"><button id="memo-copy-all" type="button" disabled>모든 메모 복사</button><button id="memo-export-all" type="button" disabled>모든 메모 .md</button></div><div class="memo-backup-actions"><button id="memo-backup" type="button" disabled>JSON 백업</button><button id="memo-import" type="button">백업 불러오기</button></div><span id="memo-action-status" role="status"></span></div>
+  </aside>
+
   <footer class="site-footer"><div class="shell footer-inner"><span data-i18n="copyright">© 목회 AI 연구소</span><span><span data-i18n="footerData">지리 자료</span>: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info</a> · CC BY 4.0</span></div></footer>
 `;
 
@@ -230,6 +248,13 @@ const downloadNoteButton = document.querySelector('#download-note');
 const backupNotesButton = document.querySelector('#backup-notes');
 const importNotesInput = document.querySelector('#import-notes');
 const importTrigger = document.querySelector('#import-trigger');
+const memoDrawer = document.querySelector('#memo-drawer');
+const memoToggle = document.querySelector('#memo-toggle');
+const memoFeatureCard = document.querySelector('[data-first-feature="note"]');
+const memoVerseInput = document.querySelector('#memo-verse-input');
+const memoPassageInput = document.querySelector('#memo-passage-input');
+const memoVerseSelect = document.querySelector('#memo-verse-select');
+const memoActionStatus = document.querySelector('#memo-action-status');
 const printButton = document.querySelector('#print-button');
 const journeySection = document.querySelector('#journeys');
 const journeyParam = new URLSearchParams(location.search).get('journey');
@@ -329,15 +354,69 @@ function renderFirstVisit() {
     card.querySelector('.feature-card-action').textContent = `${action} ↗`;
   }
 }
+function renderMemoDrawerCopy() {
+  const copy = memoDrawerCopy(locale);
+  document.querySelector('#memo-toggle-label').textContent = copy.toggle;
+  document.querySelector('#memo-drawer-title').textContent = copy.title;
+  document.querySelector('#memo-close').setAttribute('aria-label', copy.close);
+  document.querySelector('#memo-jump-label').textContent = copy.jump;
+  document.querySelector('#memo-verse-heading').textContent = copy.verse;
+  document.querySelector('#memo-passage-heading').textContent = copy.passage;
+  document.querySelector('#memo-storage-hint').textContent = copy.storageHint;
+  document.querySelector('#memo-copy-all').textContent = copy.copyAll;
+  document.querySelector('#memo-export-all').textContent = copy.exportAll;
+  document.querySelector('#memo-backup').textContent = copy.backup;
+  document.querySelector('#memo-import').textContent = copy.importBackup;
+  document.querySelector('#memo-starter').textContent = pastoralStudyCopy(locale).starter;
+  document.querySelector('#memo-prev').setAttribute('aria-label', studyReaderCopy(locale).previous);
+  document.querySelector('#memo-next').setAttribute('aria-label', studyReaderCopy(locale).next);
+  memoVerseInput.placeholder = studyReaderCopy(locale).notePlaceholder;
+  memoPassageInput.placeholder = translate('notePlaceholder');
+  syncMemoEditor();
+}
+
+function syncMemoEditor() {
+  const selected = currentVerseSequence[currentVerseIndex];
+  const readLink = document.querySelector('#memo-read-link');
+  document.querySelector('#memo-current-reference').textContent = currentReference ? formatReference(currentReference, locale) : '';
+  document.querySelector('#memo-verse-reference').textContent = selected
+    ? `${localizedBookName(selected.code, locale)} ${selected.chapter}:${selected.verse}` : '';
+  readLink.hidden = !selected;
+  if (selected) readLink.href = bibleReadingUrl(selected.code, selected.chapter, selected.verse);
+  readLink.textContent = `${studyReaderCopy(locale).openBible} ↗`;
+  if (document.activeElement !== memoVerseInput) memoVerseInput.value = guidedNote.value;
+  if (document.activeElement !== memoPassageInput) memoPassageInput.value = note.value;
+  memoVerseInput.disabled = !selected;
+  memoPassageInput.disabled = !currentReference;
+  memoVerseSelect.disabled = !selected;
+  memoVerseSelect.value = selected ? String(currentVerseIndex) : '';
+  document.querySelector('#memo-prev').disabled = !selected || currentVerseIndex === 0;
+  document.querySelector('#memo-next').disabled = !selected || currentVerseIndex === currentVerseSequence.length - 1;
+}
+
+function setMemoOpen(open, focus = false) {
+  memoDrawer.hidden = !open;
+  memoToggle.setAttribute('aria-expanded', String(open));
+  if (open) {
+    syncMemoEditor();
+    if (focus) (focus === 'passage' ? memoPassageInput : memoVerseInput).focus({ preventScroll: true });
+  } else if (focus) (memoToggle.classList.contains('is-suppressed') ? memoFeatureCard : memoToggle).focus({ preventScroll: true });
+}
+
+function setMemoActionStatus(message, failed = false) {
+  memoActionStatus.textContent = message;
+  memoActionStatus.classList.toggle('failed', failed);
+}
+
 document.querySelector('.feature-overview').addEventListener('click', (event) => {
   const card = event.target.closest('[data-first-feature]');
   if (!card) return;
   const feature = card.dataset.firstFeature;
   if (feature === 'journey') { switchView('journeys'); return; }
   if (!search()) return;
+  if (feature === 'note') { setMemoOpen(true, 'verse'); return; }
   const target = feature === 'map' ? '.map-pane' : '#guided-study';
   document.querySelector(target).scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
-  if (feature === 'note') guidedNote.focus({ preventScroll: true });
 });
 document.querySelector('#examples').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-example]');
@@ -661,6 +740,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
   renderFirstVisit();
+  renderMemoDrawerCopy();
   document.querySelector('#quick-study-label').textContent = pastoralStudyCopy(locale).title;
   document.querySelector('#quick-verse-note-label').textContent = studyReaderCopy(locale).noteTitle;
   document.querySelector('#passage-note-title').textContent = studyReaderCopy(locale).passageNotes;
@@ -880,6 +960,7 @@ function renderSelectedGuidedVerse() {
     guidedNote.value = '';
     setGuidedNoteStatus(copy.storageError, true);
   }
+  syncMemoEditor();
 }
 
 function renderGuidedStudy(reference) {
@@ -905,8 +986,10 @@ function renderGuidedStudy(reference) {
   document.querySelector('#guided-place-caution').textContent = copy.caution;
   document.querySelector('#guided-note-title').textContent = copy.noteTitle;
   guidedNote.placeholder = copy.notePlaceholder;
-  document.querySelector('#guided-verse-select').innerHTML = currentVerseSequence.map(({ code, chapter, verse }, index) =>
+  const verseOptions = currentVerseSequence.map(({ code, chapter, verse }, index) =>
     `<option value="${index}">${escapeHtml(localizedBookName(code, locale))} ${chapter}:${verse}</option>`).join('');
+  document.querySelector('#guided-verse-select').innerHTML = verseOptions;
+  memoVerseSelect.innerHTML = verseOptions;
   renderSelectedGuidedVerse();
 }
 
@@ -938,9 +1021,12 @@ guidedNote.addEventListener('input', () => {
     if (guidedNote.value.trim()) localStorage.setItem(key, guidedNote.value);
     else localStorage.removeItem(key);
     setGuidedNoteStatus(guidedNote.value.trim() ? copy.saved : copy.cleared);
+    setMemoActionStatus(guidedNote.value.trim() ? copy.saved : copy.cleared);
     renderSavedNotes();
   } catch {
     setGuidedNoteStatus(copy.storageError, true);
+    setMemoActionStatus(copy.storageError, true);
+    renderSavedNotes();
   }
 });
 
@@ -1394,6 +1480,27 @@ function clearError() {
 function setNoteStatus(message, failed = false) {
   noteStatus.textContent = message;
   noteStatus.classList.toggle('failed', failed);
+  if (!memoDrawer.hidden) setMemoActionStatus(message, failed);
+}
+
+function updateMemoSavedUI(saved, savedVerses, storageAvailable = true) {
+  const copy = memoDrawerCopy(locale);
+  const count = saved.length + savedVerses.length;
+  document.querySelector('#memo-toggle-count').textContent = count ? String(count > 99 ? '99+' : count) : '';
+  document.querySelector('#memo-saved-summary').textContent = copy.count.replace('{count}', String(count));
+  document.querySelector('#memo-copy-all').disabled = count === 0;
+  document.querySelector('#memo-export-all').disabled = count === 0;
+  document.querySelector('#memo-backup').disabled = !storageAvailable || count === 0;
+  const passageButtons = saved.map(({ reference }) => {
+    const parsed = parseReference(reference);
+    return `<button type="button" data-memo-ref="${escapeHtml(reference)}">${escapeHtml(parsed.error ? reference : formatReference(parsed, locale))}</button>`;
+  });
+  const verseButtons = savedVerses.map(({ verse }) => {
+    const [code, chapter, number] = verse.split(':');
+    return `<button type="button" data-memo-verse="${escapeHtml(verse)}">${escapeHtml(localizedBookName(code, locale))} ${chapter}:${number}</button>`;
+  });
+  document.querySelector('#memo-saved-list').innerHTML = [...passageButtons, ...verseButtons].join('') || `<span>${escapeHtml(copy.empty)}</span>`;
+  syncMemoEditor();
 }
 
 function renderSavedNotes() {
@@ -1401,17 +1508,24 @@ function renderSavedNotes() {
     const saved = listNotes(localStorage);
     const savedVerses = listVerseNotes(localStorage);
     savedNoteList.innerHTML = saved.length
-      ? saved.map(({ reference }) => `<button type="button" data-note-ref="${escapeHtml(reference)}"${currentReference?.label === reference ? ' class="active"' : ''}>${escapeHtml(formatReference(parseReference(reference), locale) || reference)}</button>`).join('')
+      ? saved.map(({ reference }) => {
+        const parsed = parseReference(reference);
+        return `<button type="button" data-note-ref="${escapeHtml(reference)}"${currentReference?.label === reference ? ' class="active"' : ''}>${escapeHtml(parsed.error ? reference : formatReference(parsed, locale))}</button>`;
+      }).join('')
       : `<span>${escapeHtml(translate('noNotes'))}</span>`;
     document.querySelector('#saved-verse-note-count').textContent = studyReaderCopy(locale).savedVerseCount.replace('{count}', String(savedVerses.length));
     backupNotesButton.disabled = saved.length === 0 && savedVerses.length === 0;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
+    updateMemoSavedUI(saved, savedVerses);
   } catch {
     savedNoteList.textContent = translate('storageUnavailable');
     document.querySelector('#saved-verse-note-count').textContent = '';
     backupNotesButton.disabled = true;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
     setNoteStatus(translate('noteBlocked'), true);
+    const selected = currentVerseSequence[currentVerseIndex];
+    updateMemoSavedUI(currentReference && note.value.trim() ? [{ reference: currentReference.label, text: note.value }] : [],
+      selected && guidedNote.value.trim() ? [{ verse: selected.key, text: guidedNote.value }] : [], false);
   }
 }
 
@@ -1424,6 +1538,51 @@ function downloadText(filename, content, type) {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function allSavedMemoData() {
+  try { return { passages: listNotes(localStorage), verses: listVerseNotes(localStorage) }; }
+  catch {
+    const selected = currentVerseSequence[currentVerseIndex];
+    return {
+      passages: currentReference && note.value.trim() ? [{ reference: currentReference.label, text: note.value }] : [],
+      verses: selected && guidedNote.value.trim() ? [{ verse: selected.key, text: guidedNote.value }] : [],
+    };
+  }
+}
+
+function allSavedMemoMarkdown() {
+  const { passages, verses } = allSavedMemoData();
+  const copy = memoDrawerCopy(locale);
+  return allNotesMarkdown(passages, verses, {
+    title: copy.allTitle, passageTitle: copy.passageHeading, verseTitle: copy.verseHeading,
+    formatPassage: (reference) => {
+      const parsed = parseReference(reference);
+      return parsed.error ? reference : formatReference(parsed, locale);
+    },
+    formatVerse: (key) => {
+      const [code, chapter, verse] = key.split(':');
+      return `${localizedBookName(code, locale)} ${chapter}:${verse}`;
+    },
+  });
+}
+
+async function copyMemoText(content) {
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(content); return true; }
+  } catch { /* The browser may deny clipboard access; use the local fallback. */ }
+  const previous = document.activeElement;
+  const field = document.createElement('textarea');
+  field.value = content;
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { /* Clipboard unavailable. */ }
+  field.remove();
+  previous?.focus?.({ preventScroll: true });
+  return copied;
 }
 
 function search() {
@@ -1478,8 +1637,66 @@ document.querySelector('#passage-place-index').addEventListener('click', (event)
   if (place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
 });
 document.querySelector('#quick-note').addEventListener('click', () => {
-  document.querySelector('#guided-study').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
-  guidedNote.focus({ preventScroll: true });
+  setMemoOpen(true, 'verse');
+});
+
+memoToggle.addEventListener('click', () => setMemoOpen(true, currentVerseSequence.length ? 'verse' : 'passage'));
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(([entry]) => {
+    memoToggle.classList.toggle('is-suppressed', entry.isIntersecting && entry.intersectionRatio >= 0.4);
+  }, { threshold: [0, 0.4, 1] }).observe(memoFeatureCard);
+}
+document.querySelector('#memo-close').addEventListener('click', () => setMemoOpen(false, true));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !memoDrawer.hidden) setMemoOpen(false, true);
+});
+document.querySelector('#memo-prev').addEventListener('click', () => document.querySelector('#guided-prev').click());
+document.querySelector('#memo-next').addEventListener('click', () => document.querySelector('#guided-next').click());
+memoVerseSelect.addEventListener('change', () => {
+  const index = Number(memoVerseSelect.value);
+  if (!Number.isInteger(index) || index < 0 || index >= currentVerseSequence.length) return;
+  currentVerseIndex = index;
+  renderSelectedGuidedVerse();
+});
+memoVerseInput.addEventListener('input', () => {
+  guidedNote.value = memoVerseInput.value;
+  guidedNote.dispatchEvent(new Event('input', { bubbles: true }));
+});
+memoPassageInput.addEventListener('input', () => {
+  note.value = memoPassageInput.value;
+  note.dispatchEvent(new Event('input', { bubbles: true }));
+});
+document.querySelector('#memo-starter').addEventListener('click', () => {
+  document.querySelector('#note-starter').click();
+  syncMemoEditor();
+  memoPassageInput.focus({ preventScroll: true });
+});
+document.querySelector('#memo-copy-all').addEventListener('click', async () => {
+  const copy = memoDrawerCopy(locale);
+  const { passages, verses } = allSavedMemoData();
+  if (!passages.length && !verses.length) return;
+  const copied = await copyMemoText(allSavedMemoMarkdown());
+  setMemoActionStatus(copied ? copy.copied : copy.copyFailed, !copied);
+});
+document.querySelector('#memo-export-all').addEventListener('click', () => {
+  const { passages, verses } = allSavedMemoData();
+  if (!passages.length && !verses.length) return;
+  downloadText(`sermon-all-notes-${new Date().toISOString().slice(0, 10)}.md`, allSavedMemoMarkdown(), 'text/markdown;charset=utf-8');
+  setMemoActionStatus(memoDrawerCopy(locale).exported);
+});
+document.querySelector('#memo-backup').addEventListener('click', () => backupNotesButton.click());
+document.querySelector('#memo-import').addEventListener('click', () => importNotesInput.click());
+document.querySelector('#memo-saved-list').addEventListener('click', (event) => {
+  const passage = event.target.closest('[data-memo-ref]');
+  const verseButton = event.target.closest('[data-memo-verse]');
+  if (!passage && !verseButton) return;
+  if (passage) input.value = passage.dataset.memoRef;
+  else {
+    const [code, chapter, verse] = verseButton.dataset.memoVerse.split(':');
+    input.value = `${code} ${chapter}:${verse}`;
+  }
+  form.requestSubmit();
+  (passage ? memoPassageInput : memoVerseInput).focus({ preventScroll: true });
 });
 document.querySelector('#study-sheet').addEventListener('click', (event) => {
   if (event.target.closest('#download-study') && currentReference && currentStudy) {
@@ -1513,8 +1730,7 @@ document.querySelector('#study-sheet').addEventListener('click', (event) => {
     note.value = `${note.value.trimEnd()}${note.value.trim() ? '\n' : ''}${line}\n`;
     note.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
-  note.focus({ preventScroll: true });
+  setMemoOpen(true, 'passage');
   setNoteStatus(pastoralStudyCopy(locale).noteAdded);
 });
 document.querySelector('#note-starter').addEventListener('click', () => {

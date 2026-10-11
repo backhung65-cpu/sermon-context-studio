@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BACKUP_FORMAT, NOTE_PREFIX, VERSE_NOTE_PREFIX, createBackup, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, noteMarkdown, parseBackup, parseStudyBackup } from './notes.js';
+import { BACKUP_FORMAT, NOTE_PREFIX, VERSE_NOTE_PREFIX, allNotesMarkdown, createBackup, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, noteMarkdown, parseBackup, parseStudyBackup } from './notes.js';
 
 class MemoryStorage {
   entries = new Map();
@@ -46,4 +46,19 @@ test('verse annotations are shared across passage ranges and included in the ful
   assert.equal(target.getItem(`${VERSE_NOTE_PREFIX}EXO:3:7`), '애굽은 대화 속 언급.');
   assert.deepEqual(parseStudyBackup(JSON.stringify(createBackup([]))).verseNotes, []);
   assert.throws(() => parseStudyBackup(JSON.stringify({ ...backup, verseNotes: { 'EXO:3:999': 'invalid' } })));
+});
+
+test('all-notes Markdown includes every passage and verse note once in storage order', () => {
+  const source = new MemoryStorage();
+  source.setItem(`${NOTE_PREFIX}출 3`, '본문 전체 관찰');
+  source.setItem(`${NOTE_PREFIX}창 12:1–9`, '아브라함 메모');
+  source.setItem(`${VERSE_NOTE_PREFIX}EXO:3:1`, '호렙 기록');
+  source.setItem(`${VERSE_NOTE_PREFIX}EXO:3:7`, '애굽 언급');
+  const markdown = allNotesMarkdown(listNotes(source), listVerseNotes(source), {
+    formatVerse: (key) => key.replace('EXO:3:', '출애굽기 3:'),
+    timestamp: '2026-10-11T00:00:00.000Z',
+  });
+  assert.match(markdown, /## 본문 전체 메모[\s\S]*아브라함 메모[\s\S]*본문 전체 관찰/);
+  assert.match(markdown, /## 절별 메모[\s\S]*출애굽기 3:1[\s\S]*호렙 기록[\s\S]*출애굽기 3:7[\s\S]*애굽 언급/);
+  assert.equal(markdown.split('호렙 기록').length - 1, 1);
 });

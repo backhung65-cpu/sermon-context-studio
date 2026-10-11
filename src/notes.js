@@ -115,3 +115,21 @@ export function mergeNotes(storage, notes) {
 export function noteMarkdown(reference, text, timestamp = new Date().toISOString()) {
   return `# 설교 준비 메모\n\n본문: ${reference}\n저장: ${timestamp}\n\n${text.trimEnd()}\n`;
 }
+
+export function allNotesMarkdown(passageNotes, verseNotes, options = {}) {
+  const {
+    title = '설교 연구 메모 모음', passageTitle = '본문 전체 메모', verseTitle = '절별 메모',
+    formatPassage = (reference) => reference, formatVerse = (verse) => verse,
+    timestamp = new Date().toISOString(),
+  } = options;
+  const parts = [`# ${title}`, '', `${timestamp}`];
+  if (passageNotes.length) {
+    parts.push('', `## ${passageTitle}`);
+    for (const { reference, text } of passageNotes) parts.push('', `### ${formatPassage(reference)}`, '', text.trimEnd());
+  }
+  if (verseNotes.length) {
+    parts.push('', `## ${verseTitle}`);
+    for (const { verse, text } of verseNotes) parts.push('', `### ${formatVerse(verse)}`, '', text.trimEnd());
+  }
+  return `${parts.join('\n')}\n`;
+}
