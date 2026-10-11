@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BACKUP_FORMAT, NOTE_PREFIX, createBackup, listNotes, mergeNotes, noteMarkdown, parseBackup } from './notes.js';
+import { BACKUP_FORMAT, NOTE_PREFIX, VERSE_NOTE_PREFIX, createBackup, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, noteMarkdown, parseBackup, parseStudyBackup } from './notes.js';
 
 class MemoryStorage {
   entries = new Map();
@@ -29,4 +29,21 @@ test('backup import rejects invalid files and individual Markdown contains the r
   assert.throws(() => parseBackup('{"format":"other","notes":{}}'));
   assert.throws(() => parseBackup('{"format":"sermon-context-notes-v1","notes":{"없는책 1:1":"x"}}'));
   assert.match(noteMarkdown('사 10:15', '본문 관찰', '2026-09-29T00:00:00.000Z'), /본문: 사 10:15[\s\S]*본문 관찰/);
+});
+
+test('verse annotations are shared across passage ranges and included in the full backup', () => {
+  const source = new MemoryStorage();
+  source.setItem(`${VERSE_NOTE_PREFIX}EXO:3:1`, '호렙은 이 장면의 장소.');
+  source.setItem(`${VERSE_NOTE_PREFIX}EXO:3:7`, '애굽은 대화 속 언급.');
+  source.setItem(`${NOTE_PREFIX}출 3`, '본문 전체 정리');
+  const backup = createStudyBackup(listNotes(source), listVerseNotes(source));
+  assert.equal(Object.keys(backup.verseNotes).length, 2);
+  const restored = parseStudyBackup(JSON.stringify(backup));
+  const target = new MemoryStorage();
+  target.setItem(`${VERSE_NOTE_PREFIX}EXO:3:1`, '기존 절별 기록');
+  assert.deepEqual(mergeVerseNotes(target, restored.verseNotes), { imported: 1, skipped: 1 });
+  assert.equal(target.getItem(`${VERSE_NOTE_PREFIX}EXO:3:1`), '기존 절별 기록');
+  assert.equal(target.getItem(`${VERSE_NOTE_PREFIX}EXO:3:7`), '애굽은 대화 속 언급.');
+  assert.deepEqual(parseStudyBackup(JSON.stringify(createBackup([]))).verseNotes, []);
+  assert.throws(() => parseStudyBackup(JSON.stringify({ ...backup, verseNotes: { 'EXO:3:999': 'invalid' } })));
 });

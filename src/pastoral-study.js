@@ -33,14 +33,20 @@ export function observationLine(reference, row, place, labels, readingUrl = '', 
   return `- ${reference} ${row.chapter}:${row.verse} · ${place.name} — ${status}.${prompt ? ` ${labels.question}` : ''}${link}`;
 }
 
-export function pastoralStudyMarkdown(referenceLabel, bookName, study, labels, readingUrl, noteText = '') {
+export function pastoralStudyMarkdown(referenceLabel, bookName, study, labels, readingUrl, noteText = '', verseNotes = [], verseNoteTitle = 'Verse notes') {
   const rows = study.verses.flatMap((row) => row.places.map((place) =>
     observationLine(bookName, row, place, labels, readingUrl(row.chapter, row.verse), false)));
   const cautions = [labels.cautionRole,
     ...(study.candidatePlaceCount ? [labels.cautionCandidates] : []),
     ...(!study.reviewedVerseCount ? [labels.cautionReview] : []),
     labels.cautionText];
-  return `# ${labels.title}\n\n${referenceLabel}\n\n[${labels.read}](${readingUrl()})\n\n## ${labels.flow}\n\n${rows.length ? rows.join('\n') : labels.noPlaces}\n\n## ${labels.cautionTitle}\n\n- ${labels.question}\n${cautions.map((item) => `- ${item}`).join('\n')}\n\n## ${labels.myNotes}\n\n${noteText.trimEnd()}\n\nOpenBible.info · CC BY 4.0 | Theographic · CC BY-SA 4.0\n`;
+  const annotations = verseNotes.map(({ verse, text }) => {
+    const [, chapterText, verseText] = verse.split(':');
+    const chapter = Number(chapterText);
+    const verseNumber = Number(verseText);
+    return `### ${bookName} ${chapter}:${verseNumber}\n\n[${labels.read}](${readingUrl(chapter, verseNumber)})\n\n${text.trimEnd()}`;
+  });
+  return `# ${labels.title}\n\n${referenceLabel}\n\n[${labels.read}](${readingUrl()})\n\n## ${labels.flow}\n\n${rows.length ? rows.join('\n') : labels.noPlaces}\n\n## ${labels.cautionTitle}\n\n- ${labels.question}\n${cautions.map((item) => `- ${item}`).join('\n')}\n\n## ${labels.myNotes}\n\n${noteText.trimEnd()}\n\n${annotations.length ? `## ${verseNoteTitle}\n\n${annotations.join('\n\n')}\n\n` : ''}OpenBible.info · CC BY 4.0 | Theographic · CC BY-SA 4.0\n`;
 }
 
 const COPY = {

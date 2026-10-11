@@ -1,5 +1,5 @@
 import { bibleReadingUrl, collectPlaceOccurrences, findPlaces, formatReference, localizedBookName, parseReference } from './reference.js';
-import { NOTE_PREFIX, createBackup, listNotes, mergeNotes, parseBackup } from './notes.js';
+import { NOTE_PREFIX, VERSE_NOTE_PREFIX, createStudyBackup, listNotes, listVerseNotes, mergeNotes, mergeVerseNotes, parseStudyBackup } from './notes.js';
 import { LOCALES, t } from './i18n.js';
 import { enrichmentText } from './enrichment-i18n.js';
 import { passageContext, passageContextCopy, passageRole } from './passage-context.js';
@@ -8,7 +8,7 @@ import { JOURNEYS, JOURNEY_CATEGORIES, journeyMessage } from './journeys.js';
 import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from './person-explorer.js';
 import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMarkdown } from './pastoral-study.js';
 import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geography-notes.js';
-import { ATLAS_COMPACT_PDF, ATLAS_PUBLISHER_PAGE, ATLAS_STUDY_PDF, atlasCompanionCopy, atlasPlatesForJourney, atlasPlatesForPassage, atlasPlateText } from './atlas-companion.js';
+import { notesForPassage, passageVerses, studyReaderCopy } from './study-reader.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
@@ -129,7 +129,6 @@ app.innerHTML = `
           <div class="journey-map-shell"><div id="journey-map" class="journey-map" aria-label="여행 이야기 지도"><span id="journey-map-loading">여정 지도를 불러오는 중입니다.</span></div><button id="journey-fit" class="journey-fit" type="button">전체 여정 ↗</button></div>
           <div class="journey-story"><div class="journey-story-top"><span id="journey-scene-count"></span><span id="journey-step-reference"></span></div><div id="journey-current" class="journey-current" aria-live="polite"></div><div class="journey-controls"><button id="journey-prev" type="button"></button><button id="journey-next" type="button"></button></div><div id="journey-timeline" class="journey-timeline" aria-label="Journey scenes"></div></div>
         </div>
-        <div id="journey-atlas-companion" class="atlas-companion atlas-companion--journey" hidden></div>
         <a class="journey-data-credit" href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info · CC BY 4.0 ↗</a>
         <div id="person-explorer" class="person-explorer"></div>
         <button id="journey-catalog-reveal" class="journey-catalog-reveal" type="button">다른 본문 연결 여정 보기 ↗</button>
@@ -148,12 +147,23 @@ app.innerHTML = `
           <button id="quick-map" type="button"><span aria-hidden="true">1</span><span data-i18n="mapView">지도로 보기</span> ↗</button>
           <a id="quick-bible" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">2</span><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a>
           <button id="quick-study" type="button"><span aria-hidden="true">3</span><span id="quick-study-label">설교 준비 시트</span> ↗</button>
-          <button id="quick-note" type="button"><span aria-hidden="true">4</span><span data-i18n="noteTitle">설교 준비 메모</span> ↗</button>
+          <button id="quick-note" type="button"><span aria-hidden="true">4</span><span id="quick-verse-note-label">절별 주석 메모</span> ↗</button>
         </div>
+
+        <section id="guided-study" class="guided-study" aria-labelledby="guided-study-title" hidden>
+          <div class="guided-study-top"><h3 id="guided-study-title"></h3><div class="guided-study-steps" aria-hidden="true"><span id="guided-step-read"></span><span id="guided-step-places"></span><span id="guided-step-note"></span></div></div>
+          <div class="guided-study-grid">
+            <div class="guided-study-reading"><div class="guided-study-nav"><button id="guided-prev" type="button"></button><div><span id="guided-progress"></span><strong id="guided-reference"></strong></div><button id="guided-next" type="button"></button></div>
+              <label class="guided-study-jump" for="guided-verse-select"><span id="guided-jump-label"></span><select id="guided-verse-select"></select></label>
+              <p id="guided-reading-help"></p><a id="guided-bible-link" class="guided-bible-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+              <div class="guided-study-places"><strong id="guided-places-title"></strong><div id="guided-place-list"></div><p id="guided-place-caution"></p></div>
+            </div>
+            <div class="guided-study-annotation"><label for="guided-verse-note" id="guided-note-title"></label><textarea id="guided-verse-note"></textarea><span id="guided-note-status" role="status"></span></div>
+          </div>
+        </section>
 
         <div id="passage-context" class="passage-context" hidden></div>
         <div id="insight-strip" class="insight-strip" hidden></div>
-        <div id="passage-atlas-companion" class="atlas-companion" hidden></div>
 
         <div class="workspace">
           <div class="map-pane">
@@ -174,13 +184,13 @@ app.innerHTML = `
 
         <div class="lower-grid">
           <div class="note-panel">
-            <div class="note-title"><span class="pane-index">03</span><h3 data-i18n="noteTitle">설교 준비 메모</h3></div>
+            <div class="note-title"><span class="pane-index">03</span><h3 id="passage-note-title">본문 전체 메모</h3></div>
             <p data-i18n="noteIntro">본문을 읽으며 떠오른 관찰과 확인할 질문을 적어 두세요.</p>
             <button id="note-starter" class="note-starter" type="button">관찰 질문 틀 넣기</button>
-            <label class="sr-only" for="sermon-note" data-i18n="noteTitle">설교 준비 메모</label><textarea id="sermon-note" data-i18n-placeholder="notePlaceholder" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
+            <label class="sr-only" for="sermon-note" id="passage-note-label">본문 전체 메모</label><textarea id="sermon-note" data-i18n-placeholder="notePlaceholder" placeholder="이 장소가 본문 이해에 어떤 도움을 주는지 기록하세요."></textarea>
             <span id="note-status" class="note-save" role="status" data-i18n="noteAuto">입력하면 이 브라우저에 자동 저장됩니다.</span>
             <div class="note-actions"><button id="download-note" type="button" disabled><span data-i18n="noteDownload">이 메모 파일로 저장</span> ↗</button><button id="backup-notes" type="button" disabled><span data-i18n="noteBackup">전체 메모 백업</span> ↗</button><button id="import-trigger" type="button"><span data-i18n="noteImport">백업 불러오기</span> ↗</button><input id="import-notes" type="file" accept=".json,application/json" hidden /></div>
-            <div class="saved-notes"><strong data-i18n="savedPassages">이 브라우저에 저장된 본문</strong><div id="saved-note-list" data-i18n="noNotes">저장된 메모가 없습니다.</div></div>
+            <div class="saved-notes"><strong data-i18n="savedPassages">이 브라우저에 저장된 본문</strong><div id="saved-note-list" data-i18n="noNotes">저장된 메모가 없습니다.</div><small id="saved-verse-note-count"></small></div>
           </div>
           <aside class="source-panel"><div class="source-top" data-i18n="sourceTop">자료 출처와 사용 범위</div><h3 data-i18n="sourceTitle">근거를 따라가며 살펴보세요.</h3><p data-i18n="sourceBody"></p><div id="source-version" class="source-version"></div><div class="source-links"><a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info ↗</a><a href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer"><span data-i18n="readBible">한국어 성경 읽기</span> ↗</a></div></aside>
         </div>
@@ -203,6 +213,8 @@ const mapCaption = document.querySelector('#map-caption');
 const mapEmpty = document.querySelector('#map-empty');
 const note = document.querySelector('#sermon-note');
 const noteStatus = document.querySelector('#note-status');
+const guidedNote = document.querySelector('#guided-verse-note');
+const guidedNoteStatus = document.querySelector('#guided-note-status');
 const savedNoteList = document.querySelector('#saved-note-list');
 const downloadNoteButton = document.querySelector('#download-note');
 const backupNotesButton = document.querySelector('#backup-notes');
@@ -232,6 +244,9 @@ let currentReference;
 let currentPlaces = [];
 let currentPassageContext = null;
 let currentStudy = null;
+let currentGuidedReferenceLabel = null;
+let currentVerseSequence = [];
+let currentVerseIndex = 0;
 let selectedPlaceId = null;
 let spotlightPlaceId = null;
 let corpusAuditData = null;
@@ -490,21 +505,6 @@ function updateJourneyAddress() {
   history.replaceState(null, '', url);
 }
 
-function renderAtlasCompanion(target, plates) {
-  const panel = document.querySelector(target);
-  panel.hidden = !plates.length;
-  if (!plates.length) { panel.innerHTML = ''; return; }
-  const copy = atlasCompanionCopy(locale);
-  const pageLabel = (page) => copy.page.replace('{page}', String(page));
-  panel.innerHTML = `<div class="atlas-companion-heading"><div><span class="section-kicker">${escapeHtml(copy.eyebrow)}</span><h3>${escapeHtml(copy.title)}</h3><p>${escapeHtml(copy.intro)}</p></div><span class="atlas-companion-count">${String(plates.length).padStart(2, '0')}</span></div>
-    <div class="atlas-companion-plates">${plates.map((entry) => {
-      const text = atlasPlateText(entry, locale);
-      return `<article class="atlas-companion-plate"><span class="atlas-companion-plate-mark" aria-hidden="true">⌖</span><div><small>${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))}${entry.compactPage ? ` <span> / ${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))}</span>` : ''}</small><strong lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.title)}</strong><p lang="${locale === 'ko' ? 'ko' : 'en'}">${escapeHtml(text.prompt)}</p><div class="atlas-companion-plate-links"><a class="atlas-companion-plate-open" href="${ATLAS_STUDY_PDF}#page=${entry.studyPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.study)} · ${escapeHtml(pageLabel(entry.studyPage))} ↗</a>${entry.compactPage ? `<a class="atlas-companion-plate-open" href="${ATLAS_COMPACT_PDF}#page=${entry.compactPage}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.compact)} · ${escapeHtml(pageLabel(entry.compactPage))} ↗</a>` : ''}</div></div></article>`;
-    }).join('')}</div>
-    <p class="atlas-companion-caveat">${escapeHtml(copy.caveat)}</p>
-    <div class="atlas-companion-links"><a href="${ATLAS_STUDY_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openStudy)} ↗</a><a href="${ATLAS_COMPACT_PDF}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.openCompact)} ↗</a><a href="${ATLAS_PUBLISHER_PAGE}" target="_blank" rel="noopener noreferrer">${escapeHtml(copy.source)} ↗</a></div>`;
-}
-
 function renderJourney() {
   const j = (key, vars) => journeyMessage(locale, key, vars);
   document.querySelector('#journey-eyebrow').textContent = j('eyebrow');
@@ -530,7 +530,6 @@ function renderJourney() {
     ? visible.map((journey) => `<button type="button" data-journey="${escapeHtml(journey.id)}" aria-pressed="${journey.id === currentJourney.id}"><span>${escapeHtml(j(`category${journey.category[0].toUpperCase()}${journey.category.slice(1)}`))}</span><strong>${escapeHtml(journeyName(journey))}</strong><small>${escapeHtml(journeyRange(journey))} · ${escapeHtml(j('steps', { count: journey.steps.length }))}</small><i aria-hidden="true">↗</i></button>`).join('')
     : `<p class="journey-empty">${escapeHtml(j('noJourneyResults'))}</p>`;
   document.querySelector('#journey-active-head').innerHTML = `<span>${escapeHtml(j(`category${currentJourney.category[0].toUpperCase()}${currentJourney.category.slice(1)}`))} · ${escapeHtml(journeyRange(currentJourney))}</span><h3>${escapeHtml(journeyName(currentJourney))}</h3><p>${escapeHtml(journeyIntro(currentJourney))}</p>`;
-  renderAtlasCompanion('#journey-atlas-companion', atlasPlatesForJourney(currentJourney.id));
   document.querySelector('#journey-timeline').setAttribute('aria-label', j('steps', { count: currentJourney.steps.length }));
   document.querySelector('#journey-map').setAttribute('aria-label', `${j('title')} · ${j('all')}`);
   document.querySelector('#journey-route-note').textContent = j(currentJourney.linePolicy === 'none' ? 'noRouteNote' : 'routeNote');
@@ -626,6 +625,9 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
   document.querySelector('#quick-study-label').textContent = pastoralStudyCopy(locale).title;
+  document.querySelector('#quick-verse-note-label').textContent = studyReaderCopy(locale).noteTitle;
+  document.querySelector('#passage-note-title').textContent = studyReaderCopy(locale).passageNotes;
+  document.querySelector('#passage-note-label').textContent = studyReaderCopy(locale).passageNotes;
   document.querySelector('#note-starter').textContent = pastoralStudyCopy(locale).starter;
   document.querySelector('#journey-catalog-reveal').textContent = evidenceMessage(locale).reveal;
   renderSourceVersion();
@@ -810,6 +812,100 @@ function renderPastoralStudy(places, reference) {
     ${visible.length ? `<ol class="study-verses">${visible.map(verseMarkup).join('')}</ol>${rest.length ? `<details class="study-more"><summary>${escapeHtml(copy.more)} · ${rest.length}</summary><ol class="study-verses">${rest.map(verseMarkup).join('')}</ol></details>` : ''}${currentStudy.verses.length > 150 ? `<p class="study-caveat">${escapeHtml(copy.narrow)}</p>` : ''}` : `<p class="study-empty">${escapeHtml(copy.noPlaces)}</p>`}</div>
     <aside class="study-check"><strong>${escapeHtml(copy.cautionTitle)}</strong><ul><li>${escapeHtml(copy.cautionRole)}</li>${currentStudy.candidatePlaceCount ? `<li>${escapeHtml(copy.cautionCandidates)}</li>` : ''}${!currentStudy.reviewedVerseCount ? `<li>${escapeHtml(copy.cautionReview)}</li>` : ''}<li>${escapeHtml(copy.cautionText)}</li></ul></aside></div>`;
 }
+
+function setGuidedNoteStatus(message, failed = false) {
+  guidedNoteStatus.textContent = message;
+  guidedNoteStatus.classList.toggle('failed', failed);
+}
+
+function renderSelectedGuidedVerse() {
+  const selected = currentVerseSequence[currentVerseIndex];
+  if (!selected) return;
+  const copy = studyReaderCopy(locale);
+  const studyCopy = pastoralStudyCopy(locale);
+  const label = `${localizedBookName(selected.code, locale)} ${selected.chapter}:${selected.verse}`;
+  document.querySelector('#guided-progress').textContent = `${copy.current} · ${currentVerseIndex + 1} / ${currentVerseSequence.length}`;
+  document.querySelector('#guided-reference').textContent = label;
+  document.querySelector('#guided-verse-select').value = String(currentVerseIndex);
+  document.querySelector('#guided-prev').disabled = currentVerseIndex === 0;
+  document.querySelector('#guided-next').disabled = currentVerseIndex === currentVerseSequence.length - 1;
+  document.querySelector('#guided-bible-link').href = bibleReadingUrl(selected.code, selected.chapter, selected.verse);
+  const row = currentStudy?.verses.find(({ chapter, verse }) => chapter === selected.chapter && verse === selected.verse);
+  document.querySelector('#guided-place-list').innerHTML = row?.places.length
+    ? row.places.map((place) => {
+      const role = place.role ? studyCopy[place.role] : place.reviewed ? studyCopy.reviewed : studyCopy.mention;
+      return `<button type="button" data-guide-place="${escapeHtml(place.id)}"><strong>${escapeHtml(place.name)}</strong><small>${escapeHtml(role)} · ${escapeHtml(copy.showMap)} ↗</small></button>`;
+    }).join('') : `<p>${escapeHtml(copy.noPlaces)}</p>`;
+  try {
+    guidedNote.value = localStorage.getItem(`${VERSE_NOTE_PREFIX}${selected.key}`) || '';
+    setGuidedNoteStatus(copy.autosave);
+  } catch {
+    guidedNote.value = '';
+    setGuidedNoteStatus(copy.storageError, true);
+  }
+}
+
+function renderGuidedStudy(reference) {
+  const panel = document.querySelector('#guided-study');
+  if (currentGuidedReferenceLabel !== reference.label) {
+    currentGuidedReferenceLabel = reference.label;
+    currentVerseSequence = passageVerses(reference);
+    currentVerseIndex = 0;
+  }
+  panel.hidden = !currentVerseSequence.length;
+  if (panel.hidden) return;
+  const copy = studyReaderCopy(locale);
+  document.querySelector('#guided-study-title').textContent = copy.title;
+  document.querySelector('#guided-step-read').textContent = `1 ${copy.read}`;
+  document.querySelector('#guided-step-places').textContent = `2 ${copy.places}`;
+  document.querySelector('#guided-step-note').textContent = `3 ${copy.annotate}`;
+  document.querySelector('#guided-prev').textContent = `← ${copy.previous}`;
+  document.querySelector('#guided-next').textContent = `${copy.next} →`;
+  document.querySelector('#guided-jump-label').textContent = copy.jump;
+  document.querySelector('#guided-reading-help').textContent = copy.readingHelp;
+  document.querySelector('#guided-bible-link').textContent = `${copy.openBible} ↗`;
+  document.querySelector('#guided-places-title').textContent = copy.versePlaces;
+  document.querySelector('#guided-place-caution').textContent = copy.caution;
+  document.querySelector('#guided-note-title').textContent = copy.noteTitle;
+  guidedNote.placeholder = copy.notePlaceholder;
+  document.querySelector('#guided-verse-select').innerHTML = currentVerseSequence.map(({ code, chapter, verse }, index) =>
+    `<option value="${index}">${escapeHtml(localizedBookName(code, locale))} ${chapter}:${verse}</option>`).join('');
+  renderSelectedGuidedVerse();
+}
+
+document.querySelector('#guided-prev').addEventListener('click', () => {
+  if (currentVerseIndex > 0) { currentVerseIndex -= 1; renderSelectedGuidedVerse(); }
+});
+document.querySelector('#guided-next').addEventListener('click', () => {
+  if (currentVerseIndex < currentVerseSequence.length - 1) { currentVerseIndex += 1; renderSelectedGuidedVerse(); }
+});
+document.querySelector('#guided-verse-select').addEventListener('change', (event) => {
+  const index = Number(event.target.value);
+  if (Number.isInteger(index) && index >= 0 && index < currentVerseSequence.length) {
+    currentVerseIndex = index;
+    renderSelectedGuidedVerse();
+  }
+});
+document.querySelector('#guided-place-list').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-guide-place]');
+  if (!button) return;
+  selectPlace(button.dataset.guidePlace, true);
+  document.querySelector('.map-pane').scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+});
+guidedNote.addEventListener('input', () => {
+  const selected = currentVerseSequence[currentVerseIndex];
+  if (!selected) return;
+  const copy = studyReaderCopy(locale);
+  try {
+    const key = `${VERSE_NOTE_PREFIX}${selected.key}`;
+    if (guidedNote.value.trim()) localStorage.setItem(key, guidedNote.value);
+    else localStorage.removeItem(key);
+    setGuidedNoteStatus(guidedNote.value.trim() ? copy.saved : copy.cleared);
+    renderSavedNotes();
+  } catch {
+    setGuidedNoteStatus(copy.storageError, true);
+  }
+});
 
 document.querySelector('#passage-evidence').addEventListener('click', (event) => {
   const place = event.target.closest('[data-evidence-place]');
@@ -1149,10 +1245,10 @@ function renderPlaces(places, reference) {
   mapCaption.textContent = mappedCount ? translate('shown', { count: mappedCount }) : translate('noPoint');
   mapEmpty.hidden = mappedCount > 0;
   renderPassageContext(places);
-  renderAtlasCompanion('#passage-atlas-companion', atlasPlatesForPassage(reference));
   renderPassageEvidence(places, reference);
   renderDiscovery(places, reference);
   renderPastoralStudy(places, reference);
+  renderGuidedStudy(reference);
   printButton.disabled = !places.length;
   placeList.innerHTML = places.length ? places.map((place, index) => {
     const name = displayName(place);
@@ -1266,13 +1362,16 @@ function setNoteStatus(message, failed = false) {
 function renderSavedNotes() {
   try {
     const saved = listNotes(localStorage);
+    const savedVerses = listVerseNotes(localStorage);
     savedNoteList.innerHTML = saved.length
       ? saved.map(({ reference }) => `<button type="button" data-note-ref="${escapeHtml(reference)}"${currentReference?.label === reference ? ' class="active"' : ''}>${escapeHtml(formatReference(parseReference(reference), locale) || reference)}</button>`).join('')
       : `<span>${escapeHtml(translate('noNotes'))}</span>`;
-    backupNotesButton.disabled = saved.length === 0;
+    document.querySelector('#saved-verse-note-count').textContent = studyReaderCopy(locale).savedVerseCount.replace('{count}', String(savedVerses.length));
+    backupNotesButton.disabled = saved.length === 0 && savedVerses.length === 0;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
   } catch {
     savedNoteList.textContent = translate('storageUnavailable');
+    document.querySelector('#saved-verse-note-count').textContent = '';
     backupNotesButton.disabled = true;
     downloadNoteButton.disabled = !currentReference || !note.value.trim();
     setNoteStatus(translate('noteBlocked'), true);
@@ -1342,16 +1441,21 @@ document.querySelector('#passage-place-index').addEventListener('click', (event)
   if (place?.coordinate) map?.flyTo({ center: place.coordinate, zoom: Math.max(map.getZoom(), 6.3), essential: true });
 });
 document.querySelector('#quick-note').addEventListener('click', () => {
-  document.querySelector('.note-panel').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
-  note.focus({ preventScroll: true });
+  document.querySelector('#guided-study').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  guidedNote.focus({ preventScroll: true });
 });
 document.querySelector('#study-sheet').addEventListener('click', (event) => {
   if (event.target.closest('#download-study') && currentReference && currentStudy) {
     const part = currentReference.label.replace(/[^\p{L}\p{N}-]+/gu, '-');
+    let verseNotes = [];
+    try {
+      verseNotes = notesForPassage(listVerseNotes(localStorage), currentVerseSequence);
+    } catch { /* The on-screen note remains available if storage is disabled. */ }
     const markdown = pastoralStudyMarkdown(formatReference(currentReference, locale),
       localizedBookName(currentReference.code, locale), currentStudy, pastoralStudyCopy(locale),
       (chapter = currentReference.chapter, verse = currentReference.startVerse || 1) =>
-        bibleReadingUrl(currentReference.code, chapter, verse), note.value);
+        bibleReadingUrl(currentReference.code, chapter, verse), note.value,
+      verseNotes, studyReaderCopy(locale).noteTitle);
     downloadText(`passage-study-${part}.md`, markdown, 'text/markdown;charset=utf-8');
     return;
   }
@@ -1416,9 +1520,9 @@ downloadNoteButton.addEventListener('click', () => {
 
 backupNotesButton.addEventListener('click', () => {
   try {
-    const backup = createBackup(listNotes(localStorage));
+    const backup = createStudyBackup(listNotes(localStorage), listVerseNotes(localStorage));
     downloadText(`sermon-notes-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(backup, null, 2), 'application/json;charset=utf-8');
-    setNoteStatus(translate('backupSaved', { count: Object.keys(backup.notes).length }));
+    setNoteStatus(translate('backupSaved', { count: Object.keys(backup.notes).length + Object.keys(backup.verseNotes).length }));
   } catch {
     setNoteStatus(translate('backupFailed'), true);
   }
@@ -1429,11 +1533,13 @@ importNotesInput.addEventListener('change', async () => {
   if (!file) return;
   try {
     if (file.size > 4_000_000) throw new Error('백업 파일은 4MB 이하만 불러올 수 있습니다.');
-    const notes = parseBackup(await file.text());
-    const { imported, skipped } = mergeNotes(localStorage, notes);
+    const { notes, verseNotes } = parseStudyBackup(await file.text());
+    const passageResult = mergeNotes(localStorage, notes);
+    const verseResult = mergeVerseNotes(localStorage, verseNotes);
     if (currentReference && !note.value.trim()) note.value = localStorage.getItem(`${NOTE_PREFIX}${currentReference.label}`) || '';
+    if (!guidedNote.value.trim()) renderSelectedGuidedVerse();
     renderSavedNotes();
-    setNoteStatus(translate('imported', { count: imported, skipped }));
+    setNoteStatus(translate('imported', { count: passageResult.imported + verseResult.imported, skipped: passageResult.skipped + verseResult.skipped }));
   } catch (cause) {
     setNoteStatus(locale === 'ko' && cause instanceof Error ? cause.message : translate('importFailed'), true);
   } finally {

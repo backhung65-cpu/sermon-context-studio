@@ -312,29 +312,41 @@ h1 em { font-style: normal; }
 .journey-section.is-person-only .journey-active-head,
 .journey-section.is-person-only .journey-route-note,
 .journey-section.is-person-only .journey-workspace,
-.journey-section.is-person-only .atlas-companion--journey,
 .journey-section.is-person-only .journey-data-credit { display: none; }
 
-.atlas-companion:not([hidden]) { display: grid; gap: 15px; margin: 0 0 20px; padding: 21px 23px; border: 1px solid #d7dff1; border-radius: 15px; background: linear-gradient(135deg, #f7f9ff 0%, #fff 58%, #fff8f4 100%); box-shadow: 0 10px 26px rgba(26,53,102,.05); }
-.atlas-companion--journey:not([hidden]) { margin: 15px 0 0; }
-.atlas-companion-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
-.atlas-companion-heading h3 { margin: 5px 0 4px; color: #142b54; font-size: 20px; line-height: 1.3; letter-spacing: -.035em; }
-.atlas-companion-heading p { margin: 0; color: #586c88; font-size: 13px; line-height: 1.6; }
-.atlas-companion-count { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border: 1px solid #cdd9ef; border-radius: 50%; color: #4167aa; font-size: 11px; font-weight: 800; }
-.atlas-companion-plates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.atlas-companion-plate { display: flex; gap: 11px; min-width: 0; padding: 15px; border: 1px solid #e0e8f3; border-radius: 11px; background: #fff; }
-.atlas-companion-plate-mark { display: grid; flex: none; place-items: center; width: 29px; height: 29px; border-radius: 8px; background: #edf2ff; color: #5378bf; font-size: 21px; line-height: 1; }
-.atlas-companion-plate > div { display: grid; min-width: 0; gap: 4px; }
-.atlas-companion-plate small { color: #687fa3; font-size: 11px; font-weight: 750; line-height: 1.5; }
-.atlas-companion-plate strong { color: #142b54; font-size: 15px; line-height: 1.4; }
-.atlas-companion-plate p { margin: 0; color: #52647e; font-size: 12px; line-height: 1.65; }
-.atlas-companion-plate-links { display: flex; flex-wrap: wrap; gap: 4px 12px; }
-.atlas-companion-plate-open { width: fit-content; margin-top: 4px; color: #2457a0; font-size: 12px; font-weight: 800; text-decoration: none; }
-.atlas-companion-plate-open:hover, .atlas-companion-plate-open:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
-.atlas-companion-caveat { margin: 0; padding: 9px 12px; border-left: 3px solid #b27bc9; border-radius: 0 7px 7px 0; background: #f5f1fa; color: #685476; font-size: 12px; line-height: 1.65; }
-.atlas-companion-links { display: flex; flex-wrap: wrap; gap: 7px; }
-.atlas-companion-links a { display: inline-flex; align-items: center; min-height: 36px; padding: 7px 10px; border: 1px solid #cbd9ef; border-radius: 7px; background: #fff; color: #24518d; font-size: 12px; font-weight: 800; text-decoration: none; }
-.atlas-companion-links a:hover, .atlas-companion-links a:focus-visible { border-color: #567ec0; background: #f2f6ff; outline: none; }
+.guided-study:not([hidden]) { display: grid; gap: 18px; margin: 0 0 22px; padding: 24px; border: 1px solid #cbdaf0; border-radius: 16px; background: linear-gradient(125deg, #f4f8ff, #fff 55%, #fff9f8); box-shadow: 0 10px 28px rgba(20,48,92,.06); }
+.guided-study-top { display: flex; justify-content: space-between; align-items: end; gap: 16px; }
+.guided-study-top h3 { margin: 5px 0 0; color: #112b55; font-size: 22px; line-height: 1.3; letter-spacing: -.035em; }
+.guided-study-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.guided-study-steps span { padding: 6px 9px; border-radius: 99px; background: #e8efff; color: #2b5791; font-size: 12px; font-weight: 800; }
+.guided-study-grid { display: grid; grid-template-columns: minmax(0, 1.07fr) minmax(0, .93fr); gap: 14px; }
+.guided-study-reading, .guided-study-annotation { min-width: 0; padding: 20px; border: 1px solid #dce5f3; border-radius: 12px; background: #fff; }
+.guided-study-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.guided-study-nav > div { min-width: 0; text-align: center; }
+.guided-study-nav span { display: block; color: #68809f; font-size: 12px; font-weight: 700; }
+.guided-study-nav strong { display: block; margin-top: 4px; color: #142d59; font-size: 19px; overflow-wrap: anywhere; }
+.guided-study-nav button { min-height: 38px; padding: 7px 10px; border: 1px solid #cbd9ec; border-radius: 8px; background: #f7faff; color: #27518a; font-size: 12px; font-weight: 800; cursor: pointer; }
+.guided-study-nav button:disabled { opacity: .42; cursor: default; }
+.guided-study-jump { display: flex; align-items: center; gap: 10px; margin-top: 17px; color: #4d6688; font-size: 12px; font-weight: 800; }
+.guided-study-jump select { flex: 1; min-width: 0; min-height: 38px; padding: 7px 10px; border: 1px solid #cbd9ec; border-radius: 8px; background: #fff; color: #1a355f; font: inherit; }
+.guided-study-reading > p { margin: 14px 0 10px; color: #536883; font-size: 13px; line-height: 1.6; }
+.guided-bible-link { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: 8px; background: #183968; color: #fff; font-size: 13px; font-weight: 800; text-decoration: none; }
+.guided-bible-link:hover, .guided-bible-link:focus-visible { background: #275c9d; }
+.guided-study-places { margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2eaf5; }
+.guided-study-places > strong { color: #1b365e; font-size: 14px; }
+#guided-place-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 11px; }
+#guided-place-list button { display: grid; gap: 3px; min-height: 52px; padding: 8px 11px; border: 1px solid #cbd9ec; border-radius: 8px; background: #f7faff; color: #163d76; text-align: left; cursor: pointer; }
+#guided-place-list button strong { font-size: 13px; }
+#guided-place-list button small { color: #58769f; font-size: 11px; }
+#guided-place-list p, #guided-place-caution { margin: 0; color: #697b93; font-size: 12px; line-height: 1.6; }
+#guided-place-caution { margin-top: 10px; }
+.guided-study-annotation { display: flex; flex-direction: column; }
+.guided-study-annotation label { color: #173b70; font-size: 16px; font-weight: 800; }
+.guided-study-annotation textarea { flex: 1; width: 100%; min-height: 215px; margin-top: 12px; padding: 14px; border: 1px solid #cbd9ec; border-radius: 8px; background: #fbfdff; color: #253b5b; font: inherit; font-size: 14px; line-height: 1.7; resize: vertical; }
+.guided-study-annotation textarea:focus { outline: 2px solid #8db3eb; background: #fff; }
+.guided-study-annotation textarea::placeholder { color: #788ca6; }
+#guided-note-status { display: block; margin-top: 10px; color: #54708e; font-size: 12px; line-height: 1.5; }
+#guided-note-status.failed { color: #a74343; }
 
 .results-section { background: #fff; padding-bottom: 110px; }
 .section-topline { height: 3px; background: linear-gradient(115deg, #ea48e1, #fa8af9 18%, #a8aefe 48%, #6496fd 68%, #1580fd 84%, #154fdf); opacity: .72; }
@@ -618,6 +630,7 @@ h1 em { font-style: normal; }
 #saved-note-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 105px; overflow: auto; margin-top: 9px; color: #94a3b8; font-size: 10px; }
 #saved-note-list button { padding: 6px 9px; border: 1px solid #e0e7f1; border-radius: 5px; background: #fff; color: #466187; font-size: 10px; cursor: pointer; }
 #saved-note-list button.active { border-color: #9cb4dc; background: #f1f5ff; color: #213d6c; }
+#saved-verse-note-count { display: block; margin-top: 9px; color: #5a7394; font-size: 11px; }
 .source-panel { background: #f8fafc; }
 .source-top { color: #4c6da8; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
 .source-panel h3 { margin: 10px 0; font-size: 17px; letter-spacing: -.035em; color: #111827; }
@@ -643,6 +656,7 @@ h1 em { font-style: normal; }
 }
 
 @media (min-width: 761px) and (max-width: 980px) {
+  .guided-study-grid { grid-template-columns: 1fr; }
   .header-edition { display: none; }
   .journey-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero { grid-template-columns: 1fr; gap: 22px; padding-block: 48px; }
@@ -661,9 +675,14 @@ h1 em { font-style: normal; }
 }
 
 @media (max-width: 760px) {
-  .atlas-companion:not([hidden]) { gap: 13px; padding: 16px; }
-  .atlas-companion-plates { grid-template-columns: 1fr; }
-  .atlas-companion-heading h3 { font-size: 18px; }
+  .guided-study:not([hidden]) { gap: 13px; padding: 15px; }
+  .guided-study-top { display: block; }
+  .guided-study-top h3 { font-size: 19px; }
+  .guided-study-steps { margin-top: 11px; }
+  .guided-study-grid { grid-template-columns: 1fr; }
+  .guided-study-reading, .guided-study-annotation { padding: 15px; }
+  .guided-study-nav { gap: 5px; }
+  .guided-study-nav button { max-width: 85px; padding: 6px; }
   .passage-evidence:not([hidden]) { padding: 14px; }
   .passage-evidence-heading { display: block; }
   .passage-evidence-heading a { display: inline-block; margin-top: 7px; }

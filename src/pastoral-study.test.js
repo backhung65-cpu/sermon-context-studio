@@ -41,6 +41,10 @@ test('download includes every verse, source links, caution, and user notes', () 
   assert.match(markdown, /회중 질문/);
   assert.match(markdown, /OpenBible.info · CC BY 4.0/);
   assert.match(markdown, /지도는 지명 색인으로만/);
+  const withAnnotation = pastoralStudyMarkdown('사도행전 16:6–15', '사도행전', study, pastoralStudyCopy('ko'),
+    (chapter = 16, verse = 6) => `https://example.org/${chapter}/${verse}`, '',
+    [{ verse: 'ACT:16:7', text: '지명이 없더라도 본문을 읽고 남긴 주석' }], '절별 주석 메모');
+  assert.match(withAnnotation, /절별 주석 메모[\s\S]*사도행전 16:7[\s\S]*지명이 없더라도/);
 });
 
 test('pastoral observation and export labels are present in every interface language', () => {
