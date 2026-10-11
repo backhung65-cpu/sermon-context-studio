@@ -1,6 +1,6 @@
 // Reviewed wording for prominent copy and sentences containing interpolation.
 export const OVERRIDES = {
-  ko: { logoAlt: '목회 AI 연구소 AI와 십자가 로고', footerData: '지리 자료' },
+  ko: { logoAlt: '목회 AI 연구소 AI와 십자가 로고', footerData: '지리 자료', mapFootnote: '배경의 한글 지명은 오늘날 지도 표기입니다. 본문 핀은 성경 지명의 추정 대표 좌표이며, 지역·강이나 위치 논쟁이 있는 곳은 실제 범위와 다를 수 있습니다.' },
   en: { logoAlt: 'Ministry AI Lab logo with a cross', footerData: 'Geographic data' },
   ja: {
     logoAlt: '十字架を含む Ministry AI Lab のロゴ', footerData: '地理データ',

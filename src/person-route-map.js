@@ -1,5 +1,6 @@
 import { bibleReadingUrl, localizedBookName } from './reference.js';
 import { passageScenesForRoute, PASSAGE_SCENE_ROUTE_IDS } from './route-passage-scenes.js';
+import { applyMapLanguage } from './map-language.js';
 
 const STOP_COPY = {
   ko: ['본문으로 연결한 장소', '이 경로의 본문 장면에서 이름이 확인된 장소입니다. 번호는 본문 순서이며 UBS 선은 실제 길이 아닙니다. 서로 다른 자료의 좌표 차이를 함께 표시합니다.', '본문', 'UBS 선과 약', 'km 차이', '한국어 성경 읽기', '이 경로는 장면별 장소 근거를 아직 대조하지 않았습니다. 원자료의 선만으로 경유 도시를 확정할 수 없습니다.'],
@@ -209,6 +210,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
       }
       map.addControl(new lib.NavigationControl({ showCompass: false }), 'top-right');
       map.on('load', () => {
+        applyMapLanguage(map, getLocale());
         map.addSource('person-route', { type: 'geojson', data: routeGeoJson(currentRoute()) });
         map.addLayer({ id: 'person-route-line', type: 'line', source: 'person-route', paint: { 'line-color': '#be5ca4', 'line-width': 4, 'line-opacity': .88, 'line-dasharray': [1.5, 1.5] } });
         mapLoaded = true;
@@ -233,6 +235,7 @@ export function createPersonRouteMap(root, { getLocale, getMaplibre, getPlaces, 
 
   function render() {
     const locale = getLocale();
+    if (mapLoaded) applyMapLanguage(map, locale);
     const copy = COPY[locale] || COPY.en;
     const routes = currentRoutes();
     root.querySelector('#person-route-title').textContent = `${copy.heading}${routes.length ? ` · ${routes.length}` : ''}`;

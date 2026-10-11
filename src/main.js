@@ -11,6 +11,7 @@ import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geograph
 import { notesForPassage, passageVerses, studyReaderCopy } from './study-reader.js';
 import { firstVisitCopy } from './first-visit.js';
 import { memoDrawerCopy } from './memo-drawer.js';
+import { applyMapLanguage } from './map-language.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
@@ -735,6 +736,9 @@ function applyLanguage() {
   document.querySelector('meta[name="description"]').content = translate('description');
   document.querySelector('.brand').href = locale === 'ko' ? '/' : `/?lang=${encodeURIComponent(locale)}`;
   document.querySelector('#language-select').value = locale;
+  if (map?.loaded()) applyMapLanguage(map, locale);
+  if (journeyMapReady) applyMapLanguage(journeyMap, locale);
+  if (heroMapReady) applyMapLanguage(heroMap, locale);
   for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = translate(element.dataset.i18n);
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
@@ -1121,9 +1125,9 @@ function renderMapSelection(place) {
   panel.classList.toggle('is-alternative', selectedCandidateIndex > 0);
   const photoMarkup = photo ? `<div class="map-selection-media"><img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" /><a href="${escapeHtml(photo.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(photo.credit)} · ${escapeHtml(photo.license)} ↗</a></div>` : '';
   panel.hidden = false;
-  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : reviewed ? reviewedSceneMessage(locale).eyebrow : eventLocation ? evidenceMessage(locale).eventLocation : translate('legendPlace'))}: ${escapeHtml(name)} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(candidateName)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
+  panel.innerHTML = `<div class="map-selection-content"><span class="map-selection-kicker">${escapeHtml(role ? contextCopy[role] : reviewed ? reviewedSceneMessage(locale).eyebrow : eventLocation ? evidenceMessage(locale).eventLocation : translate('legendPlace'))} · ${String(position).padStart(2, '0')}</span><strong>${escapeHtml(name)}</strong><span class="map-selection-verse">${escapeHtml(`${localizedBookName(currentReference.code, locale)} ${verse.chapter}:${verse.verse}`)}</span>
     ${role ? `<span class="map-selection-role">${escapeHtml(contextCopy[`${role}Detail`])}</span>` : ''}
-    ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))} · ${escapeHtml(placeStatus(place))}</span>` : ''}
+    ${place.candidateCount > 1 ? `<span class="map-selection-candidate">${escapeHtml(selectedCandidateIndex ? translate('candidateRank', { rank: selectedCandidateIndex + 1 }) : translate('candidateOne'))}: ${escapeHtml(candidateName)} · ${escapeHtml(placeStatus(place))}</span>` : ''}
     <button class="map-selection-occurrences" type="button" data-map-occurrences="${escapeHtml(place.id)}">${escapeHtml(translate('wholeBible'))} <strong>${escapeHtml(versesLabel(occurrenceCount))}</strong> ↗</button>
     <div class="map-selection-actions">${place.candidateCount > 1 ? `<button type="button" data-map-compare="${escapeHtml(place.id)}">${escapeHtml(translate('compareNow', { count: place.candidateCount }))} ↗</button>` : ''}<a href="${bibleReadingUrl(currentReference.code, verse.chapter, verse.verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(translate('readBible'))} ↗</a></div></div>${photoMarkup}`;
 }
@@ -1901,6 +1905,7 @@ function setupJourneyMap() {
     });
     journeyMap.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
     journeyMap.on('load', () => {
+      applyMapLanguage(journeyMap, locale);
       journeyMap.addSource('journey-route', { type: 'geojson', data: journeyLineData() });
       journeyMap.addLayer({ id: 'journey-route-line', type: 'line', source: 'journey-route', paint: { 'line-color': '#644ca7', 'line-width': 3, 'line-opacity': .75, 'line-dasharray': [2, 2] } });
       journeyMapReady = true;
@@ -1946,6 +1951,7 @@ async function loadMap() {
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'top-right');
     map.on('error', () => { document.querySelector('.map-footnote').textContent = translate('mapBgError'); });
     map.on('load', () => {
+      applyMapLanguage(map, locale);
       updateMap(currentPlaces);
       if (selectedPlaceId) selectPlace(selectedPlaceId, false);
     });
@@ -1971,9 +1977,12 @@ function setupHeroMap() {
     attributionControl: false,
   });
   heroMap.on('load', () => {
-    // The small preview has its own passage labels; basemap labels overlap them.
+    applyMapLanguage(heroMap, locale);
+    // Keep only large reference labels in the small preview; the passage card names the biblical site.
     for (const layer of heroMap.getStyle().layers) {
-      if (layer.type === 'symbol') heroMap.setLayoutProperty(layer.id, 'visibility', 'none');
+      if (layer.type === 'symbol' && !['label_city', 'label_city_capital', 'label_country_1', 'label_country_2', 'label_country_3'].includes(layer.id)) {
+        heroMap.setLayoutProperty(layer.id, 'visibility', 'none');
+      }
     }
     heroMap.addSource('passage-places', {
       type: 'geojson',
