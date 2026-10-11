@@ -1,0 +1,10 @@
+{
+  "title": "한국어 성경 · Korean Bible 1910",
+  "source": "https://ebible.org/Scriptures/kor_vpl.zip",
+  "source_sha256": "e687cf8142c55ac572efd448186659c3d81144e7e30dd13d418161d486969dff",
+  "vpl_sha256": "8937d907650df5319bb9fae40b8caa502ed3291db45550b20b047f3699790d0a",
+  "license": "Public Domain (as stated by eBible.org)",
+  "books": 66,
+  "chapters": 1188,
+  "verses": 30991
+}

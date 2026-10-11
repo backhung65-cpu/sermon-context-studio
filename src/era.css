@@ -52,7 +52,36 @@ body { background: #fff; }
 .era-story-column { min-width: 0; padding: 24px; }
 .era-context-column { display: grid; align-content: start; gap: 15px; min-width: 0; padding: 24px; border-left: 1px solid #e4eaf4; background: #fbfcff; }
 .era-flow-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { min-width: 0; padding: 23px; border: 1px solid #e0e7f2; border-radius: 14px; background: #fff; }
+.era-reader-card, .era-sources-card { min-width: 0; padding: 23px; border: 1px solid #dce6f3; border-radius: 14px; background: #fff; }
+.era-reader-card { margin-bottom: 14px; border-color: #bdd3f1; box-shadow: 0 10px 28px rgba(40,91,166,.07); }
 .era-card-top { display: flex; justify-content: space-between; gap: 10px; color: #7489a8; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
+.era-reader-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; margin-top: 15px; }
+.era-reader-head h3, .era-sources-card h3 { margin: 0 0 7px; color: #172b4e; font-size: 20px; letter-spacing: -.045em; }
+.era-reader-head p { margin: 0; color: #61748d; font-size: 11px; line-height: 1.65; word-break: keep-all; }
+.era-reader-edition { flex: none; padding: 7px 9px; border-radius: 7px; background: #eaf3ff; color: #2b62a9; font-size: 10px; font-weight: 800; }
+.era-reader-modes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; padding-bottom: 14px; border-bottom: 1px solid #e8edf5; }
+.era-reader-modes button, .era-reader-pagination button { padding: 8px 11px; border: 1px solid #cbdcf2; border-radius: 8px; background: #fff; color: #315d94; font-size: 10px; font-weight: 800; }
+.era-reader-modes button[aria-pressed="true"] { border-color: #477cd0; background: #eaf3ff; color: #164a91; }
+.era-reader-text { min-height: 75px; padding-block: 8px; color: #223655; font-size: 13px; line-height: 1.9; }
+.era-reader-warning { margin: 8px 0 15px; padding: 12px 14px; border: 1px solid #efd7b8; border-radius: 8px; background: #fff8eb; color: #7b5528; font-size: 11px; line-height: 1.6; }
+.era-reader-rows p { display: grid; grid-template-columns: 45px minmax(0,1fr); gap: 8px; margin: 0; padding: 10px 0; border-bottom: 1px solid #eff2f7; }
+.era-reader-rows p:last-child { border-bottom: 0; }
+.era-reader-rows a { align-self: start; color: #3165aa; font-size: 10px; font-weight: 900; text-decoration: none; }
+.era-reader-rows a:hover { text-decoration: underline; }
+.era-reader-rows span { min-width: 0; color: #273b59; word-break: keep-all; }
+.era-reader-rows .era-reader-missing span { color: #8c6543; font-size: 11px; }
+.era-reader-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid #e8edf5; color: #788ba5; font-size: 10px; }
+.era-reader-pagination button:hover { background: #eaf3ff; }
+.era-reader-credit { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+.era-reader-credit a { color: #3567a8; font-size: 10px; font-weight: 800; text-decoration: none; }
+.era-reader-credit a:hover { text-decoration: underline; }
+.era-sources-card h3 { margin-top: 15px; font-size: 17px; }
+.era-sources-card ol { display: grid; gap: 0; margin: 10px 0; padding: 0; list-style: none; }
+.era-sources-card li { display: grid; gap: 3px; padding: 11px 0; border-bottom: 1px solid #edf1f7; }
+.era-sources-card strong { color: #426184; font-size: 10px; }
+.era-sources-card a { color: #2f64a8; font-size: 11px; font-weight: 800; line-height: 1.5; text-decoration: none; overflow-wrap: anywhere; }
+.era-sources-card a:hover { text-decoration: underline; }
+.era-sources-card small, .era-sources-card > p { margin: 0; color: #7b8da6; font-size: 10px; line-height: 1.55; }
 .era-flow-card > h3 { margin: 14px 0 19px; color: #192b4b; font-size: 19px; letter-spacing: -.04em; }
 .era-scope-note { margin: -7px 0 17px; color: #875b37; font-size: 11px; line-height: 1.6; }
 .era-stage-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(118px,1fr)); gap: 8px; margin-bottom: 16px; }
@@ -118,7 +147,7 @@ body { background: #fff; }
   .era-hero { grid-template-columns: minmax(0,1fr) minmax(300px,.8fr); gap: 26px; }
   .era-study-grid { grid-template-columns: minmax(0,1fr) minmax(300px,.88fr); }
   .era-story-column, .era-context-column { padding: 16px; }
-  .era-flow-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { padding: 17px; }
+  .era-flow-card, .era-reader-card, .era-sources-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { padding: 17px; }
 }
 @media (max-width: 850px) {
   .era-hero { grid-template-columns: 1fr; padding-block: 40px 48px; }
@@ -157,6 +186,9 @@ body { background: #fff; }
   .era-neighbors { grid-template-columns: 1fr; }
   .era-scene-detail-head { display: block; }
   .era-scene-detail-head span { display: block; margin-top: 3px; }
+  .era-reader-head { display: block; }
+  .era-reader-edition { display: inline-block; margin-top: 10px; }
+  .era-reader-rows p { grid-template-columns: 38px minmax(0,1fr); }
 }
 @media print {
   .site-header, .era-hero, .era-note-actions, .era-search, .era-site-footer { display: none !important; }

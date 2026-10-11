@@ -8,6 +8,7 @@ export const ERA_STUDIES = [
     background: '본문은 출발과 도착, 땅에 대한 약속, 제단을 쌓는 장면, 이어지는 기근과 애굽 체류를 차례로 놓습니다. 약속이 주어졌다는 사실과 그 땅을 곧바로 소유했다는 주장은 구분해서 읽어야 합니다.',
     caution: '족장 이야기의 사건 연도를 하나의 확정 연도로 표시하지 않습니다.',
     question: '아브람이 이미 얻은 것과 아직 약속으로 남은 것은 각각 무엇인가요?',
+    furtherReading: { label: '미국성서공회 · 창세기 12:1–9 읽기와 질문', url: 'https://www.americanbible.org/engage/daily-bible-reading/articles/june-1-genesis-12-1-9/' },
     before: { code: 'GEN', chapter: 11, verse: 31, label: '앞 이야기 · 데라의 가족과 하란' },
     after: { code: 'GEN', chapter: 13, verse: 1, label: '다음 이야기 · 아브람과 롯' },
     stages: [
@@ -24,6 +25,7 @@ export const ERA_STUDIES = [
     background: '앞 장은 모세가 미디안에 머물게 된 경위를 전합니다. 이 장의 현장인 호렙과 앞으로 향할 애굽을 구별하면 본문의 흐름이 선명해집니다.',
     caution: '출애굽 사건의 정확한 연도와 호렙의 현대 지점은 이 화면에서 확정하지 않습니다.',
     question: '모세는 지금 어디에 있으며, 앞으로 어디로 보내질 예정인가요?',
+    furtherReading: { label: '미국성서공회 · 출애굽기 연구 안내', url: 'https://www.americanbible.org/engage/bible-resources/articles/bible-study-guide-exodus/' },
     before: { code: 'EXO', chapter: 2, verse: 15, label: '앞 이야기 · 모세의 미디안 생활' },
     after: { code: 'EXO', chapter: 4, verse: 1, label: '다음 이야기 · 부르심에 대한 응답' },
     stages: [
@@ -39,6 +41,7 @@ export const ERA_STUDIES = [
     background: '빚을 진 과부, 수넴 여인, 길갈의 공동체, 처음 익은 열매를 가져온 사람이 차례로 등장합니다. 장면마다 인물과 문제가 달라집니다.',
     caution: '네 장면의 정확한 날짜·이동 순서·모든 현장을 이 장만으로 확정하지 않습니다.',
     question: '각 장면에서 누가 어떤 필요를 말하고, 엘리사는 어떻게 응답하나요?',
+    furtherReading: { label: '미국성서공회 · 열왕기하 개관과 엘리사 이야기', url: 'https://www.americanbible.org/engage/bible-resources/articles/2-kings/' },
     before: { code: '2KI', chapter: 3, verse: 1, label: '앞 이야기 · 모압과 두 왕국' },
     after: { code: '2KI', chapter: 5, verse: 1, label: '다음 이야기 · 나아만' },
     stages: [
@@ -55,6 +58,7 @@ export const ERA_STUDIES = [
     background: '탄생 장면과 열두 살 때의 성전 장면 사이에는 시간이 흐릅니다. 한 장에 이어져 있어도 모두 같은 날의 사건은 아닙니다.',
     caution: '누가복음 2장의 인구조사와 다른 역사 연대의 관계에는 학술적 논의가 있습니다. 예수 탄생 연도를 여기서 단정하지 않습니다.',
     question: '이 장에서 시간의 흐름이 크게 바뀌는 지점은 어디인가요?',
+    furtherReading: { label: 'Bible Odyssey · 누가복음과 역사 연대 논의', url: 'https://www.bibleodyssey.org/articles/how-does-the-new-testament-relate-to-history/' },
     before: { code: 'LUK', chapter: 1, verse: 26, label: '앞 이야기 · 탄생 예고' },
     after: { code: 'LUK', chapter: 3, verse: 1, label: '다음 이야기 · 요한과 예수의 사역' },
     external: { label: 'Bible Odyssey · 누가복음과 역사 연대', url: 'https://www.bibleodyssey.org/articles/how-does-the-new-testament-relate-to-history/' },
@@ -72,6 +76,7 @@ export const ERA_STUDIES = [
     background: '본문은 이동 결정, 바다를 건넘, 빌립보 도착, 강가에서의 만남을 구분해 적습니다. 12절은 빌립보를 로마 식민 도시로 소개합니다.',
     caution: '이 화면의 순서는 사도행전 16장의 서술 순서입니다. 연도나 이동 경로의 실제 도로를 확정한 지도가 아닙니다.',
     question: '일행의 계획과 실제로 열린 길은 본문에서 어떻게 달라지나요?',
+    furtherReading: { label: '미국성서공회 · 사도행전 16:1–15 읽기와 질문', url: 'https://www.americanbible.org/engage/daily-bible-reading/articles/acts-161-15-2/' },
     before: { code: 'ACT', chapter: 15, verse: 36, label: '앞 이야기 · 다음 방문을 의논함' },
     after: { code: 'ACT', chapter: 17, verse: 1, label: '다음 이야기 · 데살로니가' },
     stages: [
