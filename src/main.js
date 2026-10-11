@@ -251,7 +251,6 @@ const importNotesInput = document.querySelector('#import-notes');
 const importTrigger = document.querySelector('#import-trigger');
 const memoDrawer = document.querySelector('#memo-drawer');
 const memoToggle = document.querySelector('#memo-toggle');
-const memoFeatureCard = document.querySelector('[data-first-feature="note"]');
 const memoVerseInput = document.querySelector('#memo-verse-input');
 const memoPassageInput = document.querySelector('#memo-passage-input');
 const memoVerseSelect = document.querySelector('#memo-verse-select');
@@ -401,7 +400,7 @@ function setMemoOpen(open, focus = false) {
   if (open) {
     syncMemoEditor();
     if (focus) (focus === 'passage' ? memoPassageInput : memoVerseInput).focus({ preventScroll: true });
-  } else if (focus) (memoToggle.classList.contains('is-suppressed') ? memoFeatureCard : memoToggle).focus({ preventScroll: true });
+  } else if (focus) memoToggle.focus({ preventScroll: true });
 }
 
 function setMemoActionStatus(message, failed = false) {
@@ -1645,11 +1644,6 @@ document.querySelector('#quick-note').addEventListener('click', () => {
 });
 
 memoToggle.addEventListener('click', () => setMemoOpen(true, currentVerseSequence.length ? 'verse' : 'passage'));
-if ('IntersectionObserver' in window) {
-  new IntersectionObserver(([entry]) => {
-    memoToggle.classList.toggle('is-suppressed', entry.isIntersecting && entry.intersectionRatio >= 0.4);
-  }, { threshold: [0, 0.4, 1] }).observe(memoFeatureCard);
-}
 document.querySelector('#memo-close').addEventListener('click', () => setMemoOpen(false, true));
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !memoDrawer.hidden) setMemoOpen(false, true);

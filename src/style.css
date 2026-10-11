@@ -655,7 +655,6 @@ h1 em { font-style: normal; }
 .memo-toggle { position: fixed; z-index: 1100; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 9px 15px; border: 1px solid #abc0ed; border-radius: 100px; background: #172b54; color: #fff; box-shadow: 0 12px 30px rgba(15,34,74,.25); font-size: 13px; font-weight: 800; }
 .memo-toggle:hover, .memo-toggle:focus-visible { background: #2351a0; outline-color: #9cbbf6; }
 .memo-toggle[aria-expanded="true"] { display: none; }
-.memo-toggle.is-suppressed { display: none; }
 .memo-toggle > span:first-child { font-size: 20px; line-height: 1; }
 .memo-toggle small { display: grid; place-items: center; min-width: 21px; height: 21px; padding: 0 5px; border-radius: 30px; background: #fff; color: #173b77; font-size: 10px; }
 .memo-toggle small:empty { display: none; }
