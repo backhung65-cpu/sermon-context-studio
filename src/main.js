@@ -72,7 +72,7 @@ app.innerHTML = `
         <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" data-i18n-alt="logoAlt" alt="목회 AI 연구소 AI와 십자가 로고" /></span>
         <span class="brand-text"><strong data-i18n="brand">목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
       </a>
-      <nav class="primary-nav" aria-label="주 메뉴"><a href="/" data-view-link="places" aria-current="page">본문 속 지명</a><a href="/?view=journeys" data-view-link="journeys">성경여행</a></nav>
+      <nav class="primary-nav" aria-label="주 메뉴"><a href="/" data-view-link="places" aria-current="page">본문 속 지명</a><a href="/?view=journeys" data-view-link="journeys">성경여행</a><a id="era-nav" href="/era.html">본문의 시대</a></nav>
       <div class="header-tools"><label class="sr-only" for="language-select">Language</label><select id="language-select" aria-label="Language">${Object.entries(LOCALES).map(([code, name]) => `<option value="${code}">${name}</option>`).join('')}</select><span class="header-edition"><span data-i18n="edition">성경 배경 연구 도구</span> <span>01</span></span></div>
     </div>
   </header>
@@ -470,6 +470,29 @@ function escapeHtml(value) {
   })[character]);
 }
 
+const ERA_NAV_LABELS = {
+  ko: '본문의 시대', en: 'Passage Era', ja: '本文の時代', 'zh-CN': '经文时代',
+  es: 'Época del pasaje', th: 'ยุคของพระคัมภีร์', hi: 'पाठ का काल',
+  fr: 'Époque du passage', de: 'Zeit des Textes',
+};
+const COMPACT_NAV_LABELS = {
+  ko: ['지명', '여행', '시대'], en: ['Places', 'Journeys', 'Era'],
+  ja: ['地名', '旅', '時代'], 'zh-CN': ['地名', '旅程', '时代'],
+  es: ['Lugares', 'Viajes', 'Época'], th: ['สถานที่', 'เส้นทาง', 'ยุค'],
+  hi: ['स्थान', 'यात्रा', 'काल'], fr: ['Lieux', 'Voyages', 'Époque'],
+  de: ['Orte', 'Reisen', 'Zeit'],
+};
+function updateEraNavigation(reference = currentReference) {
+  const link = document.querySelector('#era-nav');
+  link.textContent = ERA_NAV_LABELS[locale] || ERA_NAV_LABELS.en;
+  link.dataset.shortLabel = (COMPACT_NAV_LABELS[locale] || COMPACT_NAV_LABELS.en)[2];
+  link.setAttribute('aria-label', link.textContent);
+  const params = new URLSearchParams();
+  if (reference?.code) params.set('ref', formatReference(reference));
+  if (locale !== 'ko') params.set('lang', locale);
+  link.href = `/era.html${params.size ? `?${params}` : ''}`;
+}
+
 function applyView(scroll = false) {
   const showingJourneys = currentView === 'journeys';
   const personId = new URLSearchParams(location.search).get('person');
@@ -482,6 +505,8 @@ function applyView(scroll = false) {
   for (const link of document.querySelectorAll('[data-view-link]')) {
     const view = link.dataset.viewLink;
     link.textContent = journeyMessage(locale, view === 'places' ? 'navPlaces' : 'navJourneys');
+    link.dataset.shortLabel = (COMPACT_NAV_LABELS[locale] || COMPACT_NAV_LABELS.en)[view === 'places' ? 0 : 1];
+    link.setAttribute('aria-label', link.textContent);
     if (view === currentView) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
     const address = new URL(location.href);
@@ -735,6 +760,7 @@ function applyLanguage() {
   document.querySelector('meta[name="description"]').content = translate('description');
   document.querySelector('.brand').href = locale === 'ko' ? '/' : `/?lang=${encodeURIComponent(locale)}`;
   document.querySelector('#language-select').value = locale;
+  updateEraNavigation();
   if (map?.loaded()) applyMapLanguage(map, locale);
   if (journeyMapReady) applyMapLanguage(journeyMap, locale);
   if (heroMapReady) applyMapLanguage(heroMap, locale);
@@ -1431,6 +1457,7 @@ function renderPlaces(places, reference) {
   }
   else renderMapSelection(null);
   renderHeroPreview(places, reference);
+  updateEraNavigation(reference);
 }
 
 placeList.addEventListener('click', (event) => {

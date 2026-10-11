@@ -845,6 +845,8 @@ h1 em { font-style: normal; }
 
 @media (max-width: 420px) {
   .shell { width: calc(100% - 28px); }
+  .primary-nav a[data-short-label] { overflow: hidden; font-size: 0; }
+  .primary-nav a[data-short-label]::after { content: attr(data-short-label); font-size: 11px; }
   .brand { gap: 8px; }
   .brand-text small { display: none; }
   .header-tools select { max-width: 92px; }
