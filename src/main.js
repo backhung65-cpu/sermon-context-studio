@@ -9,6 +9,7 @@ import { createPersonExplorer, CURATED_JOURNEYS_BY_PERSON, KOREAN_NAMES } from '
 import { buildPastoralStudy, observationLine, pastoralStudyCopy, pastoralStudyMarkdown } from './pastoral-study.js';
 import { dictionaryPlainText, geographyNoteCopy, noteForPlace } from './geography-notes.js';
 import { notesForPassage, passageVerses, studyReaderCopy } from './study-reader.js';
+import { firstVisitCopy } from './first-visit.js';
 
 const DATA_URL = '/public/data/openbible-places.json';
 const EVIDENCE_URL = '/public/data/passage-evidence.json';
@@ -78,13 +79,13 @@ app.innerHTML = `
     <section class="hero shell" aria-labelledby="page-title">
       <div class="hero-copy">
         <div class="eyebrow"><span class="eyebrow-line"></span> SERMON CONTEXT STUDIO</div>
-        <h1 id="page-title"><span data-i18n="hero1">본문이 지나간 장소를</span><br /><em data-i18n="hero2">한눈에 살펴보세요.</em></h1>
-        <p class="hero-lead" data-i18n="lead">설교 본문 주소를 입력하면 연결된 지명을 찾아 지도와 근거를 함께 보여줍니다. 준비의 첫 장면을 더 분명하게 시작하세요.</p>
+        <h1 id="page-title"><span id="first-headline-one">본문 하나로,</span><br /><em id="first-headline-two">읽기부터 지도·주석까지.</em></h1>
+        <p id="first-lead" class="hero-lead">성경 주소를 입력하면 절별 읽기, 본문 속 지명과 근거, 내 주석을 한 흐름에서 볼 수 있습니다.</p>
         <form id="reference-form" class="search-form" novalidate>
           <label for="reference-input" data-i18n="reference">성경 본문</label>
           <div class="search-row">
             <input id="reference-input" name="reference" type="text" value="출애굽기 3장" data-i18n-placeholder="referencePlaceholder" placeholder="예: 행 16:6-15" autocomplete="off" spellcheck="false" />
-            <button type="submit"><span data-i18n="search">장소 찾기</span><span aria-hidden="true">↗</span></button>
+            <button type="submit"><span id="first-start">본문 연구 시작</span><span aria-hidden="true">↗</span></button>
           </div>
           <p id="search-error" class="search-error" role="alert" hidden></p>
         </form>
@@ -113,6 +114,15 @@ app.innerHTML = `
           <div class="visual-footer"><span>© OpenStreetMap · OpenFreeMap</span><div><button id="hero-motion-toggle" type="button" aria-pressed="false" hidden>일시정지</button><button id="visual-results-button" type="button"><span data-i18n="heroExplore">이 장소 살펴보기</span> ↗</button></div></div>
         </div>
       </aside>
+      <div class="feature-overview" aria-label="이 앱에서 바로 할 수 있는 일">
+        <div class="feature-overview-heading"><span class="feature-overview-rule" aria-hidden="true"></span><strong id="first-feature-label">이 앱에서 바로 할 수 있는 일</strong><small id="first-demo">지금 체험 중 · 출애굽기 3장</small></div>
+        <div class="feature-overview-grid">
+          <button class="feature-card feature-card--map" type="button" data-first-feature="map"><span class="feature-card-icon" aria-hidden="true">⌖</span><strong></strong><small></small><span class="feature-card-action"></span></button>
+          <button class="feature-card" type="button" data-first-feature="read"><span class="feature-card-icon" aria-hidden="true">▤</span><strong></strong><small></small><span class="feature-card-action"></span></button>
+          <button class="feature-card" type="button" data-first-feature="note"><span class="feature-card-icon" aria-hidden="true">✎</span><strong></strong><small></small><span class="feature-card-action"></span></button>
+          <button class="feature-card" type="button" data-first-feature="journey"><span class="feature-card-icon" aria-hidden="true">↗</span><strong></strong><small></small><span class="feature-card-action"></span></button>
+        </div>
+      </div>
     </section>
 
     <section id="journeys" class="journey-section" aria-labelledby="journey-title" hidden>
@@ -303,6 +313,32 @@ function renderExamples() {
     return `<button type="button" data-example="${escapeHtml(example)}">${escapeHtml(localized)}</button>`;
   }).join('');
 }
+function renderFirstVisit() {
+  const copy = firstVisitCopy(locale);
+  document.querySelector('#first-headline-one').textContent = copy.headline1;
+  document.querySelector('#first-headline-two').textContent = copy.headline2;
+  document.querySelector('#first-lead').textContent = copy.lead;
+  document.querySelector('#first-start').textContent = copy.start;
+  document.querySelector('#first-feature-label').textContent = copy.featureLabel;
+  document.querySelector('.feature-overview').setAttribute('aria-label', copy.featureLabel);
+  document.querySelector('#first-demo').textContent = copy.demo;
+  for (const card of document.querySelectorAll('[data-first-feature]')) {
+    const [title, detail, action] = copy[card.dataset.firstFeature];
+    card.querySelector('strong').textContent = title;
+    card.querySelector('small').textContent = detail;
+    card.querySelector('.feature-card-action').textContent = `${action} ↗`;
+  }
+}
+document.querySelector('.feature-overview').addEventListener('click', (event) => {
+  const card = event.target.closest('[data-first-feature]');
+  if (!card) return;
+  const feature = card.dataset.firstFeature;
+  if (feature === 'journey') { switchView('journeys'); return; }
+  if (!search()) return;
+  const target = feature === 'map' ? '.map-pane' : '#guided-study';
+  document.querySelector(target).scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' });
+  if (feature === 'note') guidedNote.focus({ preventScroll: true });
+});
 document.querySelector('#examples').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-example]');
   if (!button) return;
@@ -624,6 +660,7 @@ function applyLanguage() {
   for (const element of document.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
   for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', translate(element.dataset.i18nAriaLabel));
   for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = translate(element.dataset.i18nAlt);
+  renderFirstVisit();
   document.querySelector('#quick-study-label').textContent = pastoralStudyCopy(locale).title;
   document.querySelector('#quick-verse-note-label').textContent = studyReaderCopy(locale).noteTitle;
   document.querySelector('#passage-note-title').textContent = studyReaderCopy(locale).passageNotes;
