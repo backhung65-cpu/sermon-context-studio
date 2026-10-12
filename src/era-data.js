@@ -1,5 +1,7 @@
 // Editorial scene summaries. Each item names its Bible passage; no Bible text is reproduced.
 // The order describes the time of the narrative, not when a book was written.
+import { VERSE_COUNTS } from './verse-counts.js';
+
 export const ERA_STUDIES = [
   {
     id: 'genesis-12', code: 'GEN', chapter: 12, example: '창세기 12:1-9',
@@ -96,4 +98,32 @@ export function matchEraStudy(reference) {
   const last = reference.endVerse ?? Infinity;
   const stages = study.stages.filter(({ start, end }) => start <= last && end >= first);
   return { study, stages, isPartial: reference.startVerse !== null };
+}
+
+// A multi-chapter query cannot use one chapter's scene tabs, but it may still
+// contain reviewed material. Keep those chapters discoverable instead of
+// marking the entire query as unreviewed.
+export function relatedEraStudies(reference) {
+  if (!reference?.code) return [];
+  return ERA_STUDIES.filter(({ code, chapter }) => code === reference.code
+    && chapter >= reference.chapter && chapter <= reference.endChapter).map((study) => {
+    const first = study.chapter === reference.chapter ? reference.startVerse ?? 1 : 1;
+    const last = study.chapter === reference.endChapter
+      ? reference.endVerse ?? VERSE_COUNTS[study.code][study.chapter - 1]
+      : VERSE_COUNTS[study.code][study.chapter - 1];
+    const wholeChapter = first === 1 && last === VERSE_COUNTS[study.code][study.chapter - 1];
+    return {
+      study,
+      reference: `${study.code} ${study.chapter}${wholeChapter ? '' : `:${first}${first === last ? '' : `-${last}`}`}`,
+    };
+  });
+}
+
+export function sceneReferenceForSelection(reference, stage) {
+  const first = Math.max(stage.start, reference.startVerse ?? 1);
+  const last = Math.min(stage.end, reference.endVerse ?? stage.end);
+  if (first > last || reference.chapter !== reference.endChapter) {
+    throw new Error('Scene does not intersect the selected single chapter');
+  }
+  return `${reference.code} ${reference.chapter}:${first}${first === last ? '' : `-${last}`}`;
 }

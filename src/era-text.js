@@ -7,7 +7,12 @@ const SOURCE_CODES = {
 };
 const bookCache = new Map();
 
+// This chapter is absent from the pinned kor_vpl.zip source. eBible's chapter
+// page is also 404, so link to the edition record instead.
+const ABSENT_SOURCE_CHAPTERS = new Set(['1PE 5']);
+
 export function publicBibleChapterUrl(code, chapter) {
+  if (ABSENT_SOURCE_CHAPTERS.has(`${code} ${chapter}`)) return null;
   const sourceCode = SOURCE_CODES[code] || code;
   return `https://ebible.org/kor/${sourceCode}${String(chapter).padStart(2, '0')}.htm`;
 }

@@ -1,6 +1,6 @@
 import { bibleReadingUrl, formatReference, parseReference } from './reference.js';
 import { NOTE_PREFIX } from './notes.js';
-import { ERA_STUDIES, matchEraStudy } from './era-data.js';
+import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
 import { loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 
 const search = document.querySelector('#era-search');
@@ -55,10 +55,12 @@ function memoMarkup() {
 
 function sceneMarkup(study, stage, partial) {
   const label = `${study.example.split(' ')[0]} ${study.chapter}:${stage.start}${stage.end === stage.start ? '' : `–${stage.end}`}`;
+  const sceneReference = parseReference(sceneReferenceForSelection(currentReference, stage));
+  const first = sceneReference.startVerse;
   return `<div class="era-scene-detail"><div class="era-scene-detail-head"><span>해당 성경 구간의 편집 요약</span><span>${escapeHtml(label)}</span></div>
     <h3>${escapeHtml(stage.title)}</h3><p>${escapeHtml(stage.summary)}</p>
     ${partial ? '<small class="era-partial-note">선택한 절이 이 장면의 일부입니다. 설명은 표시된 장면 전체 범위에 대한 요약입니다.</small>' : ''}
-    <div class="era-scene-actions"><a href="#era-reader-title">이 장면 본문 읽기 ↑</a>${bibleLink(study.code, study.chapter, stage.start, '개역개정으로 읽기')}<a href="${placesUrl(currentReference)}">01 본문의 장소에서 보기 ↗</a></div>
+    <div class="era-scene-actions"><a href="#era-reader-title">이 장면 본문 읽기 ↑</a>${bibleLink(study.code, study.chapter, first, '개역개정으로 읽기')}<a href="${placesUrl(sceneReference)}">01 이 장면의 지명 보기 ↗</a></div>
   </div>`;
 }
 
@@ -75,11 +77,26 @@ function readerMarkup(curated) {
 
 function sourcesMarkup(study) {
   const chapter = currentReference.chapter;
-  const sourcePage = publicBibleChapterUrl(currentReference.code, chapter);
+  const chapterCount = currentReference.endChapter - chapter + 1;
+  const linkedChapters = chapterCount <= 6
+    ? Array.from({ length: chapterCount }, (_, index) => chapter + index)
+    : [chapter, currentReference.endChapter];
+  const hasAbsentChapter = linkedChapters.some((number) => !publicBibleChapterUrl(currentReference.code, number));
+  const sourceLinks = linkedChapters.map((number) => {
+    const url = publicBibleChapterUrl(currentReference.code, number);
+    return url
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">eBible 한국어 성경 1910 · ${escapeHtml(currentReference.name)} ${number}장 ↗</a>`
+      : `<span class="era-source-absent">${escapeHtml(currentReference.name)} ${number}장 · 원자료 장 페이지 없음</span>`;
+  }).join('');
+  const sourceNote = hasAbsentChapter
+    ? '표시된 원자료 누락 장은 장별 페이지가 없으므로 개역개정에서 읽어 주세요.'
+    : chapterCount > 6
+      ? `검색한 ${chapterCount}장 중 첫 장과 마지막 장을 연결했습니다. 나머지는 판본 안내에서 확인하세요.`
+      : '화면의 절별 본문 출처 · 공개 저작물 표기';
   return `<section class="era-sources-card" aria-labelledby="era-sources-title"><div class="era-card-top"><span>SOURCES</span><span>본문별 확인</span></div><h3 id="era-sources-title">직접 대조할 자료</h3>
-    <ol><li><strong>공개 한국어 본문</strong><a href="${sourcePage}" target="_blank" rel="noopener noreferrer">eBible 한국어 성경 1910 제공 페이지 ↗</a><small>화면의 절별 본문 출처 · 공개 저작물 표기</small></li>
+    <ol><li><strong>공개 한국어 본문</strong>${sourceLinks}<small>${sourceNote}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">판본·이용 조건 확인 ↗</a></li>
     <li><strong>현재 한국어 번역</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, '대한성서공회 개역개정 읽기')}<small>번역 비교용 외부 링크 · 본문을 복제하지 않음</small></li>
-    ${study?.furtherReading ? `<li><strong>배경 참고</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
+    ${study?.furtherReading ? `<li><strong>배경 참고 · 영문</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 표제에 적힌 본문 범위를 확인하세요 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
     <p>장면 구분과 한국어 설명은 성경 장절을 읽고 이 도구에서 편집했습니다. 외부 자료의 해석과 동일하다는 뜻은 아닙니다.</p>
   </section>`;
 }
@@ -98,6 +115,11 @@ async function renderReader() {
     if (request !== readerRequest) return;
     const rows = selectedPublicBibleRows(book, reference, stage);
     const missing = rows.filter((row) => !row.text).length;
+    if (missing === rows.length) {
+      target.innerHTML = `<p class="era-reader-warning">이 공개 판본에는 요청한 ${rows.length}절의 본문이 모두 없습니다. <a href="${bibleReadingUrl(reference.code, rows[0].chapter, rows[0].verse)}" target="_blank" rel="noopener noreferrer">대한성서공회 개역개정에서 읽기 ↗</a></p>`;
+      pagination.textContent = `${rows.length}절 모두 원자료 없음`;
+      return;
+    }
     const visible = rows.slice(0, readerLimit);
     target.innerHTML = `${missing ? `<p class="era-reader-warning">이 공개 판본의 요청 범위에서 ${missing}절이 누락되어 있습니다. 빠진 절은 개역개정 링크에서 확인하세요.</p>` : ''}
       <div class="era-reader-rows">${visible.map(({ chapter, verse, text: verseText }) => `<p class="${verseText ? '' : 'era-reader-missing'}"><a href="${bibleReadingUrl(reference.code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${reference.name} ${chapter}장 ${verse}절 개역개정에서 읽기`)}">${chapter}:${verse}</a><span>${verseText ? escapeHtml(verseText) : '이 공개 판본에 본문이 없습니다. 장절을 눌러 개역개정을 확인하세요.'}</span></p>`).join('')}</div>`;
@@ -139,9 +161,13 @@ function renderCurated(match) {
 
 function renderUnreviewed() {
   const heading = formatReference(currentReference);
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 검수된 시대 카드 없음`;
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>이 본문은 아직 시대 자료를 검수하지 않았습니다.</h3><p>연대나 역사 배경을 추측해서 채우지 않았습니다. 본문을 읽고 메모는 계속 남길 수 있습니다.</p></div><span class="era-pending">검수 대기</span></div>
+  const related = relatedEraStudies(currentReference);
+  const hasRelated = related.length > 0;
+  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · ${hasRelated ? `검수된 장 ${related.length}개 포함` : '검수된 시대 카드 없음'}`;
+  const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 검수 장면</strong><p>검수된 장을 따로 열면 장면별 설명을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${hasRelated ? '이 검색 범위 전체를 검수한 시대 자료는 없습니다.' : '이 본문은 아직 시대 자료를 검수하지 않았습니다.'}</h3><p>${hasRelated ? '아래 검수된 장을 따로 열어 장면별 설명을 확인하세요. 검색한 범위의 본문과 메모는 계속 사용할 수 있습니다.' : '연대나 역사 배경을 추측해서 채우지 않았습니다. 본문을 읽고 메모는 계속 남길 수 있습니다.'}</p></div><span class="era-pending">${hasRelated ? '일부 장 검수' : '검수 대기'}</span></div>
     <div class="era-study-grid"><div class="era-story-column">${readerMarkup(false)}
+      ${relatedMarkup}
       <div class="era-suggestions"><strong>시대 설명을 볼 수 있는 검수 본문</strong><div>${ERA_STUDIES.map((study) => `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(study.example)}</button>`).join('')}</div></div></div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
   renderMemo();
   renderReader();

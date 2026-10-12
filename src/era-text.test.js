@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { ERA_STUDIES } from './era-data.js';
 import { parseReference } from './reference.js';
 import { VERSE_COUNTS } from './verse-counts.js';
-import { selectedPublicBibleRows } from './era-text.js';
+import { publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 
 const base = new URL('../public/data/kor1910/', import.meta.url);
 const readBook = (code) => JSON.parse(readFileSync(new URL(`${code}.json`, base), 'utf8'));
@@ -36,4 +36,32 @@ test('reader preserves selected verse range and exposes missing source verses', 
   assert.equal(genesis.length, 43);
   assert.equal(genesis.filter(({ text }) => !text).length, 12);
   assert.equal(genesis.find(({ verse }) => verse === 32).text, null);
+});
+
+test('source link never points to the absent 1 Peter 5 chapter page', () => {
+  assert.equal(publicBibleChapterUrl('1PE', 5), null);
+  assert.equal(publicBibleChapterUrl('EXO', 3), 'https://ebible.org/kor/EXO03.htm');
+});
+
+test('every published Korean book file has valid verse keys and matches the pinned source totals', () => {
+  const source = JSON.parse(readFileSync(new URL('source.json', base), 'utf8'));
+  let chapters = 0;
+  let verses = 0;
+  for (const [code, chapterCounts] of Object.entries(VERSE_COUNTS)) {
+    const book = readBook(code);
+    chapters += Object.keys(book).length;
+    for (const [chapterKey, rows] of Object.entries(book)) {
+      const chapter = Number(chapterKey);
+      assert.ok(Number.isInteger(chapter) && chapter >= 1 && chapter <= chapterCounts.length, `${code} ${chapterKey}`);
+      for (const [verseKey, text] of Object.entries(rows)) {
+        const verse = Number(verseKey);
+        assert.ok(Number.isInteger(verse) && verse >= 1 && verse <= chapterCounts[chapter - 1], `${code} ${chapter}:${verseKey}`);
+        assert.ok(typeof text === 'string' && text.trim(), `${code} ${chapter}:${verse} blank`);
+        verses += 1;
+      }
+    }
+  }
+  assert.equal(Object.keys(VERSE_COUNTS).length, source.books);
+  assert.equal(chapters, source.chapters);
+  assert.equal(verses, source.verses);
 });
