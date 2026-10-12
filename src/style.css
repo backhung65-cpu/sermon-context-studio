@@ -372,6 +372,10 @@ h1 em { font-style: normal; }
 .result-count { font-size: 30px; font-weight: 800; letter-spacing: -.05em; color: #172440; }
 .text-button { border: 0; background: transparent; color: #334155; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
 .text-button:disabled { opacity: .35; cursor: not-allowed; }
+.verification-notice { display: flex; align-items: baseline; gap: 12px; margin: -8px 0 24px; padding: 12px 15px; border-left: 3px solid #6c7fa6; border-radius: 0 8px 8px 0; background: #f6f8fc; }
+.verification-notice strong { flex: none; color: #223b63; font-size: 12px; }
+.verification-notice p { margin: 0; color: #526780; font-size: 12px; line-height: 1.6; }
+@media (max-width: 680px) { .verification-notice { display: block; } .verification-notice p { margin-top: 5px; } }
 .results-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 20px; }
 .results-quick-actions button, .results-quick-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 13px; border: 1px solid #cbd9ec; border-radius: 9px; background: #fff; color: #203e6a; font-size: 12px; font-weight: 800; text-decoration: none; }
 .results-quick-actions button:first-child { border-color: #1b3a6f; background: #1b3a6f; color: #fff; }

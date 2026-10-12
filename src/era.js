@@ -57,7 +57,7 @@ function sceneMarkup(study, stage, partial) {
   const label = `${study.example.split(' ')[0]} ${study.chapter}:${stage.start}${stage.end === stage.start ? '' : `–${stage.end}`}`;
   const sceneReference = parseReference(sceneReferenceForSelection(currentReference, stage));
   const first = sceneReference.startVerse;
-  return `<div class="era-scene-detail"><div class="era-scene-detail-head"><span>해당 성경 구간의 편집 요약</span><span>${escapeHtml(label)}</span></div>
+  return `<div class="era-scene-detail"><div class="era-scene-detail-head"><span>해당 성경 구간의 편집 초안</span><span>${escapeHtml(label)}</span></div>
     <h3>${escapeHtml(stage.title)}</h3><p>${escapeHtml(stage.summary)}</p>
     ${partial ? '<small class="era-partial-note">선택한 절이 이 장면의 일부입니다. 설명은 표시된 장면 전체 범위에 대한 요약입니다.</small>' : ''}
     <div class="era-scene-actions"><a href="#era-reader-title">이 장면 본문 읽기 ↑</a>${bibleLink(study.code, study.chapter, first, '개역개정으로 읽기')}<a href="${placesUrl(sceneReference)}">01 이 장면의 지명 보기 ↗</a></div>
@@ -97,7 +97,7 @@ function sourcesMarkup(study) {
     <ol><li><strong>공개 한국어 본문</strong>${sourceLinks}<small>${sourceNote}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">판본·이용 조건 확인 ↗</a></li>
     <li><strong>현재 한국어 번역</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, '대한성서공회 개역개정 읽기')}<small>번역 비교용 외부 링크 · 본문을 복제하지 않음</small></li>
     ${study?.furtherReading ? `<li><strong>배경 참고 · 영문</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 표제에 적힌 본문 범위를 확인하세요 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
-    <p>장면 구분과 한국어 설명은 성경 장절을 읽고 이 도구에서 편집했습니다. 외부 자료의 해석과 동일하다는 뜻은 아닙니다.</p>
+    <p>장면 구분과 한국어 설명은 이 도구의 편집 초안입니다. 장절 연결은 자동 검사했지만 내용의 전문 검수는 아직 마치지 않았습니다. 설교에 사용하기 전에 본문과 참고 자료를 직접 대조하세요.</p>
   </section>`;
 }
 
@@ -137,8 +137,8 @@ function renderCurated(match) {
   activeStage = Math.min(activeStage, stages.length - 1);
   const stage = stages[activeStage];
   const heading = formatReference(currentReference);
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 검수된 장면 ${stages.length}개`;
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(study.title)}</h3><p>이 화면의 순서는 본문에 적힌 순서입니다. 책의 집필 시점이나 확정 연대를 뜻하지 않습니다.</p></div><span class="era-reviewed">본문 장면 검수</span></div>
+  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 장면 요약 ${stages.length}개`;
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(study.title)}</h3><p>본문의 이야기 순서에 맞춘 편집 초안입니다. 전문 검수와 역사적 연대 확인은 완료되지 않았습니다.</p></div><span class="era-reviewed">편집 초안 · 전문 검수 전</span></div>
     <div class="era-study-grid"><div class="era-story-column">
       ${readerMarkup(true)}
       <section class="era-flow-card" aria-labelledby="era-flow-title"><div class="era-card-top"><span>PASSAGE FLOW</span><span>${stages.length} SCENES</span></div><h3 id="era-flow-title">이 장면들을 따라 읽으세요.</h3>
@@ -163,12 +163,12 @@ function renderUnreviewed() {
   const heading = formatReference(currentReference);
   const related = relatedEraStudies(currentReference);
   const hasRelated = related.length > 0;
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · ${hasRelated ? `검수된 장 ${related.length}개 포함` : '검수된 시대 카드 없음'}`;
-  const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 검수 장면</strong><p>검수된 장을 따로 열면 장면별 설명을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${hasRelated ? '이 검색 범위 전체를 검수한 시대 자료는 없습니다.' : '이 본문은 아직 시대 자료를 검수하지 않았습니다.'}</h3><p>${hasRelated ? '아래 검수된 장을 따로 열어 장면별 설명을 확인하세요. 검색한 범위의 본문과 메모는 계속 사용할 수 있습니다.' : '연대나 역사 배경을 추측해서 채우지 않았습니다. 본문을 읽고 메모는 계속 남길 수 있습니다.'}</p></div><span class="era-pending">${hasRelated ? '일부 장 검수' : '검수 대기'}</span></div>
+  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · ${hasRelated ? `장면 요약이 있는 장 ${related.length}개 포함` : '시대 설명 없음'}`;
+  const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 장면 요약</strong><p>해당 장을 따로 열면 편집 초안을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${hasRelated ? '검색한 범위 전체의 시대 설명은 아직 없습니다.' : '이 본문의 시대 설명은 아직 작성되지 않았습니다.'}</h3><p>${hasRelated ? '아래 장을 따로 열어 해당 장의 편집 초안을 읽으세요. 검색한 범위의 본문과 메모는 계속 사용할 수 있습니다.' : '근거 없이 연대나 역사 배경을 채우지 않았습니다. 본문을 읽고 메모는 계속 남길 수 있습니다.'}</p></div><span class="era-pending">${hasRelated ? '일부 장만 초안' : '시대 설명 없음'}</span></div>
     <div class="era-study-grid"><div class="era-story-column">${readerMarkup(false)}
       ${relatedMarkup}
-      <div class="era-suggestions"><strong>시대 설명을 볼 수 있는 검수 본문</strong><div>${ERA_STUDIES.map((study) => `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(study.example)}</button>`).join('')}</div></div></div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
+      <div class="era-suggestions"><strong>시대 설명 초안이 있는 본문</strong><div>${ERA_STUDIES.map((study) => `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(study.example)}</button>`).join('')}</div></div></div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
   renderMemo();
   renderReader();
 }

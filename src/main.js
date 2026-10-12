@@ -63,6 +63,17 @@ const TYPE_LABELS = {
 const requestedLocale = new URLSearchParams(location.search).get('lang');
 let locale = Object.hasOwn(LOCALES, requestedLocale) ? requestedLocale : 'ko';
 const translate = (key, variables) => enrichmentText(locale, key, variables) ?? t(locale, key, variables);
+const VERIFICATION_NOTICE = {
+  ko: ['이 결과의 확인 수준', '지명과 절은 원자료 색인으로 연결했습니다. 실제 이동·사건 현장·옛 지명 좌표·해설은 성경 전체를 대상으로 전문 검수하지 않았습니다. 설교에 쓰기 전 본문과 원자료를 대조하세요.'],
+  en: ['What has been checked', 'Place and verse links come from source indexes. Travel, event sites, ancient coordinates and commentary have not received expert review across the whole Bible. Compare the passage and sources before preaching.'],
+  ja: ['確認した範囲', '地名と節は資料の索引に基づく結び付きです。移動・出来事の現場・古代の位置・解説は聖書全体で専門家による検証を終えていません。説教に使う前に本文と資料を照合してください。'],
+  'zh-CN': ['核查范围', '地名与经节来自资料索引。人物移动、事件地点、古代坐标和解说尚未在整本圣经范围内完成专家核查。讲道前请对照经文和原始资料。'],
+  es: ['Alcance de la revisión', 'Los vínculos entre lugares y versículos proceden de índices de fuentes. Los viajes, lugares de sucesos, coordenadas antiguas y comentarios no tienen revisión experta de toda la Biblia. Contraste el pasaje y las fuentes antes de predicar.'],
+  th: ['ขอบเขตที่ตรวจสอบ', 'สถานที่และข้อพระคัมภีร์เชื่อมจากดัชนีแหล่งข้อมูล การเดินทาง สถานที่เกิดเหตุ พิกัดโบราณ และคำอธิบายยังไม่ได้รับการตรวจโดยผู้เชี่ยวชาญครบทั้งพระคัมภีร์ โปรดเทียบกับข้อความและแหล่งข้อมูลก่อนเทศนา'],
+  hi: ['जाँच की सीमा', 'स्थान और पद स्रोत सूचियों से जुड़े हैं। यात्राओं, घटना स्थलों, प्राचीन निर्देशांकों और टिप्पणियों की पूरी बाइबल में विशेषज्ञ समीक्षा नहीं हुई है। उपदेश से पहले पाठ और स्रोत मिलाएँ।'],
+  fr: ['Portée de la vérification', 'Les liens entre lieux et versets viennent d’index de sources. Les déplacements, lieux d’événements, coordonnées antiques et commentaires ne sont pas vérifiés par un expert pour toute la Bible. Comparez le passage et les sources avant de prêcher.'],
+  de: ['Umfang der Prüfung', 'Orts- und Versbezüge stammen aus Quellenindizes. Reisen, Schauplätze, antike Koordinaten und Erläuterungen wurden nicht für die ganze Bibel fachlich geprüft. Vergleichen Sie vor der Predigt den Text und die Quellen.'],
+};
 
 const app = document.querySelector('#app');
 app.innerHTML = `
@@ -154,6 +165,7 @@ app.innerHTML = `
           <div><div class="section-kicker" data-i18n="sectionKicker">본문 연구 · 지명</div><h2 id="results-title" data-i18n="placesTitle">본문 속 장소</h2><p id="results-description" data-i18n="resultsLoading">공개 성경 지리 데이터에서 지명을 불러오는 중입니다.</p></div>
           <div class="heading-actions"><span id="result-count" class="result-count">—</span><button id="print-button" class="text-button" type="button" disabled><span data-i18n="print">인쇄하기</span> <span aria-hidden="true">↗</span></button></div>
         </div>
+        <aside class="verification-notice"><strong id="verification-title">이 결과의 확인 수준</strong><p id="verification-body">지명과 절은 원자료 색인으로 연결했습니다. 실제 이동·사건 현장·옛 지명 좌표·해설은 성경 전체를 대상으로 전문 검수하지 않았습니다. 설교에 쓰기 전 본문과 원자료를 대조하세요.</p></aside>
 
         <div class="results-quick-actions">
           <button id="quick-map" type="button"><span aria-hidden="true">1</span><span data-i18n="mapView">지도로 보기</span> ↗</button>
@@ -760,6 +772,9 @@ function applyLanguage() {
   document.querySelector('meta[name="description"]').content = translate('description');
   document.querySelector('.brand').href = locale === 'ko' ? '/' : `/?lang=${encodeURIComponent(locale)}`;
   document.querySelector('#language-select').value = locale;
+  const verificationCopy = VERIFICATION_NOTICE[locale] || VERIFICATION_NOTICE.en;
+  document.querySelector('#verification-title').textContent = verificationCopy[0];
+  document.querySelector('#verification-body').textContent = verificationCopy[1];
   updateEraNavigation();
   if (map?.loaded()) applyMapLanguage(map, locale);
   if (journeyMapReady) applyMapLanguage(journeyMap, locale);

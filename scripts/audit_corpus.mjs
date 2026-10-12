@@ -23,7 +23,7 @@ if (new Set(source.events.map((event) => event.id)).size !== source.events.lengt
 
 const stats = BOOKS.map((book) => ({ code: book.code, name: book.name, chapters: VERSE_COUNTS[book.code].length,
   chaptersWithPlaces: 0, verses: VERSE_COUNTS[book.code].reduce((sum, count) => sum + count, 0),
-  versesWithPlaces: 0, versesWithPeople: 0, versesWithEvents: 0, reviewedScenes: 0 }));
+  versesWithPlaces: 0, versesWithPeople: 0, versesWithEvents: 0, passageLinkedScenes: 0 }));
 let totalVerses = 0;
 let exactAgreement = 0;
 let selectedChapters = 0;
@@ -55,7 +55,7 @@ for (const [bookIndex, book] of BOOKS.entries()) {
       }
     }
     if (places.length) stats[bookIndex].chaptersWithPlaces += 1;
-    stats[bookIndex].reviewedScenes += evidence.scenes.length;
+    stats[bookIndex].passageLinkedScenes += evidence.scenes.length;
     if (focus) selectedChapters += 1;
     for (let verse = 1; verse <= VERSE_COUNTS[book.code][chapter - 1]; verse += 1) {
       totalVerses += 1;
@@ -100,15 +100,15 @@ if (sceneCount !== JOURNEYS.reduce((sum, journey) => sum + journey.steps.length,
 
 const totals = { books: 66, chapters: 1189, verses: totalVerses, placeVerses: stats.reduce((sum, row) => sum + row.versesWithPlaces, 0),
   chaptersWithPlaces: stats.reduce((sum, row) => sum + row.chaptersWithPlaces, 0), exactAgreement,
-  peopleRecords: people.people.length, eventRecords: source.events.length, journeys: JOURNEYS.length, reviewedScenes: sceneCount,
+  peopleRecords: people.people.length, eventRecords: source.events.length, journeys: JOURNEYS.length, passageLinkedScenes: sceneCount,
   sourceRouteDrawings: routes.routes.length, chaptersWithMappedFocus: selectedChapters,
   eventLocationWouldDisplaceFirstMention: ambiguousEventLead.length };
 const result = { generatedAt: new Date().toISOString(), sources: { atlas: atlas.sourceCommit, theographic: source.sourceCommit }, totals,
   books: stats, eventLocationExamples: ambiguousEventLead.slice(0, 20), errors };
 if (!process.argv.includes('--check')) {
   writeFileSync(new URL('../public/data/corpus-audit.json', import.meta.url), `${JSON.stringify(result)}\n`);
-  const rows = stats.map((row) => `| ${row.name} | ${row.chaptersWithPlaces}/${row.chapters} | ${row.versesWithPlaces}/${row.verses} | ${row.versesWithPeople} | ${row.reviewedScenes} |`).join('\n');
-  writeFileSync(new URL('../CORPUS_INTEGRITY_AUDIT.md', import.meta.url), `# 66권 전체 연결 점검\n\n재생성: \`npm run audit:integrity\`. 점검 단위는 개신교 66권, 1,189장, 31,102절(KJV 장절 체계)입니다. 각 절의 지명·인물·사건 ID와 검수 여정의 정확한 절·지명 연결을 검사합니다.\n\n- 지도 지명이 연결된 절: **${totals.placeVerses.toLocaleString()} / ${totals.verses.toLocaleString()}**. 지명 연결이 없는 절에는 장소를 만들지 않습니다.\n- 지명이 연결된 장: **${totals.chaptersWithPlaces.toLocaleString()} / ${totals.chapters.toLocaleString()}**. 이 중 지도가 그려지는 장은 **${totals.chaptersWithMappedFocus}장**입니다. 출애굽기 26·28장과 레위기 16장은 지명 기록은 있으나 현재 좌표가 없어 핀을 표시하지 않습니다.\n- 두 원자료가 같은 절의 같은 지명에 연결된 절: **${totals.exactAgreement.toLocaleString()}**.\n- 검수 여정: **${totals.journeys}개 / ${totals.reviewedScenes}장면**. 각 장면은 해당 정확한 절에 그 지명이 있는지 재검사합니다.\n- UBS의 인물 연결 경로 도형: **${totals.sourceRouteDrawings}개**. 선분마다 성경 장절과 경유지를 검수한 자료가 아니므로 검수 여정 수에 합치지 않습니다.\n- 사건 자료 위치 하나를 첫 장소로 자동 승격했다면 본문 첫 언급과 달라질 수 있었던 장: **${totals.eventLocationWouldDisplaceFirstMention}장**. 자동 승격을 없애고 본문 순서 및 검수 장면을 사용합니다.\n\n| 책 | 지명 연결 장 | 지명 연결 절 | 인물 언급 절 | 검수 장면 |\n| --- | ---: | ---: | ---: | ---: |\n${rows}\n\n## 판정의 한계\n\n이 점검은 **연결의 무결성**을 검사합니다. 동명이소·원자료 분류 오류, 본문에서 실제 이동이 있었는지, 옛 지명의 확정 좌표는 자동 검사만으로 확정할 수 없습니다. 31,102절 전체를 사람이 주석학적으로 검수했다는 뜻이 아닙니다. 지명 언급·사건 자료 위치·여정 장면·UBS 경로 도형을 서로 다른 근거로 유지합니다. 원자료: [OpenBible.info](https://github.com/openbibleinfo/Bible-Geocoding-Data/tree/${atlas.sourceCommit}), [Theographic](https://github.com/robertrouse/theographic-bible-metadata/tree/${source.sourceCommit}).\n`);
+  const rows = stats.map((row) => `| ${row.name} | ${row.chaptersWithPlaces}/${row.chapters} | ${row.versesWithPlaces}/${row.verses} | ${row.versesWithPeople} | ${row.passageLinkedScenes} |`).join('\n');
+  writeFileSync(new URL('../CORPUS_INTEGRITY_AUDIT.md', import.meta.url), `# 66권 전체 연결 점검\n\n재생성: \`npm run audit:integrity\`. 점검 단위는 개신교 66권, 1,189장, 31,102절(KJV 장절 체계)입니다. 각 절의 지명·인물·사건 ID와 본문 연결 편집 여정의 정확한 절·지명 연결을 검사합니다.\n\n- 지도 지명이 연결된 절: **${totals.placeVerses.toLocaleString()} / ${totals.verses.toLocaleString()}**. 지명 연결이 없는 절에는 장소를 만들지 않습니다.\n- 지명이 연결된 장: **${totals.chaptersWithPlaces.toLocaleString()} / ${totals.chapters.toLocaleString()}**. 이 중 지도가 그려지는 장은 **${totals.chaptersWithMappedFocus}장**입니다. 출애굽기 26·28장과 레위기 16장은 지명 기록은 있으나 현재 좌표가 없어 핀을 표시하지 않습니다.\n- 두 원자료가 같은 절의 같은 지명에 연결된 절: **${totals.exactAgreement.toLocaleString()}**.\n- 본문 연결 편집 여정: **${totals.journeys}개 / ${totals.passageLinkedScenes}장면**. 각 장면은 해당 정확한 절에 그 지명이 있는지 재검사합니다.\n- UBS의 인물 연결 경로 도형: **${totals.sourceRouteDrawings}개**. 선분마다 성경 장절과 경유지를 검수한 자료가 아니므로 본문 연결 편집 여정 수에 합치지 않습니다.\n- 사건 자료 위치 하나를 첫 장소로 자동 승격했다면 본문 첫 언급과 달라질 수 있었던 장: **${totals.eventLocationWouldDisplaceFirstMention}장**. 자동 승격을 없애고 본문 순서 및 본문 연결 장면을 사용합니다.\n\n| 책 | 지명 연결 장 | 지명 연결 절 | 인물 언급 절 | 본문 연결 장면 |\n| --- | ---: | ---: | ---: | ---: |\n${rows}\n\n## 판정의 한계\n\n이 점검은 **연결의 무결성**을 검사합니다. 동명이소·원자료 분류 오류, 본문에서 실제 이동이 있었는지, 옛 지명의 확정 좌표는 자동 검사만으로 확정할 수 없습니다. 31,102절 전체를 사람이 주석학적으로 검수했다는 뜻이 아닙니다. 지명 언급·사건 자료 위치·여정 장면·UBS 경로 도형을 서로 다른 근거로 유지합니다. 원자료: [OpenBible.info](https://github.com/openbibleinfo/Bible-Geocoding-Data/tree/${atlas.sourceCommit}), [Theographic](https://github.com/robertrouse/theographic-bible-metadata/tree/${source.sourceCommit}).\n`);
 }
 console.log(JSON.stringify({ totals, errors: errors.slice(0, 20) }, null, 2));
 if (errors.length) process.exitCode = 1;
