@@ -2,6 +2,7 @@ import { bibleReadingUrl, formatReference, parseReference } from './reference.js
 import { NOTE_PREFIX } from './notes.js';
 import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
 import { loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
+import { formatOpenStudyNoteReference, loadOpenStudyNotesBook, selectOpenStudyNotes } from './open-study-notes.js';
 
 const search = document.querySelector('#era-search');
 const input = document.querySelector('#era-reference');
@@ -13,6 +14,8 @@ let activeStage = 0;
 let readerMode = 'stage';
 let readerLimit = 40;
 let readerRequest = 0;
+let studyNotesLimit = 6;
+let studyNotesRequest = 0;
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -75,6 +78,46 @@ function readerMarkup(curated) {
   </section>`;
 }
 
+function studyNotesMarkup() {
+  return `<section class="era-open-notes-card" aria-labelledby="era-open-notes-title">
+    <div class="era-card-top"><span>OPEN STUDY NOTES</span><span>66권 원자료 · 영문</span></div>
+    <div class="era-open-notes-head"><div><h3 id="era-open-notes-title">본문에 연결된 공개 스터디 노트</h3><p>검색한 장절과 실제로 겹치는 원자료를 불러옵니다. 영어 자료이므로 번역하거나 한국어 검수 자료처럼 표시하지 않습니다.</p></div><span>CC BY-SA 4.0</span></div>
+    <div id="era-open-notes" class="era-open-notes" aria-live="polite">스터디 노트를 불러오는 중입니다.</div>
+    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes 원자료 ↗</a><span>Mission Mutual이 Tyndale Open Study Notes를 바탕으로 편집 · 고정 판 bbb3f86</span></p>
+  </section>`;
+}
+
+function noteBodyMarkup(text) {
+  return String(text).split(/\n{2,}/).filter(Boolean)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll('\n', '<br>')}</p>`).join('');
+}
+
+async function renderOpenStudyNotes() {
+  const target = document.querySelector('#era-open-notes');
+  if (!target || !currentReference) return;
+  const request = ++studyNotesRequest;
+  const reference = currentReference;
+  target.textContent = '본문 범위에 맞는 스터디 노트를 불러오는 중입니다.';
+  try {
+    const rows = await loadOpenStudyNotesBook(reference.code);
+    if (request !== studyNotesRequest) return;
+    const selected = selectOpenStudyNotes(rows, reference);
+    if (!selected.rows.length) {
+      target.innerHTML = '<p class="era-open-notes-warning">이 본문 범위에 연결된 원자료 노트가 없습니다. 본문과 개역개정 대조 링크를 이용해 주세요.</p>';
+      return;
+    }
+    const visible = selected.rows.slice(0, studyNotesLimit);
+    const scopeNotice = selected.scope === 'chapter'
+      ? '<p class="era-open-notes-scope">선택한 절에 직접 연결된 노트가 없어 같은 장의 참고 노트를 표시합니다.</p>'
+      : `<p class="era-open-notes-count">검색한 본문에 직접 연결된 노트 ${selected.rows.length}개</p>`;
+    target.innerHTML = `${scopeNotice}<div class="era-open-notes-list">${visible.map((row, index) => `<details${index === 0 ? ' open' : ''}><summary><span>${escapeHtml(row.title)}</span><small>${formatOpenStudyNoteReference(row.start, row.end)}</small></summary><div class="era-open-note-body">${noteBodyMarkup(row.text)}</div></details>`).join('')}</div>
+      ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">노트 더 보기 · ${studyNotesLimit} / ${selected.rows.length}</button>` : `<p class="era-open-notes-complete">${selected.rows.length}개 노트를 모두 표시했습니다.</p>`}`;
+  } catch {
+    if (request !== studyNotesRequest) return;
+    target.innerHTML = '<p class="era-open-notes-warning">스터디 노트 원자료를 불러오지 못했습니다. 아래 원자료 링크에서 직접 확인해 주세요.</p>';
+  }
+}
+
 function sourcesMarkup(study) {
   const chapter = currentReference.chapter;
   const chapterCount = currentReference.endChapter - chapter + 1;
@@ -96,8 +139,9 @@ function sourcesMarkup(study) {
   return `<section class="era-sources-card" aria-labelledby="era-sources-title"><div class="era-card-top"><span>SOURCES</span><span>본문별 확인</span></div><h3 id="era-sources-title">직접 대조할 자료</h3>
     <ol><li><strong>공개 한국어 본문</strong>${sourceLinks}<small>${sourceNote}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">판본·이용 조건 확인 ↗</a></li>
     <li><strong>현재 한국어 번역</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, '대한성서공회 개역개정 읽기')}<small>번역 비교용 외부 링크 · 본문을 복제하지 않음</small></li>
+    <li><strong>절별 연구 노트 · 영문</strong><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes · 고정 판 bbb3f86 ↗</a><small>66권 공개 원자료 · 전문 편집 단계로 표시된 레코드만 연결 · CC BY-SA 4.0</small></li>
     ${study?.furtherReading ? `<li><strong>배경 참고 · 영문</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 표제에 적힌 본문 범위를 확인하세요 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
-    <p>장면 구분과 한국어 설명은 이 도구의 편집 초안입니다. 장절 연결은 자동 검사했지만 내용의 전문 검수는 아직 마치지 않았습니다. 설교에 사용하기 전에 본문과 참고 자료를 직접 대조하세요.</p>
+    <p>공개 스터디 노트의 영어 내용과 이 도구가 작성한 한국어 장면 설명은 서로 구분됩니다. 한국어 장면 구분은 편집 초안이며 전문 검수를 마치지 않았습니다. 설교에 사용하기 전에 본문과 원자료를 직접 대조하세요.</p>
   </section>`;
 }
 
@@ -141,6 +185,7 @@ function renderCurated(match) {
   content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(study.title)}</h3><p>본문의 이야기 순서에 맞춘 편집 초안입니다. 전문 검수와 역사적 연대 확인은 완료되지 않았습니다.</p></div><span class="era-reviewed">편집 초안 · 전문 검수 전</span></div>
     <div class="era-study-grid"><div class="era-story-column">
       ${readerMarkup(true)}
+      ${studyNotesMarkup()}
       <section class="era-flow-card" aria-labelledby="era-flow-title"><div class="era-card-top"><span>PASSAGE FLOW</span><span>${stages.length} SCENES</span></div><h3 id="era-flow-title">이 장면들을 따라 읽으세요.</h3>
         ${isPartial ? `<p class="era-scope-note">입력한 ${escapeHtml(heading)}와 만나는 장면만 표시합니다. 장면 설명은 각 카드에 적힌 전체 절 범위를 다룹니다.</p>` : ''}
         <div class="era-stage-list" role="tablist" aria-label="본문의 장면">${stages.map((item, index) => `<button id="era-tab-${index}" type="button" role="tab" data-stage="${index}" tabindex="${index === activeStage ? 0 : -1}" aria-selected="${index === activeStage}" aria-controls="era-active-scene"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(item.title)}</strong><small>${study.chapter}:${item.start}–${item.end}</small></button>`).join('')}</div>
@@ -157,28 +202,28 @@ function renderCurated(match) {
     </aside></div>`;
   renderMemo();
   renderReader();
+  renderOpenStudyNotes();
 }
 
 function renderUnreviewed() {
   const heading = formatReference(currentReference);
   const related = relatedEraStudies(currentReference);
   const hasRelated = related.length > 0;
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · ${hasRelated ? `장면 요약이 있는 장 ${related.length}개 포함` : '시대 설명 없음'}`;
+  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 공개 본문과 66권 스터디 노트 연결`;
   const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 장면 요약</strong><p>해당 장을 따로 열면 편집 초안을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${hasRelated ? '검색한 범위 전체의 시대 설명은 아직 없습니다.' : '이 본문의 시대 설명은 아직 작성되지 않았습니다.'}</h3><p>${hasRelated ? '아래 장을 따로 열어 해당 장의 편집 초안을 읽으세요. 검색한 범위의 본문과 메모는 계속 사용할 수 있습니다.' : '근거 없이 연대나 역사 배경을 채우지 않았습니다. 본문을 읽고 메모는 계속 남길 수 있습니다.'}</p></div><span class="era-pending">${hasRelated ? '일부 장만 초안' : '시대 설명 없음'}</span></div>
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>본문과 공개 연구 자료를 한 흐름으로 읽습니다.</h3><p>한국어 본문을 읽고, 검색한 장절에 직접 연결된 공개 스터디 노트를 확인하며 메모할 수 있습니다. 한국어 장면 해설이 없는 본문도 빈 화면으로 두지 않습니다.</p></div><span class="era-reviewed">66권 자료 연결</span></div>
     <div class="era-study-grid"><div class="era-story-column">${readerMarkup(false)}
-      ${relatedMarkup}
-      <div class="era-suggestions"><strong>시대 설명 초안이 있는 본문</strong><div>${ERA_STUDIES.map((study) => `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(study.example)}</button>`).join('')}</div></div></div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
+      ${studyNotesMarkup()}
+      ${relatedMarkup}</div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
   renderMemo();
   renderReader();
+  renderOpenStudyNotes();
 }
 
 function render() {
   if (!currentReference) return;
   document.querySelector('#era-open-places').href = placesUrl(currentReference);
   currentMatch = matchEraStudy(currentReference);
-  document.querySelector('#era-overview').innerHTML = ERA_STUDIES.map((study, index) =>
-    `<li><button type="button" data-example="${escapeHtml(study.example)}"${currentMatch?.study.id === study.id ? ' aria-current="true"' : ''}><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(study.period)}</strong><small>${escapeHtml(study.example)}</small></button></li>`).join('');
   if (currentMatch) renderCurated(currentMatch);
   else renderUnreviewed();
 }
@@ -192,6 +237,7 @@ function openReference(value, updateHistory = true) {
   activeStage = 0;
   readerMode = 'stage';
   readerLimit = 40;
+  studyNotesLimit = 6;
   if (updateHistory) {
     const url = new URL(location.href);
     url.searchParams.set('ref', formatReference(parsed));
@@ -247,6 +293,11 @@ document.addEventListener('click', async (event) => {
   if (action.dataset.eraAction === 'reader-more') {
     readerLimit += 40;
     renderReader();
+    return;
+  }
+  if (action.dataset.eraAction === 'notes-more') {
+    studyNotesLimit += 6;
+    renderOpenStudyNotes();
     return;
   }
   const value = document.querySelector('#era-memo').value;
