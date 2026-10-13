@@ -58,8 +58,27 @@ body { background: #fff; }
 .era-story-column { min-width: 0; padding: 24px; }
 .era-context-column { display: grid; align-content: start; gap: 15px; min-width: 0; padding: 24px; border-left: 1px solid #e4eaf4; background: #fbfcff; }
 .era-flow-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { min-width: 0; padding: 23px; border: 1px solid #e0e7f2; border-radius: 14px; background: #fff; }
-.era-reader-card, .era-sources-card, .era-open-notes-card { min-width: 0; padding: 23px; border: 1px solid #dce6f3; border-radius: 14px; background: #fff; }
+.era-reader-card, .era-sources-card, .era-open-notes-card, .era-book-guide-card { min-width: 0; padding: 23px; border: 1px solid #dce6f3; border-radius: 14px; background: #fff; }
 .era-reader-card { margin-bottom: 14px; border-color: #bdd3f1; box-shadow: 0 10px 28px rgba(40,91,166,.07); }
+.era-book-guide-card { margin-bottom: 14px; border-color: #b9d8cf; background: linear-gradient(145deg,#fff,#f4fbf8); box-shadow: 0 10px 28px rgba(30,104,86,.06); }
+.era-book-guide-loading, .era-book-guide-warning { margin: 18px 0 0; color: #58756e; font-size: 13px; line-height: 1.7; }
+.era-book-guide-warning { padding: 11px 13px; border-left: 3px solid #a26b34; border-radius: 0 8px 8px 0; background: #fff8ed; color: #7a552f; }
+.era-book-guide-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-top: 15px; }
+.era-book-guide-head > div > span { color: #4d7c70; font-size: 10px; font-weight: 900; }
+.era-book-guide-head h3 { margin: 5px 0 0; color: #173b35; font-size: 20px; letter-spacing: -.045em; }
+.era-book-guide-status { flex: none; padding: 7px 9px; border-radius: 7px; background: #e7f5ef; color: #2e6d5c; font-size: 10px; font-weight: 900; }
+.era-book-guide-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; margin-top: 17px; }
+.era-book-guide-grid article { min-width: 0; padding: 14px; border: 1px solid #d5e8e2; border-radius: 10px; background: rgba(255,255,255,.82); }
+.era-book-guide-grid article > span { color: #397666; font-size: 10px; font-weight: 900; }
+.era-book-guide-grid p, .era-book-guide-grid strong { display: block; margin: 8px 0 0; color: #405f59; font-size: 13px; line-height: 1.7; word-break: keep-all; }
+.era-book-guide-grid strong { color: #234f45; }
+.era-book-guide-grid .era-book-guide-caution { border-color: #ead9c7; background: #fffaf3; }
+.era-book-guide-grid .era-book-guide-caution > span { color: #96633a; }
+.era-book-guide-grid .era-book-guide-caution p { color: #765b45; }
+.era-book-guide-source { display: grid; gap: 3px; margin: 15px 0 0; padding-top: 12px; border-top: 1px solid #dcebe6; }
+.era-book-guide-source a { color: #2f6d5d; font-size: 11px; font-weight: 900; text-decoration: none; }
+.era-book-guide-source a:hover { text-decoration: underline; }
+.era-book-guide-source span { color: #758d87; font-size: 10px; line-height: 1.5; }
 .era-open-notes-card { margin-bottom: 14px; border-color: #cabff0; background: linear-gradient(145deg,#fff,#faf8ff); box-shadow: 0 10px 28px rgba(86,64,151,.06); }
 .era-card-top { display: flex; justify-content: space-between; gap: 10px; color: #7489a8; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
 .era-reader-head { display: flex; justify-content: space-between; align-items: start; gap: 14px; margin-top: 15px; }
@@ -184,7 +203,7 @@ body { background: #fff; }
   .era-hero { grid-template-columns: minmax(0,1fr) minmax(300px,.8fr); gap: 26px; }
   .era-study-grid { grid-template-columns: minmax(0,1fr) minmax(300px,.88fr); }
   .era-story-column, .era-context-column { padding: 16px; }
-  .era-flow-card, .era-reader-card, .era-sources-card, .era-open-notes-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { padding: 17px; }
+  .era-flow-card, .era-reader-card, .era-sources-card, .era-open-notes-card, .era-book-guide-card, .era-period-card, .era-evidence-card, .era-question-card, .era-note-card { padding: 17px; }
 }
 @media (max-width: 850px) {
   .era-hero { grid-template-columns: 1fr; padding-block: 40px 48px; }
@@ -225,8 +244,11 @@ body { background: #fff; }
   .era-scene-detail-head span { display: block; margin-top: 3px; }
   .era-reader-head { display: block; }
   .era-open-notes-head { display: block; }
+  .era-book-guide-head { display: block; }
   .era-reader-edition { display: inline-block; margin-top: 10px; }
   .era-open-notes-head > span { display: inline-block; margin-top: 10px; }
+  .era-book-guide-status { display: inline-block; margin-top: 10px; }
+  .era-book-guide-grid { grid-template-columns: 1fr; }
   .era-open-notes-list summary { grid-template-columns: 1fr; }
   .era-reader-rows p { grid-template-columns: 38px minmax(0,1fr); }
 }

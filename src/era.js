@@ -3,6 +3,7 @@ import { NOTE_PREFIX } from './notes.js';
 import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
 import { loadKjvFallback, loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 import { formatOpenStudyNoteReference, loadOpenStudyNotesBook, selectOpenStudyNotes } from './open-study-notes.js';
+import { loadPastoralBooks, selectPastoralBookGuide } from './pastoral-books.js';
 
 const search = document.querySelector('#era-search');
 const input = document.querySelector('#era-reference');
@@ -16,6 +17,7 @@ let readerLimit = 40;
 let readerRequest = 0;
 let studyNotesLimit = 6;
 let studyNotesRequest = 0;
+let pastoralBookRequest = 0;
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -85,6 +87,39 @@ function studyNotesMarkup() {
     <div id="era-open-notes" class="era-open-notes" aria-live="polite">스터디 노트를 불러오는 중입니다.</div>
     <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes 원자료 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">31,102절 전수 검사 결과 ↗</a><span>유효 범위 16,918건 · 직접 연결 30,209절 · 같은 장 참고 893절 · 장절표 범위 밖 원자료 4건 제외</span></p>
   </section>`;
+}
+
+function pastoralBookMarkup() {
+  return `<section class="era-book-guide-card" aria-labelledby="era-book-guide-title">
+    <div class="era-card-top"><span>66-BOOK RESEARCH GUIDE</span><span>한국어 원고 · 검수 전</span></div>
+    <div id="era-book-guide" class="era-book-guide" aria-live="polite">
+      <p class="era-book-guide-loading">${escapeHtml(currentReference.name)} 연구 안내를 불러오는 중입니다.</p>
+    </div>
+  </section>`;
+}
+
+async function renderPastoralBookGuide() {
+  const target = document.querySelector('#era-book-guide');
+  if (!target || !currentReference) return;
+  const request = ++pastoralBookRequest;
+  const code = currentReference.code;
+  try {
+    const data = await loadPastoralBooks();
+    if (request !== pastoralBookRequest) return;
+    const guide = selectPastoralBookGuide(data, code);
+    if (!guide) throw new Error('Book guide not found');
+    target.innerHTML = `<div class="era-book-guide-head"><div><span>${escapeHtml(guide.genre)} · ${guide.chapterCount}장</span><h3 id="era-book-guide-title">${escapeHtml(guide.name)} · 읽는 네 가지 길잡이</h3></div><span class="era-book-guide-status">편집 초안 · 전문 검수 전</span></div>
+      <div class="era-book-guide-grid">
+        <article><span>01 · 읽기 방향</span><p>${escapeHtml(guide.readingDirection)}</p></article>
+        <article><span>02 · 큰 흐름</span><p>${escapeHtml(guide.bigFlow)}</p></article>
+        <article><span>03 · 설교 준비 질문</span><strong>${escapeHtml(guide.sermonQuestion)}</strong></article>
+        <article class="era-book-guide-caution"><span>04 · 해석 주의</span><p>${escapeHtml(guide.interpretationCaution)}</p></article>
+      </div>
+      <p class="era-book-guide-source"><a href="/public/data/pastoral-books.json" target="_blank" rel="noopener noreferrer">66권 원고 색인과 상태 보기 ↗</a><span>원고: content/bible-study/books.ko.md · 66권/1,189장 구조 검사 통과 · 신학적 전문 검수 대기</span></p>`;
+  } catch {
+    if (request !== pastoralBookRequest) return;
+    target.innerHTML = '<p class="era-book-guide-warning">이 책의 한국어 연구 안내를 불러오지 못했습니다. 성경 본문과 아래 공개 자료를 먼저 확인해 주세요.</p>';
+  }
 }
 
 function noteBodyMarkup(text) {
@@ -186,6 +221,7 @@ function renderCurated(match) {
   content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(study.title)}</h3><p>본문의 이야기 순서에 맞춘 편집 초안입니다. 전문 검수와 역사적 연대 확인은 완료되지 않았습니다.</p></div><span class="era-reviewed">편집 초안 · 전문 검수 전</span></div>
     <div class="era-study-grid"><div class="era-story-column">
       ${readerMarkup(true)}
+      ${pastoralBookMarkup()}
       ${studyNotesMarkup()}
       <section class="era-flow-card" aria-labelledby="era-flow-title"><div class="era-card-top"><span>PASSAGE FLOW</span><span>${stages.length} SCENES</span></div><h3 id="era-flow-title">이 장면들을 따라 읽으세요.</h3>
         ${isPartial ? `<p class="era-scope-note">입력한 ${escapeHtml(heading)}와 만나는 장면만 표시합니다. 장면 설명은 각 카드에 적힌 전체 절 범위를 다룹니다.</p>` : ''}
@@ -203,6 +239,7 @@ function renderCurated(match) {
     </aside></div>`;
   renderMemo();
   renderReader();
+  renderPastoralBookGuide();
   renderOpenStudyNotes();
 }
 
@@ -214,10 +251,12 @@ function renderUnreviewed() {
   const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 장면 요약</strong><p>해당 장을 따로 열면 편집 초안을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
   content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>본문과 공개 연구 자료를 한 흐름으로 읽습니다.</h3><p>한국어 본문을 읽고, 검색한 장절에 직접 연결된 공개 스터디 노트를 확인하며 메모할 수 있습니다. 한국어 장면 해설이 없는 본문도 빈 화면으로 두지 않습니다.</p></div><span class="era-reviewed">66권 자료 연결</span></div>
     <div class="era-study-grid"><div class="era-story-column">${readerMarkup(false)}
+      ${pastoralBookMarkup()}
       ${studyNotesMarkup()}
       ${relatedMarkup}</div><aside class="era-context-column">${sourcesMarkup(null)}${memoMarkup()}</aside></div>`;
   renderMemo();
   renderReader();
+  renderPastoralBookGuide();
   renderOpenStudyNotes();
 }
 
