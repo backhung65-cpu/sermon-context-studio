@@ -25,6 +25,14 @@ let studyNotesRequest = 0;
 let pastoralBookRequest = 0;
 const ui = (key, variables) => eraText(locale, key, variables);
 
+function localizedLanguageName(languageCode, fallback) {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'language' }).of(languageCode) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[character]);
@@ -204,9 +212,10 @@ async function renderOpenStudyNotes() {
     }
     if (request !== studyNotesRequest) return;
     const meta = document.querySelector('#era-open-notes-meta');
+    const sourceLanguage = localizedLanguageName(result.source.locale, result.source.language);
     if (meta) meta.textContent = ui('notesAudit', {
       count: result.source.records.toLocaleString(locale),
-      language: result.source.language,
+      language: sourceLanguage,
     });
     const sourceMeta = document.querySelector('#era-open-notes-source-meta');
     if (sourceMeta) sourceMeta.textContent = ui('notesSourceMeta', {
@@ -216,7 +225,7 @@ async function renderOpenStudyNotes() {
     });
     let languageNotice = result.source.review === 'professional'
       ? ui('notesEnglishStatus')
-      : ui('notesTranslationStatus', { language: result.source.language });
+      : ui('notesTranslationStatus', { language: sourceLanguage });
     if (result.source.isFallback) languageNotice = ui('notesFallbackStatus');
     if (result.source.converted && !result.source.isFallback) languageNotice += ` ${ui('notesConvertedStatus')}`;
     const languageStatus = `<p class="era-language-notice">${escapeHtml(languageNotice)}</p>`;
@@ -228,7 +237,14 @@ async function renderOpenStudyNotes() {
     const scopeNotice = selected.scope === 'chapter'
       ? `<p class="era-open-notes-scope">${escapeHtml(ui('chapterNotes'))}</p>`
       : `<p class="era-open-notes-count">${escapeHtml(ui('directNotes', { count: selected.rows.length }))}</p>`;
-    target.innerHTML = `${languageStatus}${scopeNotice}<div class="era-open-notes-list" lang="${escapeHtml(result.source.locale)}">${visible.map((row, index) => `<details${index === 0 ? ' open' : ''}><summary><span>${escapeHtml(row.title)}</span><small>${formatOpenStudyNoteReference(row.start, row.end)}</small></summary><div class="era-open-note-body">${noteBodyMarkup(row.text)}</div></details>`).join('')}</div>
+    target.innerHTML = `${languageStatus}${scopeNotice}<div class="era-open-notes-list" lang="${escapeHtml(result.source.locale)}">${visible.map((row, index) => {
+      const range = formatOpenStudyNoteReference(row.start, row.end);
+      const title = result.source.isFallback ? `${localizedBookName(reference.code, locale)} ${range}` : row.title;
+      const originalLanguageLabel = result.source.isFallback
+        ? `<span class="era-open-note-language">${escapeHtml(ui('notesOriginalBody'))}</span>`
+        : '';
+      return `<details${index === 0 && !result.source.isFallback ? ' open' : ''}><summary><span>${escapeHtml(title)}</span><small>${range}</small></summary><div class="era-open-note-body" lang="${escapeHtml(result.source.locale)}">${originalLanguageLabel}${noteBodyMarkup(row.text)}</div></details>`;
+    }).join('')}</div>
       ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">${escapeHtml(ui('moreNotes', { shown: studyNotesLimit, count: selected.rows.length }))}</button>` : `<p class="era-open-notes-complete">${escapeHtml(ui('allNotes', { count: selected.rows.length }))}</p>`}`;
   } catch {
     if (request !== studyNotesRequest) return;
