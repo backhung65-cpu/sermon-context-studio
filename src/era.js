@@ -1,7 +1,7 @@
 import { bibleReadingUrl, formatReference, parseReference } from './reference.js';
 import { NOTE_PREFIX } from './notes.js';
 import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
-import { loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
+import { loadKjvFallback, loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 import { formatOpenStudyNoteReference, loadOpenStudyNotesBook, selectOpenStudyNotes } from './open-study-notes.js';
 
 const search = document.querySelector('#era-search');
@@ -80,10 +80,10 @@ function readerMarkup(curated) {
 
 function studyNotesMarkup() {
   return `<section class="era-open-notes-card" aria-labelledby="era-open-notes-title">
-    <div class="era-card-top"><span>OPEN STUDY NOTES</span><span>66권 원자료 · 영문</span></div>
+    <div class="era-card-top"><span>OPEN STUDY NOTES</span><span>16,918건 전수 검사 · 영문</span></div>
     <div class="era-open-notes-head"><div><h3 id="era-open-notes-title">본문에 연결된 공개 스터디 노트</h3><p>검색한 장절과 실제로 겹치는 원자료를 불러옵니다. 영어 자료이므로 번역하거나 한국어 검수 자료처럼 표시하지 않습니다.</p></div><span>CC BY-SA 4.0</span></div>
     <div id="era-open-notes" class="era-open-notes" aria-live="polite">스터디 노트를 불러오는 중입니다.</div>
-    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes 원자료 ↗</a><span>Mission Mutual이 Tyndale Open Study Notes를 바탕으로 편집 · 고정 판 bbb3f86</span></p>
+    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes 원자료 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">31,102절 전수 검사 결과 ↗</a><span>유효 범위 16,918건 · 직접 연결 30,209절 · 같은 장 참고 893절 · 장절표 범위 밖 원자료 4건 제외</span></p>
   </section>`;
 }
 
@@ -139,7 +139,7 @@ function sourcesMarkup(study) {
   return `<section class="era-sources-card" aria-labelledby="era-sources-title"><div class="era-card-top"><span>SOURCES</span><span>본문별 확인</span></div><h3 id="era-sources-title">직접 대조할 자료</h3>
     <ol><li><strong>공개 한국어 본문</strong>${sourceLinks}<small>${sourceNote}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">판본·이용 조건 확인 ↗</a></li>
     <li><strong>현재 한국어 번역</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, '대한성서공회 개역개정 읽기')}<small>번역 비교용 외부 링크 · 본문을 복제하지 않음</small></li>
-    <li><strong>절별 연구 노트 · 영문</strong><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes · 고정 판 bbb3f86 ↗</a><small>66권 공개 원자료 · 전문 편집 단계로 표시된 레코드만 연결 · CC BY-SA 4.0</small></li>
+    <li><strong>절별 연구 노트 · 영문</strong><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes · 고정 판 bbb3f86 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">31,102절 전수 검사 결과 ↗</a><small>유효 범위 16,918건 · 직접 연결 30,209절 · 같은 장 참고 893절 · CC BY-SA 4.0</small></li>
     ${study?.furtherReading ? `<li><strong>배경 참고 · 영문</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 표제에 적힌 본문 범위를 확인하세요 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
     <p>공개 스터디 노트의 영어 내용과 이 도구가 작성한 한국어 장면 설명은 서로 구분됩니다. 한국어 장면 구분은 편집 초안이며 전문 검수를 마치지 않았습니다. 설교에 사용하기 전에 본문과 원자료를 직접 대조하세요.</p>
   </section>`;
@@ -155,21 +155,22 @@ async function renderReader() {
   target.textContent = '성경 본문을 불러오는 중입니다.';
   pagination.innerHTML = '';
   try {
-    const book = await loadPublicBibleBook(reference.code);
+    const [book, fallback] = await Promise.all([loadPublicBibleBook(reference.code), loadKjvFallback()]);
     if (request !== readerRequest) return;
-    const rows = selectedPublicBibleRows(book, reference, stage);
+    const rows = selectedPublicBibleRows(book, reference, stage, fallback);
     const missing = rows.filter((row) => !row.text).length;
+    const fallbackCount = rows.filter((row) => row.language === 'en').length;
     if (missing === rows.length) {
       target.innerHTML = `<p class="era-reader-warning">이 공개 판본에는 요청한 ${rows.length}절의 본문이 모두 없습니다. <a href="${bibleReadingUrl(reference.code, rows[0].chapter, rows[0].verse)}" target="_blank" rel="noopener noreferrer">대한성서공회 개역개정에서 읽기 ↗</a></p>`;
       pagination.textContent = `${rows.length}절 모두 원자료 없음`;
       return;
     }
     const visible = rows.slice(0, readerLimit);
-    target.innerHTML = `${missing ? `<p class="era-reader-warning">이 공개 판본의 요청 범위에서 ${missing}절이 누락되어 있습니다. 빠진 절은 개역개정 링크에서 확인하세요.</p>` : ''}
-      <div class="era-reader-rows">${visible.map(({ chapter, verse, text: verseText }) => `<p class="${verseText ? '' : 'era-reader-missing'}"><a href="${bibleReadingUrl(reference.code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${reference.name} ${chapter}장 ${verse}절 개역개정에서 읽기`)}">${chapter}:${verse}</a><span>${verseText ? escapeHtml(verseText) : '이 공개 판본에 본문이 없습니다. 장절을 눌러 개역개정을 확인하세요.'}</span></p>`).join('')}</div>`;
+    target.innerHTML = `${fallbackCount ? `<p class="era-reader-warning">한국어 1910 원자료에 없는 ${fallbackCount}절은 공개 영문 KJV로 표시합니다. 한국어 본문은 장절 링크에서 확인하세요.</p>` : ''}${missing ? `<p class="era-reader-warning">한국어 1910과 영문 KJV 원자료에도 없는 절이 ${missing}개 있습니다. 장절 링크에서 확인하세요.</p>` : ''}
+      <div class="era-reader-rows">${visible.map(({ chapter, verse, text: verseText, language }) => `<p class="${verseText ? language === 'en' ? 'era-reader-fallback' : '' : 'era-reader-missing'}"><a href="${bibleReadingUrl(reference.code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${reference.name} ${chapter}장 ${verse}절 개역개정에서 읽기`)}">${chapter}:${verse}</a><span>${verseText ? `${escapeHtml(verseText)}${language === 'en' ? '<small>영문 KJV 대체 표시</small>' : ''}` : '두 공개 원자료에 본문이 없습니다. 장절을 눌러 개역개정을 확인하세요.'}</span></p>`).join('')}</div>`;
     pagination.innerHTML = rows.length > readerLimit
       ? `<span>${readerLimit} / ${rows.length}절 표시</span><button type="button" data-era-action="reader-more">다음 절 더 읽기 ↓</button>`
-      : `<span>${rows.length}절 표시${missing ? ` · 원자료 누락 ${missing}절` : ''}</span>`;
+      : `<span>${rows.length}절 표시${fallbackCount ? ` · KJV 대체 ${fallbackCount}절` : ''}${missing ? ` · 원자료 누락 ${missing}절` : ''}</span>`;
   } catch {
     if (request !== readerRequest) return;
     target.innerHTML = `<p class="era-reader-warning">공개 본문을 불러오지 못했습니다. 아래 원본 또는 개역개정 링크에서 읽어 주세요.</p>`;

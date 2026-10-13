@@ -78,6 +78,9 @@ body { background: #fff; }
 .era-reader-rows a:hover { text-decoration: underline; }
 .era-reader-rows span { min-width: 0; color: #273b59; word-break: keep-all; }
 .era-reader-rows .era-reader-missing span { color: #8c6543; font-size: 13px; }
+.era-reader-rows .era-reader-fallback { background: #fffaf0; }
+.era-reader-rows .era-reader-fallback span { color: #695333; }
+.era-reader-rows .era-reader-fallback small { display: block; margin-top: 3px; color: #a06c2e; font-size: 9px; font-weight: 900; }
 .era-reader-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid #e8edf5; color: #788ba5; font-size: 10px; }
 .era-reader-pagination button:hover { background: #eaf3ff; }
 .era-reader-credit { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }

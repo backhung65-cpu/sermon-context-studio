@@ -6,6 +6,7 @@ const SOURCE_CODES = {
   '2JN': '2JO', '3JN': '3JO',
 };
 const bookCache = new Map();
+let fallbackPromise;
 
 // This chapter is absent from the pinned kor_vpl.zip source. eBible's chapter
 // page is also 404, so link to the edition record instead.
@@ -32,7 +33,22 @@ export async function loadPublicBibleBook(code) {
   return bookCache.get(code);
 }
 
-export function selectedPublicBibleRows(book, reference, stage = null) {
+export async function loadKjvFallback() {
+  if (!fallbackPromise) {
+    fallbackPromise = fetch('/public/data/kjv-fallback.json')
+      .then((response) => {
+        if (!response.ok) throw new Error(`KJV fallback ${response.status}`);
+        return response.json();
+      }).then((data) => data.verses)
+      .catch((error) => {
+        fallbackPromise = undefined;
+        throw error;
+      });
+  }
+  return fallbackPromise;
+}
+
+export function selectedPublicBibleRows(book, reference, stage = null, fallback = {}) {
   const rows = [];
   for (let chapter = reference.chapter; chapter <= reference.endChapter; chapter += 1) {
     const start = chapter === reference.chapter ? reference.startVerse || 1 : 1;
@@ -41,7 +57,9 @@ export function selectedPublicBibleRows(book, reference, stage = null) {
       : VERSE_COUNTS[reference.code][chapter - 1];
     for (let verse = start; verse <= end; verse += 1) {
       if (stage && (chapter !== reference.chapter || verse < stage.start || verse > stage.end)) continue;
-      rows.push({ chapter, verse, text: book[String(chapter)]?.[String(verse)] || null });
+      const korean = book[String(chapter)]?.[String(verse)] || null;
+      const english = fallback[`${reference.code} ${chapter}:${verse}`] || null;
+      rows.push({ chapter, verse, text: korean || english, language: korean ? 'ko' : english ? 'en' : null });
     }
   }
   return rows;

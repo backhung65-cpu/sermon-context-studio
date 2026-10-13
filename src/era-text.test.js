@@ -8,6 +8,7 @@ import { publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 
 const base = new URL('../public/data/kor1910/', import.meta.url);
 const readBook = (code) => JSON.parse(readFileSync(new URL(`${code}.json`, base), 'utf8'));
+const fallback = JSON.parse(readFileSync(new URL('../public/data/kjv-fallback.json', import.meta.url), 'utf8')).verses;
 
 test('public Bible import identifies its source and covers each of the five reviewed chapters', () => {
   const source = JSON.parse(readFileSync(new URL('source.json', base), 'utf8'));
@@ -41,6 +42,23 @@ test('reader preserves selected verse range and exposes missing source verses', 
 test('source link never points to the absent 1 Peter 5 chapter page', () => {
   assert.equal(publicBibleChapterUrl('1PE', 5), null);
   assert.equal(publicBibleChapterUrl('EXO', 3), 'https://ebible.org/kor/EXO03.htm');
+});
+
+test('KJV fallback fills every Korean-source gap without being labelled Korean', () => {
+  let rows = 0;
+  let fallbacks = 0;
+  for (const [code, chapterCounts] of Object.entries(VERSE_COUNTS)) {
+    const book = readBook(code);
+    for (let chapter = 1; chapter <= chapterCounts.length; chapter += 1) {
+      const reference = { code, chapter, endChapter: chapter, startVerse: null, endVerse: null };
+      const selected = selectedPublicBibleRows(book, reference, null, fallback);
+      rows += selected.length;
+      fallbacks += selected.filter((row) => row.language === 'en').length;
+      assert.equal(selected.filter((row) => !row.text).length, 0, `${code} ${chapter} still has a text gap`);
+    }
+  }
+  assert.equal(rows, 31_102);
+  assert.equal(fallbacks, 111);
 });
 
 test('every published Korean book file has valid verse keys and matches the pinned source totals', () => {
