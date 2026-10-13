@@ -1,14 +1,19 @@
-import { bibleReadingUrl, formatReference, parseReference } from './reference.js';
+import { bibleReadingUrl, formatReference, localizedBookName, parseReference } from './reference.js';
 import { NOTE_PREFIX } from './notes.js';
 import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
 import { loadKjvFallback, loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 import { formatOpenStudyNoteReference, loadOpenStudyNotesBook, selectOpenStudyNotes } from './open-study-notes.js';
 import { loadPastoralBooks, selectPastoralBookGuide } from './pastoral-books.js';
+import { ERA_LOCALES, eraText } from './era-i18n.js';
+import { t } from './i18n.js';
 
 const search = document.querySelector('#era-search');
 const input = document.querySelector('#era-reference');
 const error = document.querySelector('#era-error');
 const content = document.querySelector('#era-study-content');
+const languageSelect = document.querySelector('#era-language-select');
+const requestedLocale = new URLSearchParams(location.search).get('lang');
+let locale = Object.hasOwn(ERA_LOCALES, requestedLocale) ? requestedLocale : 'ko';
 let currentReference;
 let currentMatch;
 let activeStage = 0;
@@ -18,19 +23,68 @@ let readerRequest = 0;
 let studyNotesLimit = 6;
 let studyNotesRequest = 0;
 let pastoralBookRequest = 0;
+const ui = (key, variables) => eraText(locale, key, variables);
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[character]);
 
+function localUrl(path) {
+  const url = new URL(path, location.origin);
+  if (locale !== 'ko') url.searchParams.set('lang', locale);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function setText(id, value) {
+  const element = document.querySelector(`#${id}`);
+  if (element) element.textContent = value;
+}
+
+function applyStaticCopy() {
+  document.documentElement.lang = locale;
+  document.title = ui('title');
+  document.querySelector('meta[name="description"]')?.setAttribute('content', ui('description'));
+  document.querySelector('meta[property="og:title"]')?.setAttribute('content', ui('title'));
+  document.querySelector('meta[property="og:description"]')?.setAttribute('content', ui('description'));
+  setText('era-brand-name', t(locale, 'brand'));
+  document.querySelector('#era-brand-link')?.setAttribute('aria-label', t(locale, 'brandHome'));
+  setText('era-edition', t(locale, 'edition'));
+  setText('era-nav-places', ui('navPlaces'));
+  setText('era-nav-journeys', ui('navJourneys'));
+  setText('era-nav-current', ui('navEra'));
+  document.querySelector('#era-primary-nav')?.setAttribute('aria-label', t(locale, 'edition'));
+  document.querySelector('#era-nav-places').href = localUrl('/');
+  document.querySelector('#era-nav-journeys').href = localUrl('/?view=journeys');
+  document.querySelector('#era-nav-current').href = localUrl('/era.html');
+  setText('era-title-one', ui('hero1'));
+  setText('era-title-two', ui('hero2'));
+  setText('era-lead', ui('lead'));
+  setText('era-reference-label', t(locale, 'reference'));
+  input.placeholder = t(locale, 'referencePlaceholder');
+  setText('era-search-label', ui('search'));
+  setText('era-examples-label', ui('examples'));
+  setText('era-locale-note', ui('localeNote'));
+  document.querySelector('#era-coverage')?.setAttribute('aria-label', ui('coverageAria'));
+  for (const [id, key] of [['era-coverage-1','coverage1'],['era-coverage-1-small','coverage1Small'],['era-coverage-2','coverage2'],['era-coverage-2-small','coverage2Small'],['era-coverage-3','coverage3'],['era-coverage-3-small','coverage3Small'],['era-coverage-4','coverage4'],['era-coverage-4-small','coverage4Small'],['era-coverage-foot','coverageFoot'],['era-section-kicker','sectionKicker'],['era-workspace-title','sectionTitle'],['era-method-kicker','methodKicker'],['era-method-title','methodTitle'],['era-method-1-title','method1Title'],['era-method-1-body','method1Body'],['era-method-2-title','method2Title'],['era-method-2-body','method2Body'],['era-method-3-title','method3Title'],['era-method-3-body','method3Body'],['era-footer-copy','footer'],['era-footer-back','footerBack']]) setText(id, ui(key));
+  document.querySelector('#era-open-places').textContent = ui('openPlaces');
+  document.querySelector('#era-footer-back').href = localUrl('/');
+}
+
+function renderExamples() {
+  document.querySelector('#era-example-list').innerHTML = ERA_STUDIES.map((study) => {
+    const reference = parseReference(study.example);
+    return `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(formatReference(reference, locale))}</button>`;
+  }).join('');
+}
+
 function bibleLink(code, chapter, verse, label) {
-  return `<a href="${bibleReadingUrl(code, chapter, verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)} ↗</a>`;
+  const suffix = String(label).trim().endsWith('↗') ? '' : ' ↗';
+  return `<a href="${bibleReadingUrl(code, chapter, verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}${suffix}</a>`;
 }
 
 function placesUrl(reference) {
   const params = new URLSearchParams();
-  const language = new URLSearchParams(location.search).get('lang');
-  if (language) params.set('lang', language);
+  if (locale !== 'ko') params.set('lang', locale);
   return `/${params.size ? `?${params}` : ''}#${encodeURIComponent(formatReference(reference))}`;
 }
 
@@ -40,60 +94,61 @@ function renderMemo() {
   try {
     textarea.value = localStorage.getItem(`${NOTE_PREFIX}${currentReference.label}`) || '';
     document.querySelector('#era-memo-status').textContent = textarea.value
-      ? '저장된 메모를 불러왔습니다.' : '입력하면 이 브라우저에 바로 저장됩니다.';
+      ? ui('memoLoaded') : ui('memoNew');
   } catch {
-    document.querySelector('#era-memo-status').textContent = '브라우저 저장을 사용할 수 없습니다. 메모를 복사하거나 내보내세요.';
+    document.querySelector('#era-memo-status').textContent = ui('memoUnavailable');
   }
 }
 
 function memoMarkup() {
   return `<section class="era-note-card" aria-labelledby="era-note-title">
-    <div class="era-card-top"><span>RESEARCH NOTES</span><span>01 ↔ 02 연결</span></div>
-    <h3 id="era-note-title">이 본문의 연구 메모</h3>
-    <p>읽으면서 생긴 질문과 설교 관찰을 계속 적어 보세요. 01번 도구의 본문 전체 메모에서도 이어집니다.</p>
-    <label class="sr-only" for="era-memo">본문 전체 연구 메모</label>
-    <textarea id="era-memo" placeholder="본문이 놓인 시대를 생각하며 떠오른 질문을 적어 보세요."></textarea>
+    <div class="era-card-top"><span>${escapeHtml(ui('memoTop'))}</span><span>${escapeHtml(ui('memoLink'))}</span></div>
+    <h3 id="era-note-title">${escapeHtml(ui('memoTitle'))}</h3>
+    <p>${escapeHtml(ui('memoIntro'))}</p>
+    <label class="sr-only" for="era-memo">${escapeHtml(ui('memoTitle'))}</label>
+    <textarea id="era-memo" placeholder="${escapeHtml(ui('memoPlaceholder'))}"></textarea>
     <span id="era-memo-status" class="era-memo-status" role="status"></span>
-    <div class="era-note-actions"><button type="button" data-era-action="copy">메모 복사</button><button type="button" data-era-action="download">MD 내보내기 ↓</button></div>
+    <div class="era-note-actions"><button type="button" data-era-action="copy">${escapeHtml(ui('memoCopy'))}</button><button type="button" data-era-action="download">${escapeHtml(ui('memoExport'))}</button></div>
   </section>`;
 }
 
 function sceneMarkup(study, stage, partial) {
-  const label = `${study.example.split(' ')[0]} ${study.chapter}:${stage.start}${stage.end === stage.start ? '' : `–${stage.end}`}`;
+  const label = `${localizedBookName(study.code, locale)} ${study.chapter}:${stage.start}${stage.end === stage.start ? '' : `–${stage.end}`}`;
   const sceneReference = parseReference(sceneReferenceForSelection(currentReference, stage));
   const first = sceneReference.startVerse;
-  return `<div class="era-scene-detail"><div class="era-scene-detail-head"><span>해당 성경 구간의 편집 초안</span><span>${escapeHtml(label)}</span></div>
-    <h3>${escapeHtml(stage.title)}</h3><p>${escapeHtml(stage.summary)}</p>
-    ${partial ? '<small class="era-partial-note">선택한 절이 이 장면의 일부입니다. 설명은 표시된 장면 전체 범위에 대한 요약입니다.</small>' : ''}
-    <div class="era-scene-actions"><a href="#era-reader-title">이 장면 본문 읽기 ↑</a>${bibleLink(study.code, study.chapter, first, '개역개정으로 읽기')}<a href="${placesUrl(sceneReference)}">01 이 장면의 지명 보기 ↗</a></div>
+  return `<div class="era-scene-detail"><div class="era-scene-detail-head"><span>${escapeHtml(ui('sceneDraft'))}</span><span>${escapeHtml(label)}</span></div>
+    <div lang="ko"><h3>${escapeHtml(stage.title)}</h3><p>${escapeHtml(stage.summary)}</p></div>
+    ${locale !== 'ko' ? `<small class="era-language-notice">${escapeHtml(ui('koreanGuideNotice'))}</small>` : ''}
+    ${partial ? `<small class="era-partial-note">${escapeHtml(ui('partialScene'))}</small>` : ''}
+    <div class="era-scene-actions"><a href="#era-reader-title">${escapeHtml(ui('sceneRead'))}</a>${bibleLink(study.code, study.chapter, first, ui('currentKorean'))}<a href="${placesUrl(sceneReference)}">${escapeHtml(ui('scenePlaces'))}</a></div>
   </div>`;
 }
 
 function readerMarkup(curated) {
   return `<section class="era-reader-card" aria-labelledby="era-reader-title">
-    <div class="era-card-top"><span>READ THE PASSAGE</span><span>성경 번역과 편집 요약 분리</span></div>
-    <div class="era-reader-head"><div><h3 id="era-reader-title">성경 본문 바로 읽기</h3><p>공개 한국어 성경 1910년 판본입니다. 옛 표현이 있으므로 설교에 인용할 때는 개역개정을 함께 확인하세요.</p></div><span class="era-reader-edition">공개 본문</span></div>
-    ${curated ? `<div class="era-reader-modes" role="group" aria-label="본문 읽기 범위"><button type="button" data-era-action="reader-stage" aria-pressed="${readerMode === 'stage'}">선택한 장면</button><button type="button" data-era-action="reader-passage" aria-pressed="${readerMode === 'passage'}">검색한 본문 전체</button></div>` : ''}
-    <div id="era-reader-text" class="era-reader-text" aria-live="polite">본문을 불러오는 중입니다.</div>
+    <div class="era-card-top"><span>${escapeHtml(ui('readerTop'))}</span><span>${escapeHtml(ui('readerSeparation'))}</span></div>
+    <div class="era-reader-head"><div><h3 id="era-reader-title">${escapeHtml(ui('readerTitle'))}</h3><p>${escapeHtml(ui('readerIntro'))}</p></div><span class="era-reader-edition">${escapeHtml(ui('bibleTextLanguage'))}</span></div>
+    ${curated ? `<div class="era-reader-modes" role="group" aria-label="${escapeHtml(ui('readerTitle'))}"><button type="button" data-era-action="reader-stage" aria-pressed="${readerMode === 'stage'}">${escapeHtml(ui('selectedScene'))}</button><button type="button" data-era-action="reader-passage" aria-pressed="${readerMode === 'passage'}">${escapeHtml(ui('selectedPassage'))}</button></div>` : ''}
+    <div id="era-reader-text" class="era-reader-text" aria-live="polite">${escapeHtml(ui('bibleLoading'))}</div>
     <div id="era-reader-pagination" class="era-reader-pagination"></div>
-    <div class="era-reader-credit"><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">번역 출처와 이용 조건 ↗</a><a href="${bibleReadingUrl(currentReference.code, currentReference.chapter, currentReference.startVerse || 1)}" target="_blank" rel="noopener noreferrer">개역개정과 대조 ↗</a></div>
+    <div class="era-reader-credit"><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('sourceTerms'))}</a><a href="${bibleReadingUrl(currentReference.code, currentReference.chapter, currentReference.startVerse || 1)}" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('compareKorean'))}</a></div>
   </section>`;
 }
 
 function studyNotesMarkup() {
   return `<section class="era-open-notes-card" aria-labelledby="era-open-notes-title">
-    <div class="era-card-top"><span>OPEN STUDY NOTES</span><span>16,918건 전수 검사 · 영문</span></div>
-    <div class="era-open-notes-head"><div><h3 id="era-open-notes-title">본문에 연결된 공개 스터디 노트</h3><p>검색한 장절과 실제로 겹치는 원자료를 불러옵니다. 영어 자료이므로 번역하거나 한국어 검수 자료처럼 표시하지 않습니다.</p></div><span>CC BY-SA 4.0</span></div>
-    <div id="era-open-notes" class="era-open-notes" aria-live="polite">스터디 노트를 불러오는 중입니다.</div>
-    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes 원자료 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">31,102절 전수 검사 결과 ↗</a><span>유효 범위 16,918건 · 직접 연결 30,209절 · 같은 장 참고 893절 · 장절표 범위 밖 원자료 4건 제외</span></p>
+    <div class="era-card-top"><span>${escapeHtml(ui('notesTop'))}</span><span>${escapeHtml(ui('notesAudit'))}</span></div>
+    <div class="era-open-notes-head"><div><h3 id="era-open-notes-title">${escapeHtml(ui('notesTitle'))}</h3><p>${escapeHtml(ui('notesIntro'))}</p></div><span>CC BY-SA 4.0</span></div>
+    <div id="era-open-notes" class="era-open-notes" aria-live="polite">${escapeHtml(ui('notesLoading'))}</div>
+    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('originalNotes'))}</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('auditResult'))}</a><span>16,918 valid records · 30,209 direct verses · 893 same-chapter references · 4 out-of-range source records excluded</span></p>
   </section>`;
 }
 
 function pastoralBookMarkup() {
   return `<section class="era-book-guide-card" aria-labelledby="era-book-guide-title">
-    <div class="era-card-top"><span>66-BOOK RESEARCH GUIDE</span><span>한국어 원고 · 검수 전</span></div>
+    <div class="era-card-top"><span>${escapeHtml(ui('guideTop'))}</span><span>${escapeHtml(locale === 'ko' ? ui('guideLanguage') : ui('bookGuideSourceLanguage'))}</span></div>
     <div id="era-book-guide" class="era-book-guide" aria-live="polite">
-      <p class="era-book-guide-loading">${escapeHtml(currentReference.name)} 연구 안내를 불러오는 중입니다.</p>
+      <p class="era-book-guide-loading">${escapeHtml(ui('guideLoading', { book: localizedBookName(currentReference.code, locale) }))}</p>
     </div>
   </section>`;
 }
@@ -108,17 +163,19 @@ async function renderPastoralBookGuide() {
     if (request !== pastoralBookRequest) return;
     const guide = selectPastoralBookGuide(data, code);
     if (!guide) throw new Error('Book guide not found');
-    target.innerHTML = `<div class="era-book-guide-head"><div><span>${escapeHtml(guide.genre)} · ${guide.chapterCount}장</span><h3 id="era-book-guide-title">${escapeHtml(guide.name)} · 읽는 네 가지 길잡이</h3></div><span class="era-book-guide-status">편집 초안 · 전문 검수 전</span></div>
-      <div class="era-book-guide-grid">
-        <article><span>01 · 읽기 방향</span><p>${escapeHtml(guide.readingDirection)}</p></article>
-        <article><span>02 · 큰 흐름</span><p>${escapeHtml(guide.bigFlow)}</p></article>
-        <article><span>03 · 설교 준비 질문</span><strong>${escapeHtml(guide.sermonQuestion)}</strong></article>
-        <article class="era-book-guide-caution"><span>04 · 해석 주의</span><p>${escapeHtml(guide.interpretationCaution)}</p></article>
+    const bookName = localizedBookName(guide.code, locale);
+    target.innerHTML = `<div class="era-book-guide-head"><div><span>${escapeHtml(guide.genre)} · ${guide.chapterCount}</span><h3 id="era-book-guide-title">${escapeHtml(ui('guideTitle', { book: bookName }))}</h3></div><span class="era-book-guide-status">${escapeHtml(ui('draftStatus'))}</span></div>
+      ${locale !== 'ko' ? `<p class="era-language-notice">${escapeHtml(ui('koreanGuideNotice'))}</p>` : ''}
+      <div class="era-book-guide-grid" lang="ko">
+        <article><span>${escapeHtml(ui('readingDirection'))}</span><p>${escapeHtml(guide.readingDirection)}</p></article>
+        <article><span>${escapeHtml(ui('bigFlow'))}</span><p>${escapeHtml(guide.bigFlow)}</p></article>
+        <article><span>${escapeHtml(ui('sermonQuestion'))}</span><strong>${escapeHtml(guide.sermonQuestion)}</strong></article>
+        <article class="era-book-guide-caution"><span>${escapeHtml(ui('interpretationCaution'))}</span><p>${escapeHtml(guide.interpretationCaution)}</p></article>
       </div>
-      <p class="era-book-guide-source"><a href="/public/data/pastoral-books.json" target="_blank" rel="noopener noreferrer">66권 원고 색인과 상태 보기 ↗</a><span>원고: content/bible-study/books.ko.md · 66권/1,189장 구조 검사 통과 · 신학적 전문 검수 대기</span></p>`;
+      <p class="era-book-guide-source"><a href="/public/data/pastoral-books.json" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('guideIndex'))}</a><span>${escapeHtml(ui('guideMeta'))}</span></p>`;
   } catch {
     if (request !== pastoralBookRequest) return;
-    target.innerHTML = '<p class="era-book-guide-warning">이 책의 한국어 연구 안내를 불러오지 못했습니다. 성경 본문과 아래 공개 자료를 먼저 확인해 주세요.</p>';
+    target.innerHTML = `<p class="era-book-guide-warning">${escapeHtml(ui('guideFailed'))}</p>`;
   }
 }
 
@@ -132,24 +189,24 @@ async function renderOpenStudyNotes() {
   if (!target || !currentReference) return;
   const request = ++studyNotesRequest;
   const reference = currentReference;
-  target.textContent = '본문 범위에 맞는 스터디 노트를 불러오는 중입니다.';
+  target.textContent = ui('notesLoading');
   try {
     const rows = await loadOpenStudyNotesBook(reference.code);
     if (request !== studyNotesRequest) return;
     const selected = selectOpenStudyNotes(rows, reference);
     if (!selected.rows.length) {
-      target.innerHTML = '<p class="era-open-notes-warning">이 본문 범위에 연결된 원자료 노트가 없습니다. 본문과 개역개정 대조 링크를 이용해 주세요.</p>';
+      target.innerHTML = `<p class="era-open-notes-warning">${escapeHtml(ui('noNotes'))}</p>`;
       return;
     }
     const visible = selected.rows.slice(0, studyNotesLimit);
     const scopeNotice = selected.scope === 'chapter'
-      ? '<p class="era-open-notes-scope">선택한 절에 직접 연결된 노트가 없어 같은 장의 참고 노트를 표시합니다.</p>'
-      : `<p class="era-open-notes-count">검색한 본문에 직접 연결된 노트 ${selected.rows.length}개</p>`;
+      ? `<p class="era-open-notes-scope">${escapeHtml(ui('chapterNotes'))}</p>`
+      : `<p class="era-open-notes-count">${escapeHtml(ui('directNotes', { count: selected.rows.length }))}</p>`;
     target.innerHTML = `${scopeNotice}<div class="era-open-notes-list">${visible.map((row, index) => `<details${index === 0 ? ' open' : ''}><summary><span>${escapeHtml(row.title)}</span><small>${formatOpenStudyNoteReference(row.start, row.end)}</small></summary><div class="era-open-note-body">${noteBodyMarkup(row.text)}</div></details>`).join('')}</div>
-      ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">노트 더 보기 · ${studyNotesLimit} / ${selected.rows.length}</button>` : `<p class="era-open-notes-complete">${selected.rows.length}개 노트를 모두 표시했습니다.</p>`}`;
+      ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">${escapeHtml(ui('moreNotes', { shown: studyNotesLimit, count: selected.rows.length }))}</button>` : `<p class="era-open-notes-complete">${escapeHtml(ui('allNotes', { count: selected.rows.length }))}</p>`}`;
   } catch {
     if (request !== studyNotesRequest) return;
-    target.innerHTML = '<p class="era-open-notes-warning">스터디 노트 원자료를 불러오지 못했습니다. 아래 원자료 링크에서 직접 확인해 주세요.</p>';
+    target.innerHTML = `<p class="era-open-notes-warning">${escapeHtml(ui('notesFailed'))}</p>`;
   }
 }
 
@@ -162,21 +219,22 @@ function sourcesMarkup(study) {
   const hasAbsentChapter = linkedChapters.some((number) => !publicBibleChapterUrl(currentReference.code, number));
   const sourceLinks = linkedChapters.map((number) => {
     const url = publicBibleChapterUrl(currentReference.code, number);
+    const book = localizedBookName(currentReference.code, locale);
     return url
-      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">eBible 한국어 성경 1910 · ${escapeHtml(currentReference.name)} ${number}장 ↗</a>`
-      : `<span class="era-source-absent">${escapeHtml(currentReference.name)} ${number}장 · 원자료 장 페이지 없음</span>`;
+      ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('sourceChapterLink', { book, chapter: number }))} ↗</a>`
+      : `<span class="era-source-absent">${escapeHtml(book)} ${number} · ${escapeHtml(ui('sourcePageMissing'))}</span>`;
   }).join('');
   const sourceNote = hasAbsentChapter
-    ? '표시된 원자료 누락 장은 장별 페이지가 없으므로 개역개정에서 읽어 주세요.'
+    ? ui('sourcePageMissingNote')
     : chapterCount > 6
-      ? `검색한 ${chapterCount}장 중 첫 장과 마지막 장을 연결했습니다. 나머지는 판본 안내에서 확인하세요.`
-      : '화면의 절별 본문 출처 · 공개 저작물 표기';
-  return `<section class="era-sources-card" aria-labelledby="era-sources-title"><div class="era-card-top"><span>SOURCES</span><span>본문별 확인</span></div><h3 id="era-sources-title">직접 대조할 자료</h3>
-    <ol><li><strong>공개 한국어 본문</strong>${sourceLinks}<small>${sourceNote}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">판본·이용 조건 확인 ↗</a></li>
-    <li><strong>현재 한국어 번역</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, '대한성서공회 개역개정 읽기')}<small>번역 비교용 외부 링크 · 본문을 복제하지 않음</small></li>
-    <li><strong>절별 연구 노트 · 영문</strong><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes · 고정 판 bbb3f86 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">31,102절 전수 검사 결과 ↗</a><small>유효 범위 16,918건 · 직접 연결 30,209절 · 같은 장 참고 893절 · CC BY-SA 4.0</small></li>
-    ${study?.furtherReading ? `<li><strong>배경 참고 · 영문</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>외부 자료 · 표제에 적힌 본문 범위를 확인하세요 · 설명을 그대로 옮기지 않음</small></li>` : ''}</ol>
-    <p>공개 스터디 노트의 영어 내용과 이 도구가 작성한 한국어 장면 설명은 서로 구분됩니다. 한국어 장면 구분은 편집 초안이며 전문 검수를 마치지 않았습니다. 설교에 사용하기 전에 본문과 원자료를 직접 대조하세요.</p>
+      ? ui('sourceRangeLinkNote', { count: chapterCount })
+      : ui('sourceVerseAttribution');
+  return `<section class="era-sources-card" aria-labelledby="era-sources-title"><div class="era-card-top"><span>${escapeHtml(ui('sourcesTop'))}</span><span>${escapeHtml(ui('sourcesScope'))}</span></div><h3 id="era-sources-title">${escapeHtml(ui('sourcesTitle'))}</h3>
+    <ol><li><strong>${escapeHtml(ui('publicKorean'))}</strong>${sourceLinks}<small>${escapeHtml(sourceNote)}</small><a href="https://ebible.org/find/details.php?id=kor" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('sourceEdition'))}</a></li>
+    <li><strong>${escapeHtml(ui('currentKoreanLabel'))}</strong>${bibleLink(currentReference.code, chapter, currentReference.startVerse || 1, ui('currentKoreanLink'))}<small>${escapeHtml(ui('currentKoreanNote'))}</small></li>
+    <li><strong>${escapeHtml(ui('englishNotes'))}</strong><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">Aquifer Open Study Notes · bbb3f86 ↗</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('auditResult'))}</a><small>${escapeHtml(ui('notesAuditDetail'))}</small></li>
+    ${study?.furtherReading ? `<li><strong>${escapeHtml(ui('backgroundEnglish'))}</strong><a href="${escapeHtml(study.furtherReading.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.furtherReading.label)} ↗</a><small>${escapeHtml(ui('backgroundSourceNote'))}</small></li>` : ''}</ol>
+    <p>${escapeHtml(ui('sourceSeparation'))}</p>
   </section>`;
 }
 
@@ -187,7 +245,7 @@ async function renderReader() {
   const reference = currentReference;
   const stage = currentMatch && readerMode === 'stage' ? currentMatch.stages[activeStage] : null;
   const pagination = document.querySelector('#era-reader-pagination');
-  target.textContent = '성경 본문을 불러오는 중입니다.';
+  target.textContent = ui('bibleLoading');
   pagination.innerHTML = '';
   try {
     const [book, fallback] = await Promise.all([loadPublicBibleBook(reference.code), loadKjvFallback()]);
@@ -196,19 +254,19 @@ async function renderReader() {
     const missing = rows.filter((row) => !row.text).length;
     const fallbackCount = rows.filter((row) => row.language === 'en').length;
     if (missing === rows.length) {
-      target.innerHTML = `<p class="era-reader-warning">이 공개 판본에는 요청한 ${rows.length}절의 본문이 모두 없습니다. <a href="${bibleReadingUrl(reference.code, rows[0].chapter, rows[0].verse)}" target="_blank" rel="noopener noreferrer">대한성서공회 개역개정에서 읽기 ↗</a></p>`;
-      pagination.textContent = `${rows.length}절 모두 원자료 없음`;
+      target.innerHTML = `<p class="era-reader-warning">${escapeHtml(ui('sourceAllMissing', { count: rows.length }))} <a href="${bibleReadingUrl(reference.code, rows[0].chapter, rows[0].verse)}" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('currentKoreanLink'))}</a></p>`;
+      pagination.textContent = ui('sourceAllMissingStatus', { count: rows.length });
       return;
     }
     const visible = rows.slice(0, readerLimit);
-    target.innerHTML = `${fallbackCount ? `<p class="era-reader-warning">한국어 1910 원자료에 없는 ${fallbackCount}절은 공개 영문 KJV로 표시합니다. 한국어 본문은 장절 링크에서 확인하세요.</p>` : ''}${missing ? `<p class="era-reader-warning">한국어 1910과 영문 KJV 원자료에도 없는 절이 ${missing}개 있습니다. 장절 링크에서 확인하세요.</p>` : ''}
-      <div class="era-reader-rows">${visible.map(({ chapter, verse, text: verseText, language }) => `<p class="${verseText ? language === 'en' ? 'era-reader-fallback' : '' : 'era-reader-missing'}"><a href="${bibleReadingUrl(reference.code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(`${reference.name} ${chapter}장 ${verse}절 개역개정에서 읽기`)}">${chapter}:${verse}</a><span>${verseText ? `${escapeHtml(verseText)}${language === 'en' ? '<small>영문 KJV 대체 표시</small>' : ''}` : '두 공개 원자료에 본문이 없습니다. 장절을 눌러 개역개정을 확인하세요.'}</span></p>`).join('')}</div>`;
+    target.innerHTML = `${fallbackCount ? `<p class="era-reader-warning">${escapeHtml(ui('koreanSourceWarning', { count: fallbackCount }))}</p>` : ''}${missing ? `<p class="era-reader-warning">${escapeHtml(ui('sourceMissingWarning', { count: missing }))}</p>` : ''}
+      <div class="era-reader-rows" lang="ko">${visible.map(({ chapter, verse, text: verseText, language }) => `<p class="${verseText ? language === 'en' ? 'era-reader-fallback' : '' : 'era-reader-missing'}"><a href="${bibleReadingUrl(reference.code, chapter, verse)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(ui('readerAria', { book: localizedBookName(reference.code, locale), chapter, verse }))}">${chapter}:${verse}</a><span>${verseText ? `${escapeHtml(verseText)}${language === 'en' ? `<small lang="en">${escapeHtml(ui('englishFallback'))}</small>` : ''}` : escapeHtml(ui('missingVerseText'))}</span></p>`).join('')}</div>`;
     pagination.innerHTML = rows.length > readerLimit
-      ? `<span>${readerLimit} / ${rows.length}절 표시</span><button type="button" data-era-action="reader-more">다음 절 더 읽기 ↓</button>`
-      : `<span>${rows.length}절 표시${fallbackCount ? ` · KJV 대체 ${fallbackCount}절` : ''}${missing ? ` · 원자료 누락 ${missing}절` : ''}</span>`;
+      ? `<span>${escapeHtml(ui('versesShown', { count: `${readerLimit} / ${rows.length}` }))}</span><button type="button" data-era-action="reader-more">${escapeHtml(ui('readerMore'))}</button>`
+      : `<span>${escapeHtml(ui('versesShown', { count: rows.length }))}${fallbackCount ? ` · ${escapeHtml(ui('fallbackSummary', { count: fallbackCount }))}` : ''}${missing ? ` · ${escapeHtml(ui('missingSummary', { count: missing }))}` : ''}</span>`;
   } catch {
     if (request !== readerRequest) return;
-    target.innerHTML = `<p class="era-reader-warning">공개 본문을 불러오지 못했습니다. 아래 원본 또는 개역개정 링크에서 읽어 주세요.</p>`;
+    target.innerHTML = `<p class="era-reader-warning">${escapeHtml(ui('bibleLoadFailed'))}</p>`;
   }
 }
 
@@ -216,24 +274,24 @@ function renderCurated(match) {
   const { study, stages, isPartial } = match;
   activeStage = Math.min(activeStage, stages.length - 1);
   const stage = stages[activeStage];
-  const heading = formatReference(currentReference);
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 장면 요약 ${stages.length}개`;
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(study.title)}</h3><p>본문의 이야기 순서에 맞춘 편집 초안입니다. 전문 검수와 역사적 연대 확인은 완료되지 않았습니다.</p></div><span class="era-reviewed">편집 초안 · 전문 검수 전</span></div>
+  const heading = formatReference(currentReference, locale);
+  document.querySelector('#era-workspace-subtitle').textContent = ui('curatedSubtitle', { reference: heading, count: stages.length });
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><div lang="ko"><h3>${escapeHtml(study.title)}</h3></div><p>${escapeHtml(ui('curatedHeadingIntro'))}</p>${locale !== 'ko' ? `<p class="era-language-notice">${escapeHtml(ui('curatedContentNotice'))}</p>` : ''}</div><span class="era-reviewed">${escapeHtml(ui('draftStatus'))}</span></div>
     <div class="era-study-grid"><div class="era-story-column">
       ${readerMarkup(true)}
       ${pastoralBookMarkup()}
       ${studyNotesMarkup()}
-      <section class="era-flow-card" aria-labelledby="era-flow-title"><div class="era-card-top"><span>PASSAGE FLOW</span><span>${stages.length} SCENES</span></div><h3 id="era-flow-title">이 장면들을 따라 읽으세요.</h3>
-        ${isPartial ? `<p class="era-scope-note">입력한 ${escapeHtml(heading)}와 만나는 장면만 표시합니다. 장면 설명은 각 카드에 적힌 전체 절 범위를 다룹니다.</p>` : ''}
-        <div class="era-stage-list" role="tablist" aria-label="본문의 장면">${stages.map((item, index) => `<button id="era-tab-${index}" type="button" role="tab" data-stage="${index}" tabindex="${index === activeStage ? 0 : -1}" aria-selected="${index === activeStage}" aria-controls="era-active-scene"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(item.title)}</strong><small>${study.chapter}:${item.start}–${item.end}</small></button>`).join('')}</div>
+      <section class="era-flow-card" aria-labelledby="era-flow-title"><div class="era-card-top"><span>${escapeHtml(ui('flowTop'))}</span><span>${escapeHtml(ui('flowScenes', { count: stages.length }))}</span></div><h3 id="era-flow-title">${escapeHtml(ui('flowTitle'))}</h3>
+        ${isPartial ? `<p class="era-scope-note">${escapeHtml(ui('partialScope', { reference: heading }))}</p>` : ''}
+        <div class="era-stage-list" role="tablist" aria-label="${escapeHtml(ui('sceneTabsAria'))}" lang="ko">${stages.map((item, index) => `<button id="era-tab-${index}" type="button" role="tab" data-stage="${index}" tabindex="${index === activeStage ? 0 : -1}" aria-selected="${index === activeStage}" aria-controls="era-active-scene"><span>${String(index + 1).padStart(2, '0')}</span><strong>${escapeHtml(item.title)}</strong><small>${study.chapter}:${item.start}–${item.end}</small></button>`).join('')}</div>
         <div id="era-active-scene" role="tabpanel" aria-labelledby="era-tab-${activeStage}">${sceneMarkup(study, stage, isPartial && (currentReference.startVerse > stage.start || currentReference.endVerse < stage.end))}</div>
       </section>
-      <div class="era-neighbors"><div><span>앞 이야기</span>${bibleLink(study.before.code, study.before.chapter, study.before.verse, study.before.label)}</div><div><span>다음 이야기</span>${bibleLink(study.after.code, study.after.chapter, study.after.verse, study.after.label)}</div></div>
+      <div class="era-neighbors"><div><span>${escapeHtml(ui('previousStory'))}</span><span lang="ko">${bibleLink(study.before.code, study.before.chapter, study.before.verse, study.before.label)}</span></div><div><span>${escapeHtml(ui('nextStory'))}</span><span lang="ko">${bibleLink(study.after.code, study.after.chapter, study.after.verse, study.after.label)}</span></div></div>
     </div><aside class="era-context-column">
-      <section class="era-period-card"><div class="era-card-top"><span>TIME CONTEXT</span><span>02 / 시대</span></div><span class="era-period-label">이야기가 놓인 큰 흐름</span><h3>${escapeHtml(study.period)}</h3><p>${escapeHtml(study.setting)}</p></section>
-      <section class="era-evidence-card"><span class="era-context-index">01 · 본문을 따라 읽는 관찰</span><p>${escapeHtml(study.background)}</p>${bibleLink(study.code, study.chapter, 1, `${study.example.split(' ')[0]} ${study.chapter}장 읽기`)}
-        <div class="era-caution"><strong>02 · 해석할 때 주의</strong><p>${escapeHtml(study.caution)}</p>${study.external ? `<a href="${escapeHtml(study.external.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.external.label)} ↗</a>` : ''}</div></section>
-      <section class="era-question-card"><span>설교를 위한 관찰 질문</span><strong>${escapeHtml(study.question)}</strong></section>
+      <section class="era-period-card"><div class="era-card-top"><span>${escapeHtml(ui('timeContext'))}</span><span>${escapeHtml(ui('timeSection'))}</span></div><span class="era-period-label">${escapeHtml(ui('storyFlow'))}</span><div lang="ko"><h3>${escapeHtml(study.period)}</h3><p>${escapeHtml(study.setting)}</p></div></section>
+      <section class="era-evidence-card"><span class="era-context-index">${escapeHtml(ui('passageObservation'))}</span><p lang="ko">${escapeHtml(study.background)}</p>${bibleLink(study.code, study.chapter, 1, ui('chapterRead', { book: localizedBookName(study.code, locale), chapter: study.chapter }))}
+        <div class="era-caution"><strong>${escapeHtml(ui('interpretationCheck'))}</strong><p lang="ko">${escapeHtml(study.caution)}</p>${study.external ? `<a href="${escapeHtml(study.external.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(study.external.label)} ↗</a>` : ''}</div></section>
+      <section class="era-question-card"><span>${escapeHtml(ui('sermonObservation'))}</span><strong lang="ko">${escapeHtml(study.question)}</strong></section>
       ${sourcesMarkup(study)}
       ${memoMarkup()}
     </aside></div>`;
@@ -244,12 +302,12 @@ function renderCurated(match) {
 }
 
 function renderUnreviewed() {
-  const heading = formatReference(currentReference);
+  const heading = formatReference(currentReference, locale);
   const related = relatedEraStudies(currentReference);
   const hasRelated = related.length > 0;
-  document.querySelector('#era-workspace-subtitle').textContent = `${heading} · 공개 본문과 66권 스터디 노트 연결`;
-  const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>이 범위에 포함된 장면 요약</strong><p>해당 장을 따로 열면 편집 초안을 읽을 수 있습니다.</p><div>${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference)))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
-  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>본문과 공개 연구 자료를 한 흐름으로 읽습니다.</h3><p>한국어 본문을 읽고, 검색한 장절에 직접 연결된 공개 스터디 노트를 확인하며 메모할 수 있습니다. 한국어 장면 해설이 없는 본문도 빈 화면으로 두지 않습니다.</p></div><span class="era-reviewed">66권 자료 연결</span></div>
+  document.querySelector('#era-workspace-subtitle').textContent = ui('generalSubtitle', { reference: heading });
+  const relatedMarkup = hasRelated ? `<div class="era-suggestions era-related-studies"><strong>${escapeHtml(ui('relatedTitle'))}</strong><p>${escapeHtml(ui('relatedIntro'))}</p><div lang="ko">${related.map(({ study, reference }) => `<button type="button" data-example="${escapeHtml(reference)}">${escapeHtml(formatReference(parseReference(reference), locale))} · ${escapeHtml(study.title)}</button>`).join('')}</div></div>` : '';
+  content.innerHTML = `<div class="era-study-heading"><div><span class="era-study-ref">${escapeHtml(heading)}</span><h3>${escapeHtml(ui('generalHeading'))}</h3><p>${escapeHtml(ui('generalHeadingIntro'))}</p></div><span class="era-reviewed">${escapeHtml(ui('allBookStatus'))}</span></div>
     <div class="era-study-grid"><div class="era-story-column">${readerMarkup(false)}
       ${pastoralBookMarkup()}
       ${studyNotesMarkup()}
@@ -270,25 +328,24 @@ function render() {
 
 function openReference(value, updateHistory = true) {
   const parsed = parseReference(value);
-  if (parsed.error) { error.textContent = parsed.error; error.hidden = false; return false; }
+  if (parsed.error) { error.textContent = t(locale, parsed.errorKey); error.hidden = false; return false; }
   error.hidden = true;
   currentReference = parsed;
-  input.value = formatReference(parsed);
+  input.value = formatReference(parsed, locale);
   activeStage = 0;
   readerMode = 'stage';
   readerLimit = 40;
   studyNotesLimit = 6;
   if (updateHistory) {
     const url = new URL(location.href);
-    url.searchParams.set('ref', formatReference(parsed));
+    url.searchParams.set('ref', formatReference(parsed, locale));
+    if (locale === 'ko') url.searchParams.delete('lang');
+    else url.searchParams.set('lang', locale);
     history.pushState(null, '', url);
   }
   render();
   return true;
 }
-
-document.querySelector('#era-example-list').innerHTML = ERA_STUDIES.map((study) =>
-  `<button type="button" data-example="${escapeHtml(study.example)}">${escapeHtml(study.example)}</button>`).join('');
 
 search.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -343,17 +400,18 @@ document.addEventListener('click', async (event) => {
   const value = document.querySelector('#era-memo').value;
   const status = document.querySelector('#era-memo-status');
   if (action.dataset.eraAction === 'copy') {
-    try { await navigator.clipboard.writeText(value); status.textContent = '메모를 복사했습니다.'; }
-    catch { status.textContent = '복사할 수 없습니다. 메모를 직접 선택해 복사해 주세요.'; }
+    try { await navigator.clipboard.writeText(value); status.textContent = ui('memoCopied'); }
+    catch { status.textContent = ui('memoCopyFailed'); }
   } else if (action.dataset.eraAction === 'download') {
-    const markdown = `# ${formatReference(currentReference)} · 본문의 시대 연구 메모\n\n${value}\n`;
+    const reference = formatReference(currentReference, locale);
+    const markdown = `# ${ui('markdownTitle', { reference })}\n\n${value}\n`;
     const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `본문의-시대-${currentReference.label.replace(/[^\p{L}\p{N}-]+/gu, '-')}.md`;
+    link.download = `${ui('markdownFilePrefix')}-${reference.replace(/[^\p{L}\p{N}-]+/gu, '-')}.md`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    status.textContent = 'Markdown 파일을 내보냈습니다.';
+    status.textContent = ui('memoDownloaded');
   }
 });
 
@@ -374,19 +432,46 @@ content.addEventListener('input', (event) => {
   try {
     if (event.target.value.trim()) localStorage.setItem(key, event.target.value);
     else localStorage.removeItem(key);
-    document.querySelector('#era-memo-status').textContent = '이 브라우저에 저장했습니다.';
+    document.querySelector('#era-memo-status').textContent = ui('memoSaved');
   } catch {
-    document.querySelector('#era-memo-status').textContent = '저장할 수 없습니다. 메모를 복사하거나 내보내세요.';
+    document.querySelector('#era-memo-status').textContent = ui('saveFailed');
   }
 });
 
-window.addEventListener('popstate', () => openReference(new URLSearchParams(location.search).get('ref') || '출애굽기 3', false));
+function setLocale(nextLocale, updateHistory = true) {
+  locale = Object.hasOwn(ERA_LOCALES, nextLocale) ? nextLocale : 'ko';
+  languageSelect.value = locale;
+  applyStaticCopy();
+  renderExamples();
+  if (currentReference) {
+    input.value = formatReference(currentReference, locale);
+    render();
+  }
+  if (updateHistory) {
+    const url = new URL(location.href);
+    if (locale === 'ko') url.searchParams.delete('lang');
+    else url.searchParams.set('lang', locale);
+    if (currentReference) url.searchParams.set('ref', formatReference(currentReference, locale));
+    history.replaceState(null, '', url);
+  }
+}
+
+languageSelect.innerHTML = Object.entries(ERA_LOCALES)
+  .map(([code, label]) => `<option value="${escapeHtml(code)}">${escapeHtml(label)}</option>`).join('');
+languageSelect.addEventListener('change', () => setLocale(languageSelect.value));
+setLocale(locale, false);
+
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(location.search);
+  setLocale(params.get('lang') || 'ko', false);
+  openReference(params.get('ref') || 'EXO 3', false);
+});
 const hasLinkedReference = new URLSearchParams(location.search).has('ref');
-const initialReference = new URLSearchParams(location.search).get('ref') || '출애굽기 3';
+const initialReference = new URLSearchParams(location.search).get('ref') || 'EXO 3';
 if (!openReference(initialReference, false)) {
   const reason = error.textContent;
-  openReference('출애굽기 3', false);
-  error.textContent = `${reason} 기본 본문인 출애굽기 3장을 표시합니다.`;
+  openReference('EXO 3', false);
+  error.textContent = ui('defaultFallback', { reason });
   error.hidden = false;
 }
 if (hasLinkedReference && error.hidden) {

@@ -22,16 +22,16 @@
   <body>
     <header class="site-header">
       <div class="shell header-inner">
-        <a class="brand" href="/" aria-label="목회 AI 연구소 본문의 장소로 이동">
+        <a id="era-brand-link" class="brand" href="/" aria-label="목회 AI 연구소 본문의 장소로 이동">
           <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" alt="목회 AI 연구소 로고" /></span>
-          <span class="brand-text"><strong>목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
+          <span class="brand-text"><strong id="era-brand-name">목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
         </a>
-        <nav class="primary-nav" aria-label="성경 배경 연구 도구">
+        <nav id="era-primary-nav" class="primary-nav" aria-label="성경 배경 연구 도구">
           <a id="era-nav-places" href="/">본문 속 지명</a>
-          <a href="/?view=journeys">성경여행</a>
-          <a href="/era.html" aria-current="page">본문의 시대</a>
+          <a id="era-nav-journeys" href="/?view=journeys">성경여행</a>
+          <a id="era-nav-current" href="/era.html" aria-current="page">본문의 시대</a>
         </nav>
-        <div class="header-tools"><span class="header-edition"><span>성경 배경 연구 도구</span><span>02</span></span></div>
+        <div class="header-tools"><label class="sr-only" for="era-language-select">Language</label><select id="era-language-select" aria-label="Language"></select><span class="header-edition"><span id="era-edition">성경 배경 연구 도구</span><span>02</span></span></div>
       </div>
     </header>
 
@@ -39,44 +39,44 @@
       <section class="era-hero" aria-labelledby="era-title">
         <div class="era-hero-copy">
           <div class="eyebrow"><span class="eyebrow-line"></span> BIBLE CONTEXT · 02</div>
-          <h1 id="era-title">본문을 읽고,<br /><em>근거</em>를 따라 연구하다.</h1>
-          <p class="era-lead">성경 주소를 입력하면 66권 한국어 읽기 안내, 전체 본문, 해당 장절의 공개 스터디 노트를 한 흐름으로 보여줍니다. 한국어 1910 원자료에 없는 111절은 영문 KJV로 구분해 보완하고, 메모는 브라우저에 바로 저장합니다.</p>
+          <h1 id="era-title"><span id="era-title-one">본문을 읽고,</span><br /><em id="era-title-two">근거를 따라 연구하다.</em></h1>
+          <p id="era-lead" class="era-lead">성경 주소를 입력하면 66권 한국어 읽기 안내, 전체 본문, 해당 장절의 공개 스터디 노트를 한 흐름으로 보여줍니다. 한국어 1910 원자료에 없는 111절은 영문 KJV로 구분해 보완하고, 메모는 브라우저에 바로 저장합니다.</p>
           <form id="era-search" class="era-search" novalidate>
-            <label for="era-reference">성경 본문</label>
-            <div class="era-search-row"><input id="era-reference" type="text" value="출애굽기 3" autocomplete="off" spellcheck="false" placeholder="예: 행 16:6-15" /><button type="submit">시대 살펴보기 <span aria-hidden="true">↗</span></button></div>
+            <label id="era-reference-label" for="era-reference">성경 본문</label>
+            <div class="era-search-row"><input id="era-reference" type="text" value="출애굽기 3" autocomplete="off" spellcheck="false" placeholder="예: 행 16:6-15" /><button type="submit"><span id="era-search-label">시대 살펴보기</span> <span aria-hidden="true">↗</span></button></div>
             <p id="era-error" class="era-error" role="alert" hidden></p>
           </form>
-          <div class="era-examples"><span>빠른 시작</span><div id="era-example-list"></div></div>
-          <p class="era-locale-note">한국어 책별 안내 66권 · 31,102절 전수 검사 · 직접 주석 30,209절</p>
+          <div class="era-examples"><span id="era-examples-label">빠른 시작</span><div id="era-example-list"></div></div>
+          <p id="era-locale-note" class="era-locale-note">한국어 책별 안내 66권 · 31,102절 전수 검사 · 직접 주석 30,209절</p>
         </div>
-        <div class="era-hero-art" aria-label="성경 전체 연구 자료 연결 현황">
+        <div id="era-coverage" class="era-hero-art" aria-label="성경 전체 연구 자료 연결 현황">
           <div class="era-art-overline"><span>FULL BIBLE SOURCE LAYER</span><span>02</span></div>
           <ol class="era-coverage-overview">
-            <li><span>01</span><strong>31,102절 전체</strong><small>본문 구조 검사</small></li>
-            <li><span>02</span><strong>30,209절</strong><small>직접 주석 연결</small></li>
-            <li><span>03</span><strong>893절</strong><small>같은 장 참고 표시</small></li>
-            <li><span>04</span><strong>연구 메모</strong><small>즉시 저장·내보내기</small></li>
+            <li><span>01</span><strong id="era-coverage-1">31,102절 전체</strong><small id="era-coverage-1-small">본문 구조 검사</small></li>
+            <li><span>02</span><strong id="era-coverage-2">30,209절</strong><small id="era-coverage-2-small">직접 주석 연결</small></li>
+            <li><span>03</span><strong id="era-coverage-3">893절</strong><small id="era-coverage-3-small">같은 장 참고 표시</small></li>
+            <li><span>04</span><strong id="era-coverage-4">연구 메모</strong><small id="era-coverage-4-small">즉시 저장·내보내기</small></li>
           </ol>
-          <div class="era-art-foot">66권 한국어 안내와 장면 해설 5개는 편집 초안·전문 검수 전으로 표시합니다.</div>
+          <div id="era-coverage-foot" class="era-art-foot">66권 한국어 안내와 장면 해설 5개는 편집 초안·전문 검수 전으로 표시합니다.</div>
         </div>
       </section>
 
       <section id="era-workspace" class="era-workspace" aria-labelledby="era-workspace-title">
         <div class="era-section-line"></div>
-        <div class="era-section-head"><div><span class="era-kicker">본문 연구 · 시대</span><h2 id="era-workspace-title">시대와 장면</h2><p id="era-workspace-subtitle">본문을 고르면 편집한 장면 요약이 나타납니다.</p></div><a id="era-open-places" href="/">01 본문의 장소에서 보기 ↗</a></div>
+        <div class="era-section-head"><div><span id="era-section-kicker" class="era-kicker">본문 연구 · 시대</span><h2 id="era-workspace-title">시대와 장면</h2><p id="era-workspace-subtitle">본문을 고르면 편집한 장면 요약이 나타납니다.</p></div><a id="era-open-places" href="/">01 본문의 장소에서 보기 ↗</a></div>
         <div id="era-study-content" class="era-study-content" aria-live="polite"></div>
       </section>
 
       <section class="era-method" aria-labelledby="era-method-title">
-        <div><span class="era-kicker">읽는 방법</span><h2 id="era-method-title">근거를 따라 확인하세요.</h2></div>
+        <div><span id="era-method-kicker" class="era-kicker">읽는 방법</span><h2 id="era-method-title">근거를 따라 확인하세요.</h2></div>
         <div class="era-method-grid">
-          <p><strong>① 본문을 먼저 읽기</strong><span>eBible.org의 공개 한국어 성경 1910년 판본을 절별로 보여줍니다. 원자료에 없는 111절은 공개 영문 KJV라고 표시해 보완합니다. 개역개정은 대한성서공회에서 대조하세요.</span></p>
-          <p><strong>② 책별·장절별 연구 자료</strong><span>66권 한국어 읽기 안내와 Aquifer Open Study Notes의 고정 판을 구분해 연결합니다. 한국어 원고는 편집 초안, 영어 원자료는 장절별 공개 노트로 각각 상태를 표시합니다.</span></p>
-          <p><strong>③ 연구 메모</strong><span>01번 도구의 본문 전체 메모와 같은 브라우저 저장 공간을 사용합니다. 다른 기기에는 자동 동기화되지 않습니다.</span></p>
+          <p><strong id="era-method-1-title">① 본문을 먼저 읽기</strong><span id="era-method-1-body">eBible.org의 공개 한국어 성경 1910년 판본을 절별로 보여줍니다. 원자료에 없는 111절은 공개 영문 KJV라고 표시해 보완합니다. 개역개정은 대한성서공회에서 대조하세요.</span></p>
+          <p><strong id="era-method-2-title">② 책별·장절별 연구 자료</strong><span id="era-method-2-body">66권 한국어 읽기 안내와 Aquifer Open Study Notes의 고정 판을 구분해 연결합니다. 한국어 원고는 편집 초안, 영어 원자료는 장절별 공개 노트로 각각 상태를 표시합니다.</span></p>
+          <p><strong id="era-method-3-title">③ 연구 메모</strong><span id="era-method-3-body">01번 도구의 본문 전체 메모와 같은 브라우저 저장 공간을 사용합니다. 다른 기기에는 자동 동기화되지 않습니다.</span></p>
         </div>
       </section>
     </main>
-    <footer class="era-site-footer"><div class="era-shell"><span>목회 AI 연구소 · 성경 배경 연구 도구 02</span><a href="/">본문의 장소로 돌아가기 ↗</a></div></footer>
+    <footer class="era-site-footer"><div class="era-shell"><span id="era-footer-copy">목회 AI 연구소 · 성경 배경 연구 도구 02</span><a id="era-footer-back" href="/">본문의 장소로 돌아가기 ↗</a></div></footer>
     <script type="module" src="/src/era.js"></script>
   </body>
 </html>

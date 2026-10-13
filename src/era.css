@@ -20,6 +20,7 @@ body { background: #fff; }
 .era-examples button, .era-suggestions button { padding: 7px 11px; border: 1px solid #dce5f1; border-radius: 30px; background: #fff; color: #365071; font-size: 11px; font-weight: 700; }
 .era-examples button:hover, .era-suggestions button:hover { border-color: #9bb7e9; background: #f5f8ff; }
 .era-locale-note { margin: 15px 0 0; padding: 10px 12px; border-left: 3px solid #6b94dc; border-radius: 0 7px 7px 0; background: #f4f8ff; color: #4f6b94; font-size: 11px; font-weight: 700; line-height: 1.6; }
+.era-language-notice { display: block; margin-top: 10px; padding: 9px 11px; border-left: 3px solid #ad7bd8; border-radius: 0 7px 7px 0; background: #f8f2fc; color: #735588; font-size: 11px; font-weight: 700; line-height: 1.55; }
 
 .era-hero-art { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 370px; padding: 25px 28px 23px; overflow: hidden; border: 1px solid #dbe5f3; border-radius: 23px; background: radial-gradient(circle at 20% 25%, #f5dcfb 0, transparent 36%), radial-gradient(circle at 76% 70%, #d9e9ff 0, transparent 40%), linear-gradient(140deg, #fafaff, #edf5ff); }
 .era-hero-art::before { content: ''; position: absolute; inset: 0; opacity: .45; background-image: linear-gradient(#d6e1f2 1px, transparent 1px), linear-gradient(90deg,#d6e1f2 1px,transparent 1px); background-size: 46px 46px; mask-image: linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent); }
@@ -216,7 +217,8 @@ body { background: #fff; }
 @media (max-width: 760px) {
   .era-shell { width: min(100% - 36px,560px); }
   .primary-nav a { padding-inline: 7px; font-size: 10px; }
-  .header-tools { display: none; }
+  .header-tools { display: flex; }
+  .header-edition { display: none; }
   .era-hero { padding-block: 31px 39px; gap: 20px; }
   .era-hero h1 { font-size: clamp(34px,8vw,50px); }
   .era-lead { margin-bottom: 20px; font-size: 13px; line-height: 1.7; }
