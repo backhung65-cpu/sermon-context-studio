@@ -3,6 +3,21 @@ import { VERSE_COUNTS } from './verse-counts.js';
 
 const bookCache = new Map();
 const bookNumber = new Map(BOOKS.map(({ code }, index) => [code, index + 1]));
+let localeIndexPromise;
+
+export const OPEN_STUDY_NOTE_LOCALES = Object.freeze({
+  en: { locale: 'en', language: 'English', path: '', review: 'professional', books: 66, records: 16_918 },
+  fr: { locale: 'fr', language: 'Français', path: 'fr/', review: 'publisherTranslation', books: 66, records: 16_910 },
+  es: { locale: 'es', language: 'Español', path: 'es/', review: 'publisherTranslation', books: 43, records: 13_299 },
+  hi: { locale: 'hi', language: 'हिन्दी', path: 'hi/', review: 'publisherTranslation', books: 13, records: 1_020 },
+  'zh-CN': { locale: 'zh-CN', language: '简体中文', path: 'zh-CN/', review: 'publisherTranslation', converted: true, books: 66, records: 16_919 },
+});
+
+export function openStudyNotesLocale(locale) {
+  const source = OPEN_STUDY_NOTE_LOCALES[locale];
+  if (source) return { ...source, requestedLocale: locale, isFallback: false, fallbackReason: null };
+  return { ...OPEN_STUDY_NOTE_LOCALES.en, requestedLocale: locale, isFallback: locale !== 'en', fallbackReason: 'locale' };
+}
 
 function point(code, chapter, verse) {
   const number = bookNumber.get(code);
@@ -43,17 +58,49 @@ export function formatOpenStudyNoteReference(value, end = value) {
   return chapter === endChapter ? `${chapter}:${verse}–${endVerse}` : `${chapter}:${verse}–${endChapter}:${endVerse}`;
 }
 
-export async function loadOpenStudyNotesBook(code) {
-  if (!bookNumber.has(code)) throw new Error('Unknown Bible book');
-  if (!bookCache.has(code)) {
-    bookCache.set(code, fetch(`/public/data/open-study-notes/${code}.json`)
+async function loadBook(code, source) {
+  const key = `${source.locale}:${code}`;
+  if (!bookCache.has(key)) {
+    bookCache.set(key, fetch(`/public/data/open-study-notes/${source.path}${code}.json`)
       .then((response) => {
-        if (!response.ok) throw new Error(`Study notes ${response.status}`);
+        if (!response.ok) {
+          const error = new Error(`Study notes ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
         return response.json();
       }).catch((error) => {
-        bookCache.delete(code);
+        bookCache.delete(key);
         throw error;
       }));
   }
-  return bookCache.get(code);
+  return bookCache.get(key);
+}
+
+async function sourceHasBook(source, code) {
+  if (source.locale === 'en') return true;
+  localeIndexPromise ||= fetch('/public/data/open-study-notes/locales.json').then((response) => {
+    if (!response.ok) throw new Error(`Study note locale index ${response.status}`);
+    return response.json();
+  }).catch((error) => {
+    localeIndexPromise = null;
+    throw error;
+  });
+  const index = await localeIndexPromise;
+  return index.locales.find(({ locale }) => locale === source.locale)?.availableBooks?.includes(code) === true;
+}
+
+export async function loadOpenStudyNotesBook(code, locale = 'en') {
+  if (!bookNumber.has(code)) throw new Error('Unknown Bible book');
+  const source = openStudyNotesLocale(locale);
+  if (source.locale !== 'en') {
+    if (await sourceHasBook(source, code)) return { rows: await loadBook(code, source), source };
+  }
+  const fallback = source.locale === 'en' ? source : {
+    ...OPEN_STUDY_NOTE_LOCALES.en,
+    requestedLocale: locale,
+    isFallback: true,
+    fallbackReason: 'book',
+  };
+  return { rows: await loadBook(code, OPEN_STUDY_NOTE_LOCALES.en), source: fallback };
 }

@@ -137,10 +137,10 @@ function readerMarkup(curated) {
 
 function studyNotesMarkup() {
   return `<section class="era-open-notes-card" aria-labelledby="era-open-notes-title">
-    <div class="era-card-top"><span>${escapeHtml(ui('notesTop'))}</span><span>${escapeHtml(ui('notesAudit'))}</span></div>
+    <div class="era-card-top"><span>${escapeHtml(ui('notesTop'))}</span><span id="era-open-notes-meta">${escapeHtml(ui('notesAudit', { count: '16,918', language: 'English' }))}</span></div>
     <div class="era-open-notes-head"><div><h3 id="era-open-notes-title">${escapeHtml(ui('notesTitle'))}</h3><p>${escapeHtml(ui('notesIntro'))}</p></div><span>CC BY-SA 4.0</span></div>
     <div id="era-open-notes" class="era-open-notes" aria-live="polite">${escapeHtml(ui('notesLoading'))}</div>
-    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('originalNotes'))}</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('auditResult'))}</a><span>16,918 valid records · 30,209 direct verses · 893 same-chapter references · 4 out-of-range source records excluded</span></p>
+    <p class="era-open-notes-source"><a href="https://github.com/BibleAquifer/AquiferOpenStudyNotes/tree/bbb3f86016cd20913f410a95af63d9f7ff9a71d6" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('originalNotes'))}</a><a href="/public/data/study-notes-audit.json" target="_blank" rel="noopener noreferrer">${escapeHtml(ui('auditResult'))}</a><span id="era-open-notes-source-meta">${escapeHtml(ui('notesSourceMeta', { count: '16,918', books: '66', status: 'Professional' }))}</span></p>
   </section>`;
 }
 
@@ -191,18 +191,44 @@ async function renderOpenStudyNotes() {
   const reference = currentReference;
   target.textContent = ui('notesLoading');
   try {
-    const rows = await loadOpenStudyNotesBook(reference.code);
+    let result = await loadOpenStudyNotesBook(reference.code, locale);
     if (request !== studyNotesRequest) return;
-    const selected = selectOpenStudyNotes(rows, reference);
+    let selected = selectOpenStudyNotes(result.rows, reference);
+    if (!selected.rows.length && result.source.locale !== 'en') {
+      const english = await loadOpenStudyNotesBook(reference.code, 'en');
+      const englishSelected = selectOpenStudyNotes(english.rows, reference);
+      if (englishSelected.rows.length) {
+        result = { ...english, source: { ...english.source, requestedLocale: locale, isFallback: true, fallbackReason: 'passage' } };
+        selected = englishSelected;
+      }
+    }
+    if (request !== studyNotesRequest) return;
+    const meta = document.querySelector('#era-open-notes-meta');
+    if (meta) meta.textContent = ui('notesAudit', {
+      count: result.source.records.toLocaleString(locale),
+      language: result.source.language,
+    });
+    const sourceMeta = document.querySelector('#era-open-notes-source-meta');
+    if (sourceMeta) sourceMeta.textContent = ui('notesSourceMeta', {
+      count: result.source.records.toLocaleString(locale),
+      books: result.source.books.toLocaleString(locale),
+      status: result.source.review === 'professional' ? 'Professional' : 'None',
+    });
+    let languageNotice = result.source.review === 'professional'
+      ? ui('notesEnglishStatus')
+      : ui('notesTranslationStatus', { language: result.source.language });
+    if (result.source.isFallback) languageNotice = ui('notesFallbackStatus');
+    if (result.source.converted && !result.source.isFallback) languageNotice += ` ${ui('notesConvertedStatus')}`;
+    const languageStatus = `<p class="era-language-notice">${escapeHtml(languageNotice)}</p>`;
     if (!selected.rows.length) {
-      target.innerHTML = `<p class="era-open-notes-warning">${escapeHtml(ui('noNotes'))}</p>`;
+      target.innerHTML = `${languageStatus}<p class="era-open-notes-warning">${escapeHtml(ui('noNotes'))}</p>`;
       return;
     }
     const visible = selected.rows.slice(0, studyNotesLimit);
     const scopeNotice = selected.scope === 'chapter'
       ? `<p class="era-open-notes-scope">${escapeHtml(ui('chapterNotes'))}</p>`
       : `<p class="era-open-notes-count">${escapeHtml(ui('directNotes', { count: selected.rows.length }))}</p>`;
-    target.innerHTML = `${scopeNotice}<div class="era-open-notes-list">${visible.map((row, index) => `<details${index === 0 ? ' open' : ''}><summary><span>${escapeHtml(row.title)}</span><small>${formatOpenStudyNoteReference(row.start, row.end)}</small></summary><div class="era-open-note-body">${noteBodyMarkup(row.text)}</div></details>`).join('')}</div>
+    target.innerHTML = `${languageStatus}${scopeNotice}<div class="era-open-notes-list" lang="${escapeHtml(result.source.locale)}">${visible.map((row, index) => `<details${index === 0 ? ' open' : ''}><summary><span>${escapeHtml(row.title)}</span><small>${formatOpenStudyNoteReference(row.start, row.end)}</small></summary><div class="era-open-note-body">${noteBodyMarkup(row.text)}</div></details>`).join('')}</div>
       ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">${escapeHtml(ui('moreNotes', { shown: studyNotesLimit, count: selected.rows.length }))}</button>` : `<p class="era-open-notes-complete">${escapeHtml(ui('allNotes', { count: selected.rows.length }))}</p>`}`;
   } catch {
     if (request !== studyNotesRequest) return;

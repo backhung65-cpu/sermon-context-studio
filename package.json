@@ -15,5 +15,8 @@
     "import:study-notes": "node scripts/import_open_study_notes.mjs",
     "import:kjv-fallback": "python scripts/import_kjv_fallback.py",
     "audit:study-notes": "node scripts/audit_open_study_notes.mjs"
+  },
+  "devDependencies": {
+    "opencc-js": "^1.4.2"
   }
 }

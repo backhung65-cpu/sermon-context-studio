@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatOpenStudyNoteReference, referenceBounds, selectOpenStudyNotes } from './open-study-notes.js';
+import { formatOpenStudyNoteReference, openStudyNotesLocale, referenceBounds, selectOpenStudyNotes } from './open-study-notes.js';
 import { parseReference } from './reference.js';
 
 test('selects notes whose source range intersects the requested passage', () => {
@@ -24,4 +24,16 @@ test('uses clearly labelled chapter notes when a verse has no direct note', () =
 test('formats source ranges without losing chapter transitions', () => {
   assert.equal(formatOpenStudyNoteReference(2_003_001, 2_003_010), '3:1–10');
   assert.equal(formatOpenStudyNoteReference(2_003_022, 2_004_003), '3:22–4:3');
+});
+
+test('maps supported note languages and clearly falls back for unsupported locales', () => {
+  assert.deepEqual(
+    { locale: openStudyNotesLocale('fr').locale, fallback: openStudyNotesLocale('fr').isFallback },
+    { locale: 'fr', fallback: false },
+  );
+  assert.deepEqual(
+    { locale: openStudyNotesLocale('ko').locale, fallback: openStudyNotesLocale('ko').isFallback, reason: openStudyNotesLocale('ko').fallbackReason },
+    { locale: 'en', fallback: true, reason: 'locale' },
+  );
+  assert.equal(openStudyNotesLocale('zh-CN').converted, true);
 });
