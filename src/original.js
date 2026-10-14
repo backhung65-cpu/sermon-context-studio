@@ -1,6 +1,8 @@
 import { formatReference, localizedBookName, parseReference } from './reference.js';
+import { loadKjvFallback, loadPublicBibleBook, selectedPublicBibleRows } from './era-text.js';
+import { loadCommentaryBook, selectCommentaries } from './commentary-library.js';
 
-const state = { reference: null, book: null, morphology: null, manifest: null, selected: null, lemmaShards: new Map() };
+const state = { reference: null, book: null, publicBible: null, bibleFallback: {}, morphology: null, manifest: null, selected: null, lemmaShards: new Map(), strongs: new Map() };
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
@@ -55,6 +57,19 @@ async function loadLemma(strong) {
   return (await state.lemmaShards.get(shard))[strong];
 }
 
+function canonicalBaseStrong(value = '') {
+  const match = String(value).match(/([HG])0*(\d{1,5})/i);
+  return match ? `${match[1].toUpperCase()}${Number(match[2])}` : '';
+}
+
+async function loadStrongsEntry(strong) {
+  const base = canonicalBaseStrong(strong);
+  const prefix = base[0];
+  if (!state.strongs.has(prefix)) state.strongs.set(prefix, fetchJson(`/public/data/original-language/strongs/${prefix}.json`));
+  const dictionary = await state.strongs.get(prefix);
+  return { base, entry: dictionary[base] || null, dictionary };
+}
+
 function includedVerses(reference) {
   const rows = [];
   for (let chapter = reference.chapter; chapter <= reference.endChapter; chapter += 1) {
@@ -72,20 +87,41 @@ function includedVerses(reference) {
 
 function renderPassage() {
   const rows = includedVerses(state.reference);
+  const bibleRows = selectedPublicBibleRows(state.publicBible || {}, state.reference, null, state.bibleFallback);
+  const bibleByVerse = new Map(bibleRows.map((row) => [`${row.chapter}:${row.verse}`, row]));
   const languageLabel = state.book.language === 'hebrew' ? '히브리어' : '그리스어';
   $('#original-passage-title').textContent = formatReference(state.reference, 'ko');
-  $('#original-passage-meta').textContent = `${languageLabel} · ${rows.length.toLocaleString('ko-KR')}절 · 단어를 누르면 파싱과 전체 쓰임이 열립니다.`;
+  $('#original-passage-meta').textContent = `공개 한국어 성경 1910 · ${languageLabel} · ${rows.length.toLocaleString('ko-KR')}절 · 단어를 누르면 형태와 어휘 관계가 열립니다.`;
   $('#original-open-era').href = `/era.html?ref=${encodeURIComponent(formatReference(state.reference, 'ko'))}`;
   $('#original-verses').innerHTML = rows.length ? rows.map(({ chapter, verse, tokens }) => `
     <article class="original-verse">
       <div class="original-verse-head"><strong>${escapeHtml(localizedBookName(state.reference.code, 'ko'))} ${chapter}:${verse}</strong><span>${languageLabel} ${tokens.length}단어</span></div>
-      <div class="original-token-list ${state.book.language === 'greek' ? 'greek' : ''}">${tokens.map((token) => `<button class="original-token" type="button" data-chapter="${chapter}" data-verse="${verse}" data-word="${token.n}"><span class="script">${escapeHtml(token.w)}</span><span class="translit">${escapeHtml(token.t)}</span></button>`).join('')}</div>
+      <div class="parallel-bible"><span>한글 성경 1910${bibleByVerse.get(`${chapter}:${verse}`)?.language === 'en' ? ' · 영문 대체' : ''}</span><p>${escapeHtml(bibleByVerse.get(`${chapter}:${verse}`)?.text || '공개 한국어 원자료에 이 절이 없습니다. 장절 링크에서 대조하세요.')}</p></div>
+      <div class="interlinear-labels"><span>원문</span><span>음역</span><span>원자료 문맥 뜻</span></div>
+      <div class="original-token-list ${state.book.language === 'greek' ? 'greek' : ''}">${tokens.map((token) => `<button class="original-token" type="button" data-chapter="${chapter}" data-verse="${verse}" data-word="${token.n}"><span class="script">${escapeHtml(token.w)}</span><span class="translit">${escapeHtml(token.t)}</span><span class="source-gloss" lang="en">${escapeHtml(token.x || token.d || '—')}</span></button>`).join('')}</div>
+      <div class="source-order-gloss"><span>원어 어순 뜻풀이 · 원자료 영어</span><p lang="en">${tokens.map((token) => escapeHtml(token.x || token.d || '—')).join(' / ')}</p><small>한국어 성경은 위에서 읽고, 이 줄은 원어의 배열과 단어 경계를 확인할 때 사용하세요. 한국어 직역으로 가장하지 않습니다.</small></div>
     </article>`).join('') : '<div class="original-loading">선택한 판본의 해당 절에는 표시할 원어 단어가 없습니다. 판본 차이로 빠진 절일 수 있습니다.</div>';
 }
 
 function referenceLabel(parts) {
   const [code, chapter, verse] = parts;
   return `${localizedBookName(code, 'ko')} ${chapter}:${verse}`;
+}
+
+function renderCommentaries(records) {
+  const target = $('#commentary-results');
+  if (!records.length) {
+    target.innerHTML = `<div class="commentary-empty"><strong>이 본문에 연결된 사용자 주석이 아직 없습니다.</strong><p><code>content/commentaries/library</code>에 장절이 표시된 MD 또는 PDF를 넣고 색인을 다시 만들면 여기에 나타납니다.</p><a href="/sources.html#commentary-library">파일명·MD 머리말·PDF 페이지 연결 방법 보기 ↗</a></div>`;
+    return;
+  }
+  target.innerHTML = records.map((record) => `<details class="commentary-card"><summary><div><span>${escapeHtml(record.label)}${record.pages?.length ? ` · PDF ${record.pages.join(', ')}쪽` : ''}</span><strong>${escapeHtml(record.sectionTitle || record.title)}</strong><small>${escapeHtml(record.author)} · ${escapeHtml(record.source || record.sourceFile)}</small></div><b>읽기</b></summary><div class="commentary-body"><p>${escapeHtml(record.text)}</p><footer><span>출처 ${escapeHtml(record.source || record.sourceFile)}</span><span>이용 조건 ${escapeHtml(record.license)}</span><span>원자료 언어 ${escapeHtml(record.language)}</span></footer></div></details>`).join('');
+}
+
+async function loadCommentaries(reference) {
+  const target = $('#commentary-results');
+  target.innerHTML = '<div class="original-loading">주석 색인을 불러오는 중입니다.</div>';
+  try { renderCommentaries(selectCommentaries(await loadCommentaryBook(reference.code), reference)); }
+  catch (error) { target.innerHTML = `<div class="commentary-empty"><strong>주석 색인을 불러오지 못했습니다.</strong><p>${escapeHtml(error.message)}</p></div>`; }
 }
 
 async function selectToken(button) {
@@ -96,22 +132,40 @@ async function selectToken(button) {
   const token = state.book.chapters[chapter][verse].find((item) => item.n === Number(button.dataset.word));
   if (!token) return;
   $('#word-detail').innerHTML = '<div class="word-detail-empty"><strong>단어 자료를 불러오는 중입니다.</strong></div>';
-  const lemma = await loadLemma(token.s);
-  state.selected = { token, lemma, chapter, verse };
-  renderWordDetail(token, lemma);
+  const [lemma, strongs] = await Promise.all([loadLemma(token.s), loadStrongsEntry(token.s)]);
+  state.selected = { token, lemma, strongs, chapter, verse };
+  renderWordDetail(token, lemma, strongs);
 }
 
 function occurrenceButtons(refs) {
   return refs.map((ref) => `<button type="button" data-occurrence="${ref[0]} ${ref[1]}:${ref[2]}">${escapeHtml(referenceLabel(ref))}${Number(ref[3]) > 1 ? ` ×${ref[3]}` : ''}</button>`).join('');
 }
 
-function renderWordDetail(token, lemma, showAll = false) {
+function relationCards(ids, dictionary) {
+  if (!ids?.length) return '<span class="relation-empty">연결된 번호 없음</span>';
+  return ids.slice(0, 40).map((id) => {
+    const row = dictionary[id] || {};
+    return `<span class="relation-node"><b>${escapeHtml(row.lemma || id)}</b><small>${escapeHtml(id)}${row.transliteration ? ` · ${escapeHtml(row.transliteration)}` : ''}</small></span>`;
+  }).join('');
+}
+
+function formCards(forms, language, showAllForms) {
+  const rows = showAllForms ? forms : forms.slice(0, 24);
+  return rows.map(([surface, transliteration, morphology, count]) => `<div class="form-row"><span class="form-script">${escapeHtml(surface)}</span><span>${escapeHtml(transliteration || '음역 없음')}</span><span>${escapeHtml(morphologyInfo(language, morphology))}</span><strong>${Number(count).toLocaleString('ko-KR')}회</strong></div>`).join('');
+}
+
+function renderWordDetail(token, lemma, strongs, showAll = false, showAllForms = false) {
   const refs = lemma?.references || [];
   const visibleRefs = showAll ? refs : refs.slice(0, 240);
+  const forms = lemma?.forms || [];
+  const exactFormCount = forms.filter(([surface]) => surface === token.w).reduce((sum, row) => sum + Number(row[3]), 0);
+  const source = strongs?.entry;
   $('#word-detail').innerHTML = `
     <div class="word-detail-head"><span class="word-detail-kicker">${state.book.language === 'hebrew' ? '히브리어' : '그리스어'} 단어 분석</span><div class="word-detail-word">${escapeHtml(token.w)}</div><p>${escapeHtml(token.t || lemma?.transliteration || '음역 정보 없음')} · ${escapeHtml(token.x || '직역 정보 없음')}</p></div>
-    <div class="word-facts"><div class="word-fact"><span>표제어</span><strong>${escapeHtml(token.l || lemma?.lemma || '—')}</strong></div><div class="word-fact"><span>식별자</span><strong>${escapeHtml(token.s)}</strong></div><div class="word-fact"><span>기본 뜻</span><strong>${escapeHtml(token.d || lemma?.gloss || token.x || '—')}</strong></div><div class="word-fact"><span>형태 코드</span><strong>${escapeHtml(token.m)}</strong></div></div>
+    <div class="word-facts"><div class="word-fact"><span>표제어</span><strong>${escapeHtml(token.l || lemma?.lemma || '—')}</strong></div><div class="word-fact"><span>식별자</span><strong>${escapeHtml(token.s)}</strong></div><div class="word-fact"><span>기본 뜻 · 원자료 영어</span><strong lang="en">${escapeHtml(token.d || lemma?.gloss || token.x || '—')}</strong></div><div class="word-fact"><span>현재 표기 전체</span><strong>${exactFormCount.toLocaleString('ko-KR')}회</strong></div></div>
     <div class="morphology-box"><strong>형태 분석</strong><br />${escapeHtml(morphologyInfo(state.book.language, token.m))}</div>
+    <section class="word-section"><div class="word-section-head"><div><span>INFLECTIONS</span><h3>같은 표제어의 실제 굴절형 ${forms.length.toLocaleString('ko-KR')}개</h3></div></div><p class="word-section-note">성경 원문에 실제 나온 표기·음역·문법·횟수입니다. 파생어와 굴절형을 구분해 보여 줍니다.</p><div class="form-list">${formCards(forms, state.book.language, showAllForms)}</div>${!showAllForms && forms.length > 24 ? `<button class="occurrence-more" type="button" data-show-all-forms="true">나머지 ${(forms.length - 24).toLocaleString('ko-KR')}개 굴절형 모두 보기</button>` : ''}</section>
+    <section class="word-section derivation-section"><div class="word-section-head"><div><span>WORD FAMILY</span><h3>사전에 기록된 파생 관계</h3></div><small>Strong 1890/1894 · Open Scriptures 교정판</small></div>${source ? `<p class="source-dictionary" lang="en"><b>파생 설명 원문</b> ${escapeHtml(source.derivation || '기록 없음')}<br /><b>간결 정의 원문</b> ${escapeHtml(source.definition || '기록 없음')}</p><div class="relation-group"><strong>이 단어가 연결된 바탕말</strong><div>${relationCards(source.parents, strongs.dictionary)}</div></div><div class="relation-group"><strong>이 단어에서 연결된 낱말</strong><div>${relationCards(source.children, strongs.dictionary)}</div></div>` : '<p class="word-section-note">이 확장 Strong 표제어에 대응하는 고전 Strong 사전 항목을 찾지 못했습니다.</p>'}<p class="derivation-caution">어원과 파생 관계는 단어의 역사를 보여 주지만, 현재 본문의 뜻은 문장·문법·문맥에서 판단해야 합니다.</p></section>
     <div class="occurrence"><h3>성경 전체 사용 <strong>${Number(lemma?.count || 0).toLocaleString('ko-KR')}회</strong></h3><p>같은 확장 Strong 표제어 기준입니다. 같은 절에서 여러 번 쓰이면 각각 셉니다.</p><div class="reference-list">${occurrenceButtons(visibleRefs)}</div>${!showAll && refs.length > visibleRefs.length ? `<button class="occurrence-more" type="button" data-show-all="true">나머지 ${(refs.length - visibleRefs.length).toLocaleString('ko-KR')}개 구절 모두 보기</button>` : ''}</div>`;
 }
 
@@ -121,10 +175,14 @@ async function loadReference(input, updateHash = true) {
   $('#original-error').hidden = true;
   $('#original-verses').innerHTML = '<div class="original-loading">원어 자료를 불러오는 중입니다.</div>';
   try {
-    const book = await fetchJson(`/public/data/original-language/books/${parsed.code}.json`);
-    state.reference = parsed; state.book = book; state.selected = null;
+    const [book, publicBible, fallback] = await Promise.all([
+      fetchJson(`/public/data/original-language/books/${parsed.code}.json`),
+      loadPublicBibleBook(parsed.code), loadKjvFallback(),
+    ]);
+    state.reference = parsed; state.book = book; state.publicBible = publicBible; state.bibleFallback = fallback; state.selected = null;
     $('#word-detail').innerHTML = '<div class="word-detail-empty"><span>단어 분석</span><strong>원어 단어를 눌러 보세요.</strong><p>표제어, 음역, 형태 분석, 전체 출현 횟수와 등장 구절이 이곳에 표시됩니다.</p></div>';
     renderPassage();
+    loadCommentaries(parsed);
     $('#original-reference').value = formatReference(parsed, 'ko');
     if (updateHash) history.replaceState(null, '', `/original.html#${encodeURIComponent(formatReference(parsed, 'ko'))}`);
     loadMemo();
@@ -142,7 +200,18 @@ $('#memo-download').addEventListener('click', () => { const title = formatRefere
 $('#original-search').addEventListener('submit', (event) => { event.preventDefault(); loadReference($('#original-reference').value); });
 $('.original-examples').addEventListener('click', (event) => { const button = event.target.closest('[data-reference]'); if (button) loadReference(button.dataset.reference); });
 $('#original-verses').addEventListener('click', (event) => { const button = event.target.closest('.original-token'); if (button) selectToken(button); });
-$('#word-detail').addEventListener('click', (event) => { const button = event.target.closest('[data-occurrence]'); if (button) loadReference(button.dataset.occurrence); const more = event.target.closest('[data-show-all]'); if (more && state.selected) renderWordDetail(state.selected.token, state.selected.lemma, true); });
+$('#word-detail').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-occurrence]');
+  if (button) loadReference(button.dataset.occurrence);
+  const more = event.target.closest('[data-show-all]');
+  if (more && state.selected) renderWordDetail(state.selected.token, state.selected.lemma, state.selected.strongs, true, false);
+  const forms = event.target.closest('[data-show-all-forms]');
+  if (forms && state.selected) renderWordDetail(state.selected.token, state.selected.lemma, state.selected.strongs, false, true);
+});
+window.addEventListener('hashchange', () => {
+  const reference = decodeURIComponent(location.hash.slice(1));
+  if (reference) loadReference(reference, false);
+});
 
 try {
   [state.morphology, state.manifest] = await Promise.all([fetchJson('/public/data/original-language/morphology.json'), fetchJson('/public/data/original-language/manifest.json')]);

@@ -2,12 +2,15 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { BOOKS } from '../src/reference.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceRoot = resolve(process.env.STEPBIBLE_DATA || 'C:/Temp/STEPBible-Data');
 const outputRoot = join(root, 'public', 'data', 'original-language');
 const sourceCommit = process.env.STEPBIBLE_COMMIT || '93ec3621485afd10fd45fcf43630d42de28d8eb8';
+const strongsRoot = resolve(process.env.OPEN_SCRIPTURES_STRONGS || 'C:/Temp/openscriptures-strongs');
+const strongsCommit = process.env.OPEN_SCRIPTURES_STRONGS_COMMIT || '0acd2f251c2d35ff8db2dece4e0593979d3ac223';
 
 if (!existsSync(sourceRoot)) {
   throw new Error(`STEPBible-Data source not found: ${sourceRoot}`);
@@ -55,6 +58,39 @@ function stripHebrewPunctuation(value = '') {
 
 function normalizeStrong(value = '') {
   return value.match(/[HG]\d{4}[A-Z]?/)?.[0] || '';
+}
+
+function canonicalBaseStrong(value = '') {
+  const match = String(value).match(/([HG])0*(\d{1,5})/i);
+  return match ? `${match[1].toUpperCase()}${Number(match[2])}` : '';
+}
+
+function strongReferences(value = '') {
+  return [...new Set([...String(value).matchAll(/\b([HG])0*(\d{1,5})\b/gi)].map((match) => `${match[1].toUpperCase()}${Number(match[2])}`))];
+}
+
+function loadStrongsRelations() {
+  if (!existsSync(strongsRoot)) return { dictionary: {}, reverse: {} };
+  const require = createRequire(import.meta.url);
+  const hebrew = require(join(strongsRoot, 'hebrew', 'strongs-hebrew-dictionary.js'));
+  const greek = require(join(strongsRoot, 'greek', 'strongs-greek-dictionary.js'));
+  const dictionary = {};
+  const reverse = {};
+  for (const [rawStrong, entry] of Object.entries({ ...hebrew, ...greek })) {
+    const strong = canonicalBaseStrong(rawStrong);
+    if (!strong) continue;
+    const parents = strongReferences(entry.derivation).filter((id) => id !== strong);
+    dictionary[strong] = {
+      lemma: entry.lemma || '', transliteration: entry.xlit || entry.translit || '', pronunciation: entry.pron || '',
+      derivation: entry.derivation || '', definition: entry.strongs_def?.trim() || '', kjv: entry.kjv_def || '', parents,
+    };
+    for (const parent of parents) {
+      reverse[parent] ||= [];
+      reverse[parent].push(strong);
+    }
+  }
+  for (const children of Object.values(reverse)) children.sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+  return { dictionary, reverse };
 }
 
 async function parseMorphologies() {
@@ -105,18 +141,22 @@ async function parseLexicons() {
 
 const morphologies = await parseMorphologies();
 const lexicons = await parseLexicons();
+const strongsRelations = loadStrongsRelations();
 const books = Object.fromEntries(BOOKS.map((book) => [book.code, { code: book.code, name: book.name, language: BOOKS.findIndex((b) => b.code === book.code) < 39 ? 'hebrew' : 'greek', chapters: {} }]));
 const lemmaIndex = {};
 const verseSeen = new Map();
 let tokenCount = 0;
 let skippedVariants = 0;
 
-function addOccurrence(strong, code, chapter, verse) {
+function addOccurrence(strong, code, chapter, verse, token) {
   if (!strong) return;
-  if (!lemmaIndex[strong]) lemmaIndex[strong] = { count: 0, verses: new Map() };
+  if (!lemmaIndex[strong]) lemmaIndex[strong] = { count: 0, verses: new Map(), forms: new Map(), morphologies: new Map() };
   lemmaIndex[strong].count += 1;
   const key = `${code}.${chapter}.${verse}`;
   lemmaIndex[strong].verses.set(key, (lemmaIndex[strong].verses.get(key) || 0) + 1);
+  const formKey = `${token.w}\u0001${token.t || ''}\u0001${token.m || ''}`;
+  lemmaIndex[strong].forms.set(formKey, (lemmaIndex[strong].forms.get(formKey) || 0) + 1);
+  lemmaIndex[strong].morphologies.set(token.m || '', (lemmaIndex[strong].morphologies.get(token.m || '') || 0) + 1);
 }
 
 for (const filename of sourceFiles) {
@@ -160,7 +200,7 @@ for (const filename of sourceFiles) {
     books[code].chapters[chapter][verse] ||= [];
     books[code].chapters[chapter][verse].push(token);
     tokenCount += 1;
-    addOccurrence(token.s, code, chapter, verse);
+    addOccurrence(token.s, code, chapter, verse, token);
     verseSeen.set(`${code}.${chapter}.${verse}`, true);
   }
 }
@@ -168,6 +208,7 @@ for (const filename of sourceFiles) {
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(join(outputRoot, 'books'), { recursive: true });
 await mkdir(join(outputRoot, 'lemmas'), { recursive: true });
+await mkdir(join(outputRoot, 'strongs'), { recursive: true });
 
 for (const book of Object.values(books)) {
   await writeFile(join(outputRoot, 'books', `${book.code}.json`), JSON.stringify(book));
@@ -182,10 +223,21 @@ for (const [strong, occurrence] of Object.entries(lemmaIndex)) {
     ...lexicon,
     count: occurrence.count,
     references: [...occurrence.verses.entries()].map(([reference, count]) => [...reference.split('.'), count]),
+    forms: [...occurrence.forms.entries()].map(([form, count]) => [...form.split('\u0001'), count]).sort((a, b) => b[3] - a[3] || a[0].localeCompare(b[0])),
+    morphologyCounts: [...occurrence.morphologies.entries()].sort((a, b) => b[1] - a[1]),
   };
 }
 for (const [shard, data] of Object.entries(shards)) {
   await writeFile(join(outputRoot, 'lemmas', `${shard}.json`), JSON.stringify(data));
+}
+
+for (const prefix of ['H', 'G']) {
+  const data = {};
+  for (const [strong, entry] of Object.entries(strongsRelations.dictionary)) {
+    if (!strong.startsWith(prefix)) continue;
+    data[strong] = { ...entry, children: strongsRelations.reverse[strong] || [] };
+  }
+  await writeFile(join(outputRoot, 'strongs', `${prefix}.json`), JSON.stringify(data));
 }
 
 const usedMorphologies = {};
@@ -217,12 +269,16 @@ const manifest = {
     license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
     datasets: ['TAHOT', 'TAGNT', 'TEHMC', 'TEGMC', 'TBESH', 'TBESG'],
   },
+  derivationSource: existsSync(strongsRoot) ? {
+    name: "Open Scriptures Strong's Dictionaries", repository: 'https://github.com/openscriptures/strongs', commit: strongsCommit,
+    license: 'CC BY-SA', note: '1890/1894 Strong 사전의 Open Scriptures 교정 JSON 판. 파생 설명은 역사적 사전 원문이며 현대 어원 연구의 최종 결론으로 사용하지 않습니다.',
+  } : null,
   countPolicy: {
     hebrew: 'TAHOT의 레닌그라드 본문 단어 행을 집계합니다.',
     greek: 'TAGNT에서 Nestle-Aland 계열(N 또는 n 표지)에 포함된 단어만 집계합니다. KJV/TR 전용 및 기타 이문은 제외합니다.',
     unit: '같은 어휘 표제어(확장 Strong 식별자)의 출현 단어 수입니다. 같은 절에 두 번 나오면 2회로 셉니다.',
   },
-  totals: { books: Object.values(books).filter((book) => Object.keys(book.chapters).length).length, verseRows: verseSeen.size, canonicalVerseRows: [...verseSeen.keys()].filter((key) => !key.endsWith('.0')).length, tokens: tokenCount, lemmas: Object.keys(lemmaIndex).length, morphologyMappedTokens: mappedMorphologyTokens, skippedGreekVariantRows: skippedVariants },
+  totals: { books: Object.values(books).filter((book) => Object.keys(book.chapters).length).length, verseRows: verseSeen.size, canonicalVerseRows: [...verseSeen.keys()].filter((key) => !key.endsWith('.0')).length, tokens: tokenCount, lemmas: Object.keys(lemmaIndex).length, morphologyMappedTokens: mappedMorphologyTokens, skippedGreekVariantRows: skippedVariants, strongsDictionaryEntries: Object.keys(strongsRelations.dictionary).length },
   files: sourceFiles.map((name) => basename(name)),
 };
 await writeFile(join(outputRoot, 'manifest.json'), JSON.stringify(manifest, null, 2));

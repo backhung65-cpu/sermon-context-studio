@@ -1,6 +1,6 @@
 {
   "title": "원어의 시대 데이터 매니페스트",
-  "generatedAt": "2026-10-14T08:44:27.205Z",
+  "generatedAt": "2026-10-14T09:42:58.361Z",
   "source": {
     "name": "STEPBible-Data",
     "repository": "https://github.com/STEPBible/STEPBible-Data",
@@ -16,6 +16,13 @@
       "TBESG"
     ]
   },
+  "derivationSource": {
+    "name": "Open Scriptures Strong's Dictionaries",
+    "repository": "https://github.com/openscriptures/strongs",
+    "commit": "0acd2f251c2d35ff8db2dece4e0593979d3ac223",
+    "license": "CC BY-SA",
+    "note": "1890/1894 Strong 사전의 Open Scriptures 교정 JSON 판. 파생 설명은 역사적 사전 원문이며 현대 어원 연구의 최종 결론으로 사용하지 않습니다."
+  },
   "countPolicy": {
     "hebrew": "TAHOT의 레닌그라드 본문 단어 행을 집계합니다.",
     "greek": "TAGNT에서 Nestle-Aland 계열(N 또는 n 표지)에 포함된 단어만 집계합니다. KJV/TR 전용 및 기타 이문은 제외합니다.",
@@ -28,7 +35,8 @@
     "tokens": 442983,
     "lemmas": 16961,
     "morphologyMappedTokens": 437884,
-    "skippedGreekVariantRows": 4397
+    "skippedGreekVariantRows": 4397,
+    "strongsDictionaryEntries": 14197
   },
   "files": [
     "TAHOT Gen-Deu - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt",
