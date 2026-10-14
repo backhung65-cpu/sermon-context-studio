@@ -64,6 +64,8 @@ for (const [chapterKey, verses] of Object.entries(atlas.index)) {
 }
 const mappedSourcePlaces = new Map();
 const crosswalk = [];
+const geographyNoteCandidates = new Map();
+let historicalLanguageNotes = 0;
 for (const row of sourcePlaces) {
   const names = new Set([row.fields.kjvName, row.fields.esvName, row.fields.displayTitle].map(norm));
   const named = [...names].flatMap((name) => atlasByName.get(name) || []);
@@ -88,7 +90,70 @@ for (const row of sourcePlaces) {
   if (!valid) continue;
   mappedSourcePlaces.set(row.id, best.index);
   crosswalk.push({ source: row.fields.displayTitle, atlas: atlas.places[best.index].name, overlap: best.overlap, km: Number.isFinite(best.distance) ? Math.round(best.distance) : null });
+  // A dictionary entry must have the same normalized name and a shared verse.
+  // Never attach historical prose on coordinate proximity alone.
+  const paragraphs = (row.fields.dictText || []).map((value) => String(value).trim()).filter(Boolean);
+  const atlasName = atlas.places[best.index].name;
+  const sameName = norm(row.fields.displayTitle) === norm(atlasName);
+  const qualifiedName = norm(row.fields.displayTitle) === norm(atlasName.replace(/^(mount|mt\.?|sea of|river|brook of)\s+/i, ''));
+  const strongQualifiedMatch = qualifiedName && best.overlap >= 3 && best.distance <= 10;
+  if ((sameName && best.named || strongQualifiedMatch) && best.overlap > 0 && paragraphs.length) {
+    // Easton is a 19th-century source. Suppress entries with obsolete racial or
+    // religious classifications rather than displaying them as pastoral context.
+    if (/\brace\b|nigrit|low-class population|mohammedan|\bheathen\b/i.test(paragraphs.join(' '))) {
+      historicalLanguageNotes++;
+      continue;
+    }
+    if (!geographyNoteCandidates.has(best.index)) geographyNoteCandidates.set(best.index, []);
+    geographyNoteCandidates.get(best.index).push({
+      sourcePlaceId: row.fields.placeLookup,
+      sourceName: row.fields.displayTitle,
+      sharedVerses: best.overlap,
+      paragraphs,
+    });
+  }
 }
+
+const geographyNotes = {};
+let ambiguousNotes = 0;
+for (const [index, entries] of geographyNoteCandidates) {
+  // Same-name locations remain unresolved if more than one dictionary record maps here.
+  if (entries.length !== 1) { ambiguousNotes++; continue; }
+  geographyNotes[atlas.places[index].id] = entries[0];
+}
+// Some Theographic place records reuse a full dictionary article for different
+// locations (for example, Brook of Egypt receives the Egypt article). Neither
+// a matching verse nor an alias is enough to decide which use is correct.
+const noteIdsByText = new Map();
+for (const [placeId, note] of Object.entries(geographyNotes)) {
+  const text = note.paragraphs.join('\n').trim();
+  if (!noteIdsByText.has(text)) noteIdsByText.set(text, []);
+  noteIdsByText.get(text).push(placeId);
+}
+let duplicateTextNotes = 0;
+for (const placeIds of noteIdsByText.values()) {
+  if (placeIds.length < 2) continue;
+  duplicateTextNotes += placeIds.length;
+  for (const placeId of placeIds) delete geographyNotes[placeId];
+}
+const geographyOutput = {
+  source: 'Theographic Bible Metadata · Easton’s Bible Dictionary (1897)',
+  sourceCommit,
+  placeSourceCommit: atlas.sourceCommit,
+  license: 'CC BY-SA 4.0',
+  language: 'en',
+  notes: geographyNotes,
+  audit: {
+    sourcePlaces: sourcePlaces.length,
+    sourcePlacesWithDictionaryText: sourcePlaces.filter((row) => row.fields.dictText?.length).length,
+    mappedPlaces: mappedSourcePlaces.size,
+    matchedNotes: Object.keys(geographyNotes).length,
+    ambiguousNotes,
+    duplicateTextNotes,
+    historicalLanguageNotes,
+  },
+};
+writeFileSync(new URL('../public/data/geography-notes.json', import.meta.url), `${JSON.stringify(geographyOutput)}\n`);
 
 const verseRows = new Map();
 for (const row of sourceVerses) {
@@ -143,5 +208,5 @@ const output = { source: 'Theographic Bible Metadata', sourceCommit, placeSource
     }).length,
     versesWithLocalEvents: [...verseRows.values()].filter((row) => row.events.length).length } };
 writeFileSync(new URL('../public/data/passage-evidence.json', import.meta.url), `${JSON.stringify(output)}\n`);
-writeFileSync(new URL('../PASSAGE_EVIDENCE_AUDIT.md', import.meta.url), `# 본문·지명·인물·사건 연결 감사\n\n원자료: [Theographic Bible Metadata](https://github.com/robertrouse/theographic-bible-metadata/tree/${sourceCommit}) (CC BY-SA 4.0)와 [OpenBible.info Bible Geocoding Data](https://github.com/openbibleinfo/Bible-Geocoding-Data/tree/${atlas.sourceCommit}) (CC BY 4.0). 생성: \`node scripts/build_passage_evidence.mjs\`. 처음 실행하면 고정 판의 원자료를 저장소 밖 임시 폴더에 내려받습니다.\n\n- 66권 ${sourceVerses.length.toLocaleString()}절 및 인명 ${people.length.toLocaleString()}건 대조.\n- Theographic 지명 ${sourcePlaces.length.toLocaleString()}곳 중 OpenBible 지도 지명과 절 중복·이름/좌표 기준으로 연결한 곳 ${mappedSourcePlaces.size.toLocaleString()}곳. 별명·좌표 불일치·불확실한 동명이소는 연결하지 않았습니다.\n- 지도 지명과 연결된 Theographic 절 ${output.audit.versesWithMappedTheographicPlaces.toLocaleString()}절. 두 자료가 **같은 절에서 같은 지도 지명**을 연결한 절은 ${output.audit.versesWithExactPlaceAgreement.toLocaleString()}절입니다. 기존 OpenBible 지도 색인은 별도로 유지합니다.\n- 원자료 사건 ${sourceEvents.length}건 중 장소 필드 ${eventAudit.withLocation}건. 같은 책·두 장 이내·80절 이내이며 생애/재위 같은 광범위 제목을 제외한 사건 ${eventAudit.local}건. 그중 사건의 장소가 사건 본문에 직접 등장하고 지도 지명과도 일치한 사건 ${eventAudit.usableLocation}건.\n- 사건 위치는 Theographic의 편집 자료입니다. 한 사건에 여러 장소가 나와도 이동 순서·실제 경로로 해석하지 않습니다. 같은 절에 인명과 지명이 있다는 사실도 방문 증거가 아닙니다.\n\n## 자동 연결 규칙\n\n1. 서로 다른 두 원자료에서 같은 장소로 연결하려면 지명 일치 또는 가까운 좌표, 그리고 실제 **동일 절의 중복**이 필요합니다.\n2. 동명이소가 구분되지 않거나 좌표가 충돌하면 지도 연결을 생략합니다.\n3. 사건의 지명은 사건에 속한 절에서 직접 이름이 등장했을 때만 지도로 연결합니다.\n4. UI는 본문 지명, 사건 자료 위치, 인명 언급, 수작업 검수 여정을 서로 다른 근거 단계로 표시해야 합니다.\n\n## 알려진 원자료 분류 오류\n\nTheographic가 출애굽기 3장의 ‘이스라엘’을 야곱 인물 기록으로, ‘미디안’을 사람과 지명 양쪽으로 연결합니다. 본문 요약에서는 이런 민족명·동명 지명 충돌을 인물 목록에서 제외합니다. 전체 인명 검색은 원자료를 살펴보는 색인이므로 원자료의 분류를 그대로 보존하고, 인명과 지명이 함께 나와도 이동이라고 주장하지 않습니다. 다른 동명이인/동명이소에도 같은 문제가 있을 수 있어 구절별 검토가 계속 필요합니다.\n\n모든 본문·인물의 실제 이동을 검증했다는 뜻이 아닙니다. 성경 본문에 언급된 사실과 현장/이동 추론의 차이를 화면에서 유지합니다.\n`);
+writeFileSync(new URL('../PASSAGE_EVIDENCE_AUDIT.md', import.meta.url), `# 본문·지명·인물·사건 연결 감사\n\n원자료: [Theographic Bible Metadata](https://github.com/robertrouse/theographic-bible-metadata/tree/${sourceCommit}) (CC BY-SA 4.0)와 [OpenBible.info Bible Geocoding Data](https://github.com/openbibleinfo/Bible-Geocoding-Data/tree/${atlas.sourceCommit}) (CC BY 4.0). 생성: \`node scripts/build_passage_evidence.mjs\`. 처음 실행하면 고정 판의 원자료를 저장소 밖 임시 폴더에 내려받습니다.\n\n- 66권 ${sourceVerses.length.toLocaleString()}절 및 인명 ${people.length.toLocaleString()}건 대조.\n- Theographic 지명 ${sourcePlaces.length.toLocaleString()}곳 중 OpenBible 지도 지명과 절 중복·이름/좌표 기준으로 연결한 곳 ${mappedSourcePlaces.size.toLocaleString()}곳. 별명·좌표 불일치·불확실한 동명이소는 연결하지 않았습니다.\n- 지도 지명과 연결된 Theographic 절 ${output.audit.versesWithMappedTheographicPlaces.toLocaleString()}절. 두 자료가 **같은 절에서 같은 지도 지명**을 연결한 절은 ${output.audit.versesWithExactPlaceAgreement.toLocaleString()}절입니다. 기존 OpenBible 지도 색인은 별도로 유지합니다.\n- 원자료 사건 ${sourceEvents.length}건 중 장소 필드 ${eventAudit.withLocation}건. 같은 책·두 장 이내·80절 이내이며 생애/재위 같은 광범위 제목을 제외한 사건 ${eventAudit.local}건. 그중 사건의 장소가 사건 본문에 직접 등장하고 지도 지명과도 일치한 사건 ${eventAudit.usableLocation}건.\n- 사건 위치는 Theographic의 편집 자료입니다. 한 사건에 여러 장소가 나와도 이동 순서·실제 경로로 해석하지 않습니다. 같은 절에 인명과 지명이 있다는 사실도 방문 증거가 아닙니다.\n\n## 자동 연결 규칙\n\n1. 서로 다른 두 원자료에서 같은 장소로 연결하려면 지명 일치 또는 가까운 좌표, 그리고 실제 **동일 절의 중복**이 필요합니다.\n2. 동명이소가 구분되지 않거나 좌표가 충돌하면 지도 연결을 생략합니다.\n3. 사건의 지명은 사건에 속한 절에서 직접 이름이 등장했을 때만 지도로 연결합니다.\n4. UI는 본문 지명, 사건 자료 위치, 인명 언급, 수작업 본문 연결 편집 여정을 서로 다른 근거 단계로 표시해야 합니다.\n\n## 알려진 원자료 분류 오류\n\nTheographic가 출애굽기 3장의 ‘이스라엘’을 야곱 인물 기록으로, ‘미디안’을 사람과 지명 양쪽으로 연결합니다. 본문 요약에서는 이런 민족명·동명 지명 충돌을 인물 목록에서 제외합니다. 전체 인명 검색은 원자료를 살펴보는 색인이므로 원자료의 분류를 그대로 보존하고, 인명과 지명이 함께 나와도 이동이라고 주장하지 않습니다. 다른 동명이인/동명이소에도 같은 문제가 있을 수 있어 구절별 검토가 계속 필요합니다.\n\n모든 본문·인물의 실제 이동을 검증했다는 뜻이 아닙니다. 성경 본문에 언급된 사실과 현장/이동 추론의 차이를 화면에서 유지합니다.\n`);
 console.log(JSON.stringify({ ...output.audit, sample: crosswalk.filter((row) => ['Horeb', 'Egypt', 'Gilgal', 'Ur of the Chaldees'].includes(row.source)).slice(0, 15), bytes: readFileSync(new URL('../public/data/passage-evidence.json', import.meta.url)).length }, null, 2));

@@ -1,0 +1,49 @@
+{
+  "title": "원어의 시대 데이터 매니페스트",
+  "generatedAt": "2026-10-14T09:42:58.361Z",
+  "source": {
+    "name": "STEPBible-Data",
+    "repository": "https://github.com/STEPBible/STEPBible-Data",
+    "commit": "93ec3621485afd10fd45fcf43630d42de28d8eb8",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "datasets": [
+      "TAHOT",
+      "TAGNT",
+      "TEHMC",
+      "TEGMC",
+      "TBESH",
+      "TBESG"
+    ]
+  },
+  "derivationSource": {
+    "name": "Open Scriptures Strong's Dictionaries",
+    "repository": "https://github.com/openscriptures/strongs",
+    "commit": "0acd2f251c2d35ff8db2dece4e0593979d3ac223",
+    "license": "CC BY-SA",
+    "note": "1890/1894 Strong 사전의 Open Scriptures 교정 JSON 판. 파생 설명은 역사적 사전 원문이며 현대 어원 연구의 최종 결론으로 사용하지 않습니다."
+  },
+  "countPolicy": {
+    "hebrew": "TAHOT의 레닌그라드 본문 단어 행을 집계합니다.",
+    "greek": "TAGNT에서 Nestle-Aland 계열(N 또는 n 표지)에 포함된 단어만 집계합니다. KJV/TR 전용 및 기타 이문은 제외합니다.",
+    "unit": "같은 어휘 표제어(확장 Strong 식별자)의 출현 단어 수입니다. 같은 절에 두 번 나오면 2회로 셉니다."
+  },
+  "totals": {
+    "books": 66,
+    "verseRows": 31171,
+    "canonicalVerseRows": 31055,
+    "tokens": 442983,
+    "lemmas": 16961,
+    "morphologyMappedTokens": 437884,
+    "skippedGreekVariantRows": 4397,
+    "strongsDictionaryEntries": 14197
+  },
+  "files": [
+    "TAHOT Gen-Deu - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt",
+    "TAHOT Jos-Est - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt",
+    "TAHOT Job-Sng - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt",
+    "TAHOT Isa-Mal - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt",
+    "TAGNT Mat-Jhn - Translators Amalgamated Greek NT - STEPBible.org CC-BY.txt",
+    "TAGNT Act-Rev - Translators Amalgamated Greek NT - STEPBible.org CC-BY.txt"
+  ]
+}

@@ -2,3 +2,5 @@ node_modules/
 dist/
 .vercel/
 .playwright-cli/
+output/
+__pycache__/

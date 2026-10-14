@@ -1,7 +1,58 @@
 import { parseReference } from './reference.js';
 
 export const NOTE_PREFIX = 'sermon-context-note:';
+export const VERSE_NOTE_PREFIX = 'sermon-context-verse-note:';
 export const BACKUP_FORMAT = 'sermon-context-notes-v1';
+export const LEGACY_ORIGINAL_NOTE_PREFIX = 'ministry-ai-lab:original-memo:';
+
+export function passageNoteKey(reference) {
+  if (!reference?.label || parseReference(reference.label).error) throw new Error('본문 주소가 올바르지 않습니다.');
+  return `${NOTE_PREFIX}${reference.label}`;
+}
+
+export function readPassageNote(storage, reference) {
+  return storage.getItem(passageNoteKey(reference)) || '';
+}
+
+export function writePassageNote(storage, reference, text) {
+  const key = passageNoteKey(reference);
+  if (String(text).trim()) storage.setItem(key, String(text));
+  else storage.removeItem(key);
+  return key;
+}
+
+export function migrateLegacyOriginalNote(storage, reference) {
+  const sharedKey = passageNoteKey(reference);
+  const legacyKey = `${LEGACY_ORIGINAL_NOTE_PREFIX}${reference.code}:${reference.chapter}`;
+  const legacy = storage.getItem(legacyKey) || '';
+  const current = storage.getItem(sharedKey) || '';
+  if (!legacy.trim()) return current;
+  const merged = !current.trim() ? legacy : current.includes(legacy.trim())
+    ? current : `${current.trimEnd()}\n\n---\n원어 연구에서 옮긴 메모\n\n${legacy.trim()}`;
+  storage.setItem(sharedKey, merged);
+  storage.removeItem(legacyKey);
+  return merged;
+}
+
+export function validVerseNoteKey(key) {
+  const parts = String(key).match(/^([1-3A-Z]{3}):(\d{1,3}):(\d{1,3})$/);
+  if (!parts) return false;
+  const parsed = parseReference(`${parts[1]} ${parts[2]}:${parts[3]}`);
+  return !parsed.error && parsed.code === parts[1] && parsed.chapter === Number(parts[2])
+    && parsed.startVerse === Number(parts[3]);
+}
+
+export function listVerseNotes(storage) {
+  const notes = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const key = storage.key(i);
+    if (!key?.startsWith(VERSE_NOTE_PREFIX)) continue;
+    const verse = key.slice(VERSE_NOTE_PREFIX.length);
+    const text = storage.getItem(key);
+    if (validVerseNoteKey(verse) && text?.trim()) notes.push({ verse, text });
+  }
+  return notes.sort((a, b) => a.verse.localeCompare(b.verse));
+}
 
 export function listNotes(storage) {
   const notes = [];
@@ -20,6 +71,44 @@ export function createBackup(notes, timestamp = new Date().toISOString()) {
     exportedAt: timestamp,
     notes: Object.fromEntries(notes.map(({ reference, text }) => [reference, text])),
   };
+}
+
+export function createStudyBackup(notes, verseNotes, timestamp = new Date().toISOString()) {
+  return {
+    ...createBackup(notes, timestamp),
+    verseNotes: Object.fromEntries(verseNotes.map(({ verse, text }) => [verse, text])),
+  };
+}
+
+export function parseStudyBackup(text) {
+  const notes = parseBackup(text); // Also accepts older passage-only backups.
+  const backup = JSON.parse(text);
+  const verseNotes = [];
+  if (backup.verseNotes !== undefined) {
+    if (!backup.verseNotes || typeof backup.verseNotes !== 'object' || Array.isArray(backup.verseNotes)
+      || Object.keys(backup.verseNotes).length > 31102) {
+      throw new Error('절별 메모 백업 형식이 올바르지 않습니다.');
+    }
+    for (const [verse, value] of Object.entries(backup.verseNotes)) {
+      if (!validVerseNoteKey(verse) || typeof value !== 'string' || value.length > 200000) {
+        throw new Error('백업 파일에 사용할 수 없는 절 주소나 메모가 있습니다.');
+      }
+      if (value.trim()) verseNotes.push({ verse, text: value });
+    }
+  }
+  return { notes, verseNotes };
+}
+
+export function mergeVerseNotes(storage, verseNotes) {
+  let imported = 0;
+  let skipped = 0;
+  for (const { verse, text } of verseNotes) {
+    if (!validVerseNoteKey(verse)) throw new Error('절 주소가 올바르지 않습니다.');
+    const key = `${VERSE_NOTE_PREFIX}${verse}`;
+    if (storage.getItem(key)?.trim()) skipped += 1;
+    else { storage.setItem(key, text); imported += 1; }
+  }
+  return { imported, skipped };
 }
 
 export function parseBackup(text) {
@@ -55,4 +144,22 @@ export function mergeNotes(storage, notes) {
 
 export function noteMarkdown(reference, text, timestamp = new Date().toISOString()) {
   return `# 설교 준비 메모\n\n본문: ${reference}\n저장: ${timestamp}\n\n${text.trimEnd()}\n`;
+}
+
+export function allNotesMarkdown(passageNotes, verseNotes, options = {}) {
+  const {
+    title = '설교 연구 메모 모음', passageTitle = '본문 전체 메모', verseTitle = '절별 메모',
+    formatPassage = (reference) => reference, formatVerse = (verse) => verse,
+    timestamp = new Date().toISOString(),
+  } = options;
+  const parts = [`# ${title}`, '', `${timestamp}`];
+  if (passageNotes.length) {
+    parts.push('', `## ${passageTitle}`);
+    for (const { reference, text } of passageNotes) parts.push('', `### ${formatPassage(reference)}`, '', text.trimEnd());
+  }
+  if (verseNotes.length) {
+    parts.push('', `## ${verseTitle}`);
+    for (const { verse, text } of verseNotes) parts.push('', `### ${formatVerse(verse)}`, '', text.trimEnd());
+  }
+  return `${parts.join('\n')}\n`;
 }

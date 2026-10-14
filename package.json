@@ -5,10 +5,24 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "build": "node scripts/build_site.mjs",
+    "build": "node scripts/build_pastoral_books.mjs && node scripts/import_commentary_library.mjs && node scripts/build_site.mjs",
     "preview": "node server.mjs dist",
-    "test": "node scripts/audit_corpus.mjs --check && node --test src/*.test.js",
+    "test": "node scripts/build_pastoral_books.mjs --check && node scripts/import_commentary_library.mjs --check && node scripts/audit_corpus.mjs --check && node scripts/audit_route_evidence.mjs --check && node scripts/audit_geography_notes.mjs && node scripts/audit_open_study_notes.mjs --check && node scripts/audit_kor1910.mjs --check && node scripts/audit_original_languages.mjs --check && node --test src/*.test.js",
+    "build:pastoral-books": "node scripts/build_pastoral_books.mjs",
     "audit:coverage": "node scripts/audit_coverage.mjs",
-    "audit:integrity": "node scripts/audit_corpus.mjs"
+    "audit:integrity": "node scripts/audit_corpus.mjs",
+    "audit:routes": "node scripts/audit_route_evidence.mjs",
+    "import:study-notes": "node scripts/import_open_study_notes.mjs",
+    "import:kjv-fallback": "python scripts/import_kjv_fallback.py",
+    "audit:study-notes": "node scripts/audit_open_study_notes.mjs",
+    "import:original-languages": "node scripts/import_original_languages.mjs",
+    "audit:original-languages": "node scripts/audit_original_languages.mjs",
+    "import:commentaries": "node scripts/import_commentary_library.mjs"
+  },
+  "devDependencies": {
+    "opencc-js": "^1.4.2"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^5.4.296"
   }
 }
