@@ -671,6 +671,10 @@ h1 em { font-style: normal; }
 .memo-drawer-head button { flex: none; width: 30px; height: 30px; border: 1px solid #d2ddec; border-radius: 8px; background: #fff; color: #274a7b; font-size: 21px; line-height: 1; }
 .memo-drawer-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 19px 18px; }
 .memo-storage-hint { margin: 0 0 15px; padding: 10px 11px; border-radius: 8px; background: #eef5ff; color: #3d5b86; font-size: 10px; line-height: 1.5; }
+.memo-tool-links { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; margin: -4px 0 15px; }
+.memo-tool-links a { display: grid; place-items: center; min-height: 32px; padding: 5px; border: 1px solid #d7e1ee; border-radius: 7px; background: #fff; color: #466587; font-size: 10px; font-weight: 800; text-decoration: none; }
+.memo-tool-links a:hover { background: #f1f6ff; }
+.memo-tool-links a[aria-current="page"] { border-color: #315f9d; background: #315f9d; color: #fff; }
 .memo-verse-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .memo-verse-head label, #memo-passage-heading { display: block; color: #18375f; font-size: 13px; font-weight: 800; }
 .memo-verse-head span { color: #647998; font-size: 11px; font-weight: 700; }

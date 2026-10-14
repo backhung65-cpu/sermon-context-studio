@@ -228,6 +228,7 @@ app.innerHTML = `
     <div class="memo-drawer-head"><div><span class="memo-drawer-kicker">SERMON NOTES</span><h2 id="memo-drawer-title">따라다니는 연구 메모</h2><p id="memo-current-reference"></p></div><button id="memo-close" type="button" aria-label="메모 접기">×</button></div>
     <div class="memo-drawer-body">
       <p id="memo-storage-hint" class="memo-storage-hint">이 브라우저에 입력 즉시 저장됩니다.</p>
+      <nav id="memo-tool-links" class="memo-tool-links" aria-label="연결된 성경 연구 도구"><a data-memo-tool="places" href="/">지명</a><a data-memo-tool="journeys" href="/?view=journeys">여행</a><a data-memo-tool="era" href="/era.html">시대</a><a data-memo-tool="original" href="/original.html">원어</a></nav>
       <div class="memo-verse-head"><label for="memo-verse-input" id="memo-verse-heading">이 절의 메모</label><span id="memo-verse-reference"></span></div>
       <label class="sr-only" for="memo-verse-select" id="memo-jump-label">기록할 절</label><div class="memo-verse-nav"><button id="memo-prev" type="button" aria-label="이전 절">←</button><select id="memo-verse-select" aria-labelledby="memo-jump-label"></select><button id="memo-next" type="button" aria-label="다음 절">→</button></div>
       <a id="memo-read-link" class="memo-read-link" href="https://www.bskorea.or.kr/bible/korbibReadpage.php?version=GAE" target="_blank" rel="noopener noreferrer">이 절 성경 읽기 ↗</a>
@@ -404,6 +405,27 @@ function syncMemoEditor() {
   memoVerseSelect.value = selected ? String(currentVerseIndex) : '';
   document.querySelector('#memo-prev').disabled = !selected || currentVerseIndex === 0;
   document.querySelector('#memo-next').disabled = !selected || currentVerseIndex === currentVerseSequence.length - 1;
+  const reference = currentReference ? formatReference(currentReference) : '';
+  const encoded = reference ? encodeURIComponent(reference) : '';
+  const toolLinks = document.querySelectorAll('#memo-tool-links [data-memo-tool]');
+  for (const link of toolLinks) {
+    const tool = link.dataset.memoTool;
+    if (tool === 'places') link.href = reference ? `/#${encoded}` : '/';
+    if (tool === 'journeys') link.href = currentView === 'journeys'
+      ? `${location.pathname}${location.search}` : journeyUrlForReference(currentReference);
+    if (tool === 'era') link.href = reference ? `/era.html?ref=${encoded}` : '/era.html';
+    if (tool === 'original') link.href = reference ? `/original.html#${encoded}` : '/original.html';
+    const active = tool === currentView || (tool === 'places' && currentView === 'places');
+    if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  const navLabels = {
+    places: document.querySelector('[data-view-link="places"]')?.textContent,
+    journeys: document.querySelector('[data-view-link="journeys"]')?.textContent,
+    era: document.querySelector('#era-nav')?.textContent,
+    original: document.querySelector('#original-nav')?.textContent,
+  };
+  for (const link of toolLinks) if (navLabels[link.dataset.memoTool]) link.textContent = navLabels[link.dataset.memoTool];
 }
 
 function setMemoOpen(open, focus = false) {
@@ -535,14 +557,16 @@ function applyView(scroll = false) {
     else link.removeAttribute('aria-current');
     const address = new URL(location.href);
     if (view === 'journeys') {
-      address.searchParams.set('view', 'journeys');
-      address.searchParams.set('journey', currentJourney.id);
-      address.searchParams.set('step', String(journeyStepIndex + 1));
+      const journeyAddress = new URL(journeyUrlForReference(currentReference), location.origin);
+      address.search = journeyAddress.search;
+      address.hash = '';
     } else {
       address.searchParams.delete('view');
       address.searchParams.delete('journey');
       address.searchParams.delete('step');
       address.searchParams.delete('person');
+      address.searchParams.delete('ref');
+      if (currentReference) address.hash = encodeURIComponent(formatReference(currentReference));
     }
     link.href = `${address.pathname}${address.search}${address.hash}`;
   }
@@ -573,16 +597,26 @@ function switchView(view) {
   currentView = view;
   const address = new URL(location.href);
   if (view === 'journeys') {
+    const match = journeySceneForReference(currentReference);
+    if (match) {
+      currentJourney = match.journey;
+      journeyStepIndex = match.index;
+    }
     address.searchParams.set('view', 'journeys');
     address.searchParams.set('journey', currentJourney.id);
     address.searchParams.set('step', String(journeyStepIndex + 1));
+    if (currentReference) address.searchParams.set('ref', formatReference(currentReference));
+    address.hash = '';
   } else {
     address.searchParams.delete('view');
     address.searchParams.delete('journey');
     address.searchParams.delete('step');
     address.searchParams.delete('person');
+    address.searchParams.delete('ref');
+    if (currentReference) address.hash = encodeURIComponent(formatReference(currentReference));
   }
   history.pushState(null, '', address);
+  if (view === 'journeys' && data) renderJourney();
   applyView(true);
 }
 
@@ -604,14 +638,14 @@ document.querySelector('#journey-catalog-reveal').addEventListener('click', () =
 window.addEventListener('popstate', () => {
   const params = new URLSearchParams(location.search);
   const journey = JOURNEYS.find((item) => item.id === params.get('journey'));
+  currentView = params.get('view') === 'journeys' || journey ? 'journeys' : 'places';
   if (journey) {
     currentJourney = journey;
     const step = Number(params.get('step'));
     journeyStepIndex = Number.isInteger(step) ? Math.max(0, Math.min(step - 1, journey.steps.length - 1)) : 0;
     currentJourneyCategory = 'all';
-    if (data) renderJourney();
   }
-  currentView = params.get('view') === 'journeys' || journey ? 'journeys' : 'places';
+  if (data && currentView === 'journeys') renderJourney();
   applyView();
   if (currentView === 'places') syncReferenceFromAddress();
 });
@@ -656,6 +690,45 @@ function journeyPlace(step) {
   return data?.places.find((place) => place.id === step.placeId);
 }
 
+function journeySceneForReference(reference) {
+  if (!reference?.code) return null;
+  for (const journey of JOURNEYS) {
+    const index = journey.steps.findIndex((step) => {
+      if (stepCode(journey, step) !== reference.code) return false;
+      if (step.chapter < reference.chapter || step.chapter > reference.endChapter) return false;
+      const start = step.verse;
+      const end = step.endVerse || start;
+      if (step.chapter === reference.chapter && reference.startVerse !== null && end < reference.startVerse) return false;
+      if (step.chapter === reference.endChapter && reference.endVerse !== null && start > reference.endVerse) return false;
+      return true;
+    });
+    if (index >= 0) return { journey, index };
+  }
+  return null;
+}
+
+function journeyMemoReferenceFromAddress() {
+  const requested = new URLSearchParams(location.search).get('ref');
+  if (!requested) return null;
+  const reference = parseReference(requested);
+  return reference.error ? null : reference;
+}
+
+function journeyUrlForReference(reference) {
+  const params = new URLSearchParams({ view: 'journeys' });
+  const match = journeySceneForReference(reference);
+  if (match) {
+    params.set('journey', match.journey.id);
+    params.set('step', String(match.index + 1));
+  } else if (currentView === 'journeys') {
+    params.set('journey', currentJourney.id);
+    params.set('step', String(journeyStepIndex + 1));
+  }
+  if (reference?.code) params.set('ref', formatReference(reference));
+  if (locale !== 'ko') params.set('lang', locale);
+  return `/?${params}`;
+}
+
 function journeyReference(step) {
   const end = step.endVerse ? `–${step.endVerse}` : '';
   return `${localizedBookName(stepCode(currentJourney, step), locale)} ${step.chapter}:${step.verse}${end}`;
@@ -666,10 +739,24 @@ function updateJourneyAddress() {
   url.searchParams.set('view', 'journeys');
   url.searchParams.set('journey', currentJourney.id);
   url.searchParams.set('step', String(journeyStepIndex + 1));
+  url.searchParams.delete('ref');
   history.replaceState(null, '', url);
 }
 
 function renderJourney() {
+  const preservedReference = journeyMemoReferenceFromAddress();
+  const params = new URLSearchParams(location.search);
+  if (preservedReference && !params.has('journey')) {
+    const match = journeySceneForReference(preservedReference);
+    if (match) {
+      currentJourney = match.journey;
+      journeyStepIndex = match.index;
+      const address = new URL(location.href);
+      address.searchParams.set('journey', currentJourney.id);
+      address.searchParams.set('step', String(journeyStepIndex + 1));
+      history.replaceState(null, '', address);
+    }
+  }
   const j = (key, vars) => journeyMessage(locale, key, vars);
   document.querySelector('#journey-eyebrow').textContent = j('eyebrow');
   document.querySelector('#journey-title').textContent = j('navJourneys');
@@ -706,6 +793,7 @@ function renderJourney() {
   const step = currentJourney.steps[journeyStepIndex];
   const place = journeyPlace(step);
   if (!place) return;
+  if (currentView === 'journeys') activateMemoReference(preservedReference || parseReference(`${stepCode(currentJourney, step)} ${step.chapter}:${step.verse}`));
   const name = displayName(place);
   const scene = j('scene', { current: journeyStepIndex + 1, total: currentJourney.steps.length });
   const story = stepStory(currentJourney, step, journeyStepIndex);
@@ -725,6 +813,22 @@ function renderJourney() {
   const activeScene = timeline.querySelector('[aria-current="step"]');
   if (activeScene && timeline.scrollHeight > timeline.clientHeight) timeline.scrollTop = activeScene.offsetTop - timeline.offsetTop - 8;
   if (journeyMapReady) updateJourneyMap(false);
+}
+
+function activateMemoReference(reference) {
+  if (!reference || reference.error) return;
+  currentReference = reference;
+  currentGuidedReferenceLabel = reference.label;
+  currentVerseSequence = passageVerses(reference);
+  currentVerseIndex = 0;
+  memoVerseSelect.innerHTML = currentVerseSequence.map(({ code, chapter, verse }, index) =>
+    `<option value="${index}">${escapeHtml(localizedBookName(code, locale))} ${chapter}:${verse}</option>`).join('');
+  try {
+    note.value = localStorage.getItem(`${NOTE_PREFIX}${reference.label}`) || '';
+  } catch { note.value = ''; }
+  renderSelectedGuidedVerse();
+  renderSavedNotes();
+  updateEraNavigation(reference);
 }
 
 function selectJourneyStep(index) {
@@ -1676,6 +1780,25 @@ function syncReferenceFromAddress() {
 
 window.addEventListener('hashchange', syncReferenceFromAddress);
 
+window.addEventListener('storage', (event) => {
+  if (!currentReference) return;
+  const passageKey = `${NOTE_PREFIX}${currentReference.label}`;
+  if (event.key === passageKey && document.activeElement !== note && document.activeElement !== memoPassageInput) {
+    note.value = event.newValue || '';
+    memoPassageInput.value = note.value;
+    setNoteStatus(translate(note.value ? 'noteRestored' : 'noteNew'));
+    renderSavedNotes();
+  }
+  const selected = currentVerseSequence[currentVerseIndex];
+  const verseKey = selected ? `${VERSE_NOTE_PREFIX}${selected.key}` : '';
+  if (verseKey && event.key === verseKey && document.activeElement !== guidedNote && document.activeElement !== memoVerseInput) {
+    guidedNote.value = event.newValue || '';
+    memoVerseInput.value = guidedNote.value;
+    setGuidedNoteStatus(studyReaderCopy(locale)[guidedNote.value ? 'saved' : 'deleted']);
+    renderSavedNotes();
+  }
+});
+
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   if (search()) requestAnimationFrame(() => document.querySelector('#results').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'start' }));
@@ -2082,12 +2205,12 @@ async function loadData() {
     renderSourceVersion();
     placeOccurrences = collectPlaceOccurrences(data);
     setupHeroMap();
-    renderJourney();
     setupJourneyMap();
     if (location.hash.length > 1) {
       try { input.value = decodeURIComponent(location.hash.slice(1)); } catch { /* default example stays */ }
     }
     search();
+    renderJourney();
     applyView();
   } catch {
     resultDescription.textContent = translate('dataFailed');

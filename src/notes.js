@@ -3,6 +3,36 @@ import { parseReference } from './reference.js';
 export const NOTE_PREFIX = 'sermon-context-note:';
 export const VERSE_NOTE_PREFIX = 'sermon-context-verse-note:';
 export const BACKUP_FORMAT = 'sermon-context-notes-v1';
+export const LEGACY_ORIGINAL_NOTE_PREFIX = 'ministry-ai-lab:original-memo:';
+
+export function passageNoteKey(reference) {
+  if (!reference?.label || parseReference(reference.label).error) throw new Error('본문 주소가 올바르지 않습니다.');
+  return `${NOTE_PREFIX}${reference.label}`;
+}
+
+export function readPassageNote(storage, reference) {
+  return storage.getItem(passageNoteKey(reference)) || '';
+}
+
+export function writePassageNote(storage, reference, text) {
+  const key = passageNoteKey(reference);
+  if (String(text).trim()) storage.setItem(key, String(text));
+  else storage.removeItem(key);
+  return key;
+}
+
+export function migrateLegacyOriginalNote(storage, reference) {
+  const sharedKey = passageNoteKey(reference);
+  const legacyKey = `${LEGACY_ORIGINAL_NOTE_PREFIX}${reference.code}:${reference.chapter}`;
+  const legacy = storage.getItem(legacyKey) || '';
+  const current = storage.getItem(sharedKey) || '';
+  if (!legacy.trim()) return current;
+  const merged = !current.trim() ? legacy : current.includes(legacy.trim())
+    ? current : `${current.trimEnd()}\n\n---\n원어 연구에서 옮긴 메모\n\n${legacy.trim()}`;
+  storage.setItem(sharedKey, merged);
+  storage.removeItem(legacyKey);
+  return merged;
+}
 
 export function validVerseNoteKey(key) {
   const parts = String(key).match(/^([1-3A-Z]{3}):(\d{1,3}):(\d{1,3})$/);

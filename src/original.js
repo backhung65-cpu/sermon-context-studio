@@ -1,6 +1,7 @@
 import { formatReference, localizedBookName, parseReference } from './reference.js';
 import { loadKjvFallback, loadPublicBibleBook, selectedPublicBibleRows } from './era-text.js';
 import { loadCommentaryBook, selectCommentaries } from './commentary-library.js';
+import { allNotesMarkdown, listNotes, listVerseNotes, migrateLegacyOriginalNote, passageNoteKey, readPassageNote, writePassageNote } from './notes.js';
 
 const state = { reference: null, book: null, publicBible: null, bibleFallback: {}, morphology: null, manifest: null, selected: null, lemmaShards: new Map(), strongs: new Map() };
 const $ = (selector) => document.querySelector(selector);
@@ -183,19 +184,48 @@ async function loadReference(input, updateHash = true) {
     $('#word-detail').innerHTML = '<div class="word-detail-empty"><span>단어 분석</span><strong>원어 단어를 눌러 보세요.</strong><p>표제어, 음역, 형태 분석, 전체 출현 횟수와 등장 구절이 이곳에 표시됩니다.</p></div>';
     renderPassage();
     loadCommentaries(parsed);
+    updateMemoToolLinks(parsed);
     $('#original-reference').value = formatReference(parsed, 'ko');
     if (updateHash) history.replaceState(null, '', `/original.html#${encodeURIComponent(formatReference(parsed, 'ko'))}`);
     loadMemo();
   } catch (error) { $('#original-verses').innerHTML = `<div class="original-loading">${escapeHtml(error.message)}</div>`; }
 }
 
-const memoKey = () => `ministry-ai-lab:original-memo:${state.reference?.code || ''}:${state.reference?.chapter || ''}`;
-function loadMemo() { $('#original-memo').value = localStorage.getItem(memoKey()) || ''; $('#memo-status').textContent = '입력하면 이 브라우저에 자동 저장됩니다.'; }
+function updateMemoToolLinks(reference) {
+  const label = formatReference(reference, 'ko');
+  const encoded = encodeURIComponent(label);
+  const links = Object.fromEntries([...document.querySelectorAll('#original-memo-tools [data-tool]')].map((link) => [link.dataset.tool, link]));
+  links.places.href = `/#${encoded}`;
+  links.journeys.href = `/?view=journeys&ref=${encoded}`;
+  links.era.href = `/era.html?ref=${encoded}`;
+  links.original.href = `/original.html#${encoded}`;
+}
+function loadMemo() {
+  try {
+    $('#original-memo').value = migrateLegacyOriginalNote(localStorage, state.reference);
+    const passageCount = listNotes(localStorage).length;
+    const verseCount = listVerseNotes(localStorage).length;
+    $('#memo-status').textContent = `네 도구가 함께 쓰는 메모입니다. 저장된 본문 ${passageCount}개 · 절 메모 ${verseCount}개`;
+  } catch { $('#memo-status').textContent = '브라우저 저장 공간을 사용할 수 없습니다. 메모를 복사해 보관하세요.'; }
+}
+function downloadText(filename, content) {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+  link.download = filename; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+function allMemoMarkdown() {
+  return allNotesMarkdown(listNotes(localStorage), listVerseNotes(localStorage), {
+    title: '성경 배경 연구 통합 메모', passageTitle: '본문 전체 메모', verseTitle: '절별 메모',
+  });
+}
 let memoTimer;
-$('#original-memo').addEventListener('input', () => { clearTimeout(memoTimer); localStorage.setItem(memoKey(), $('#original-memo').value); $('#memo-status').textContent = '브라우저에 저장했습니다.'; memoTimer = setTimeout(() => { $('#memo-status').textContent = '입력하면 이 브라우저에 자동 저장됩니다.'; }, 1800); });
+$('#original-memo').addEventListener('input', () => { clearTimeout(memoTimer); writePassageNote(localStorage, state.reference, $('#original-memo').value); $('#memo-status').textContent = '네 도구에서 함께 보도록 저장했습니다.'; memoTimer = setTimeout(loadMemo, 1800); });
 $('#memo-toggle').addEventListener('click', () => { const body = $('#memo-body'); body.hidden = !body.hidden; $('#memo-toggle').textContent = body.hidden ? '펼치기' : '접기'; $('#memo-toggle').setAttribute('aria-expanded', String(!body.hidden)); });
 $('#memo-copy').addEventListener('click', async () => { await navigator.clipboard.writeText($('#original-memo').value); $('#memo-status').textContent = '메모를 복사했습니다.'; });
-$('#memo-download').addEventListener('click', () => { const title = formatReference(state.reference, 'ko'); const content = `# ${title} 원어 연구 메모\n\n${$('#original-memo').value}\n`; const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' })); link.download = `${title.replace(/[:–\s]+/g, '-')}-원어메모.md`; link.click(); URL.revokeObjectURL(link.href); });
+$('#memo-download').addEventListener('click', () => { const title = formatReference(state.reference, 'ko'); downloadText(`${title.replace(/[:–\s]+/g, '-')}-연구메모.md`, `# ${title} 통합 연구 메모\n\n${$('#original-memo').value}\n`); });
+$('#memo-copy-all').addEventListener('click', async () => { await navigator.clipboard.writeText(allMemoMarkdown()); $('#memo-status').textContent = '모든 연구 메모를 복사했습니다.'; });
+$('#memo-download-all').addEventListener('click', () => { downloadText(`성경-배경-연구-전체-메모-${new Date().toISOString().slice(0, 10)}.md`, allMemoMarkdown()); $('#memo-status').textContent = '모든 연구 메모를 내보냈습니다.'; });
+window.addEventListener('storage', (event) => { if (state.reference && event.key === passageNoteKey(state.reference) && document.activeElement !== $('#original-memo')) $('#original-memo').value = readPassageNote(localStorage, state.reference); });
 
 $('#original-search').addEventListener('submit', (event) => { event.preventDefault(); loadReference($('#original-reference').value); });
 $('.original-examples').addEventListener('click', (event) => { const button = event.target.closest('[data-reference]'); if (button) loadReference(button.dataset.reference); });

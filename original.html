@@ -63,8 +63,11 @@
               <div class="word-detail-empty"><span>단어 분석</span><strong>원어 단어를 눌러 보세요.</strong><p>표제어, 음역, 형태 분석, 전체 출현 횟수와 등장 구절이 이곳에 표시됩니다.</p></div>
             </section>
             <section class="original-memo">
-              <div><span>원어 연구 메모</span><button id="memo-toggle" type="button" aria-expanded="true">접기</button></div>
-              <div id="memo-body"><textarea id="original-memo" placeholder="단어의 의미, 문법, 설교 연결점을 기록하세요."></textarea><p id="memo-status">입력하면 이 브라우저에 자동 저장됩니다.</p><div class="memo-actions"><button id="memo-copy" type="button">메모 복사</button><button id="memo-download" type="button">MD 내보내기</button></div></div>
+              <div><span>연결 연구 메모 · 4개 도구 공유</span><button id="memo-toggle" type="button" aria-expanded="true">접기</button></div>
+              <div id="memo-body">
+                <nav id="original-memo-tools" class="memo-tool-links" aria-label="연결된 성경 연구 도구"><a data-tool="places" href="/">지명</a><a data-tool="journeys" href="/?view=journeys">여행</a><a data-tool="era" href="/era.html">시대</a><a data-tool="original" href="/original.html" aria-current="page">원어</a></nav>
+                <textarea id="original-memo" placeholder="단어의 의미, 문법, 설교 연결점을 기록하세요."></textarea><p id="memo-status">입력하면 이 브라우저에 자동 저장됩니다.</p><div class="memo-actions"><button id="memo-copy" type="button">이 메모 복사</button><button id="memo-download" type="button">이 메모 MD</button><button id="memo-copy-all" type="button">모든 메모 복사</button><button id="memo-download-all" type="button">모든 메모 MD</button></div>
+              </div>
             </section>
           </aside>
         </div>

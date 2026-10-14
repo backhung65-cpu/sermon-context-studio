@@ -1,5 +1,6 @@
 import { bibleReadingUrl, formatReference, localizedBookName, parseReference } from './reference.js';
-import { NOTE_PREFIX } from './notes.js';
+import { allNotesMarkdown, listNotes, listVerseNotes, passageNoteKey, readPassageNote, writePassageNote } from './notes.js';
+import { memoDrawerCopy } from './memo-drawer.js';
 import { ERA_STUDIES, matchEraStudy, relatedEraStudies, sceneReferenceForSelection } from './era-data.js';
 import { loadKjvFallback, loadPublicBibleBook, publicBibleChapterUrl, selectedPublicBibleRows } from './era-text.js';
 import { formatOpenStudyNoteReference, loadOpenStudyNotesBook, selectOpenStudyNotes } from './open-study-notes.js';
@@ -102,7 +103,7 @@ function renderMemo() {
   const textarea = document.querySelector('#era-memo');
   if (!textarea || !currentReference) return;
   try {
-    textarea.value = localStorage.getItem(`${NOTE_PREFIX}${currentReference.label}`) || '';
+    textarea.value = readPassageNote(localStorage, currentReference);
     document.querySelector('#era-memo-status').textContent = textarea.value
       ? ui('memoLoaded') : ui('memoNew');
   } catch {
@@ -111,14 +112,18 @@ function renderMemo() {
 }
 
 function memoMarkup() {
+  const noteCopy = memoDrawerCopy(locale);
+  const reference = formatReference(currentReference, 'ko');
+  const encoded = encodeURIComponent(reference);
   return `<section class="era-note-card" aria-labelledby="era-note-title">
     <div class="era-card-top"><span>${escapeHtml(ui('memoTop'))}</span><span>${escapeHtml(ui('memoLink'))}</span></div>
     <h3 id="era-note-title">${escapeHtml(ui('memoTitle'))}</h3>
     <p>${escapeHtml(ui('memoIntro'))}</p>
+    <nav class="memo-tool-links" aria-label="${escapeHtml(noteCopy.title)}"><a href="/#${encoded}">${escapeHtml(ui('navPlaces'))}</a><a href="/?view=journeys&amp;ref=${encoded}">${escapeHtml(ui('navJourneys'))}</a><a href="/era.html?ref=${encoded}" aria-current="page">${escapeHtml(ui('navEra'))}</a><a href="/original.html#${encoded}">${escapeHtml(({ ko: '원어', en: 'Original', ja: '原語', 'zh-CN': '原文', es: 'Original', th: 'ภาษาต้นฉบับ', hi: 'मूल भाषा', fr: 'Original', de: 'Ursprachen' })[locale] || 'Original')}</a></nav>
     <label class="sr-only" for="era-memo">${escapeHtml(ui('memoTitle'))}</label>
     <textarea id="era-memo" placeholder="${escapeHtml(ui('memoPlaceholder'))}"></textarea>
     <span id="era-memo-status" class="era-memo-status" role="status"></span>
-    <div class="era-note-actions"><button type="button" data-era-action="copy">${escapeHtml(ui('memoCopy'))}</button><button type="button" data-era-action="download">${escapeHtml(ui('memoExport'))}</button></div>
+    <div class="era-note-actions"><button type="button" data-era-action="copy">${escapeHtml(ui('memoCopy'))}</button><button type="button" data-era-action="download">${escapeHtml(ui('memoExport'))}</button><button type="button" data-era-action="copy-all">${escapeHtml(noteCopy.copyAll)}</button><button type="button" data-era-action="download-all">${escapeHtml(noteCopy.exportAll)}</button></div>
   </section>`;
 }
 
@@ -468,6 +473,20 @@ document.addEventListener('click', async (event) => {
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     status.textContent = ui('memoDownloaded');
+  } else if (action.dataset.eraAction === 'copy-all' || action.dataset.eraAction === 'download-all') {
+    const copy = memoDrawerCopy(locale);
+    const markdown = allNotesMarkdown(listNotes(localStorage), listVerseNotes(localStorage), {
+      title: copy.allTitle, passageTitle: copy.passageHeading, verseTitle: copy.verseHeading,
+    });
+    if (action.dataset.eraAction === 'copy-all') {
+      try { await navigator.clipboard.writeText(markdown); status.textContent = copy.copied; }
+      catch { status.textContent = copy.copyFailed; }
+    } else {
+      const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
+      const link = document.createElement('a'); link.href = url;
+      link.download = `sermon-all-notes-${new Date().toISOString().slice(0, 10)}.md`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000); status.textContent = copy.exported;
+    }
   }
 });
 
@@ -484,14 +503,18 @@ content.addEventListener('keydown', (event) => {
 
 content.addEventListener('input', (event) => {
   if (event.target.id !== 'era-memo' || !currentReference) return;
-  const key = `${NOTE_PREFIX}${currentReference.label}`;
   try {
-    if (event.target.value.trim()) localStorage.setItem(key, event.target.value);
-    else localStorage.removeItem(key);
+    writePassageNote(localStorage, currentReference, event.target.value);
     document.querySelector('#era-memo-status').textContent = ui('memoSaved');
   } catch {
     document.querySelector('#era-memo-status').textContent = ui('saveFailed');
   }
+});
+
+window.addEventListener('storage', (event) => {
+  const textarea = document.querySelector('#era-memo');
+  if (!textarea || !currentReference || document.activeElement === textarea) return;
+  if (event.key === passageNoteKey(currentReference)) renderMemo();
 });
 
 function setLocale(nextLocale, updateHistory = true) {
