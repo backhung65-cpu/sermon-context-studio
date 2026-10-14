@@ -7,6 +7,7 @@ let localeIndexPromise;
 
 export const OPEN_STUDY_NOTE_LOCALES = Object.freeze({
   en: { locale: 'en', language: 'English', path: '', review: 'professional', books: 66, records: 16_918 },
+  ko: { locale: 'ko', language: '한국어', path: 'ko/', review: 'machineTranslation', books: 66, records: 16_918 },
   fr: { locale: 'fr', language: 'Français', path: 'fr/', review: 'publisherTranslation', books: 66, records: 16_910 },
   es: { locale: 'es', language: 'Español', path: 'es/', review: 'publisherTranslation', books: 43, records: 13_299 },
   hi: { locale: 'hi', language: 'हिन्दी', path: 'hi/', review: 'publisherTranslation', books: 13, records: 1_020 },

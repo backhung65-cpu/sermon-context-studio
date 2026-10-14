@@ -131,6 +131,12 @@ async function importLanguage(source) {
 await mkdir(output, { recursive: true });
 const locales = [];
 for (const source of SOURCES) locales.push(await importLanguage(source));
+try {
+  const korean = JSON.parse(await readFile(join(output, 'ko/source.json'), 'utf8'));
+  locales.push(korean);
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
 await writeFile(join(output, 'locales.json'), JSON.stringify({
   source: 'Aquifer Open Study Notes', repository: REPOSITORY, commit: COMMIT, license: 'CC BY-SA 4.0',
   locales: locales.map(({ locale, sourceLanguage, language, books, records, reviewLevels, adaptation, perBook }) => ({

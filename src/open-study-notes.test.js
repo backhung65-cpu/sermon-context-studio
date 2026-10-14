@@ -33,7 +33,8 @@ test('maps supported note languages and clearly falls back for unsupported local
   );
   assert.deepEqual(
     { locale: openStudyNotesLocale('ko').locale, fallback: openStudyNotesLocale('ko').isFallback, reason: openStudyNotesLocale('ko').fallbackReason },
-    { locale: 'en', fallback: true, reason: 'locale' },
+    { locale: 'ko', fallback: false, reason: null },
   );
+  assert.equal(openStudyNotesLocale('ko').review, 'machineTranslation');
   assert.equal(openStudyNotesLocale('zh-CN').converted, true);
 });

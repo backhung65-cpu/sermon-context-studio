@@ -218,14 +218,19 @@ async function renderOpenStudyNotes() {
       language: sourceLanguage,
     });
     const sourceMeta = document.querySelector('#era-open-notes-source-meta');
+    const reviewStatus = result.source.review === 'professional'
+      ? 'Professional'
+      : result.source.review === 'machineTranslation' ? ui('notesMachineReview') : 'None';
     if (sourceMeta) sourceMeta.textContent = ui('notesSourceMeta', {
       count: result.source.records.toLocaleString(locale),
       books: result.source.books.toLocaleString(locale),
-      status: result.source.review === 'professional' ? 'Professional' : 'None',
+      status: reviewStatus,
     });
     let languageNotice = result.source.review === 'professional'
       ? ui('notesEnglishStatus')
-      : ui('notesTranslationStatus', { language: sourceLanguage });
+      : result.source.review === 'machineTranslation'
+        ? ui('notesMachineStatus')
+        : ui('notesTranslationStatus', { language: sourceLanguage });
     if (result.source.isFallback) languageNotice = ui('notesFallbackStatus');
     if (result.source.converted && !result.source.isFallback) languageNotice += ` ${ui('notesConvertedStatus')}`;
     const languageStatus = `<p class="era-language-notice">${escapeHtml(languageNotice)}</p>`;
@@ -239,11 +244,18 @@ async function renderOpenStudyNotes() {
       : `<p class="era-open-notes-count">${escapeHtml(ui('directNotes', { count: selected.rows.length }))}</p>`;
     target.innerHTML = `${languageStatus}${scopeNotice}<div class="era-open-notes-list" lang="${escapeHtml(result.source.locale)}">${visible.map((row, index) => {
       const range = formatOpenStudyNoteReference(row.start, row.end);
-      const title = result.source.isFallback ? `${localizedBookName(reference.code, locale)} ${range}` : row.title;
+      const title = result.source.locale === 'en' && locale === 'en'
+        ? row.title
+        : `${localizedBookName(reference.code, locale)} ${range}`;
       const originalLanguageLabel = result.source.isFallback
         ? `<span class="era-open-note-language">${escapeHtml(ui('notesOriginalBody'))}</span>`
+        : result.source.review === 'machineTranslation'
+          ? `<span class="era-open-note-language">${escapeHtml(ui('notesTranslatedBody'))}</span>`
+          : '';
+      const sourceComparison = result.source.review === 'machineTranslation' && row.sourceText
+        ? `<details class="era-open-note-source"><summary>${escapeHtml(ui('notesSourceReveal'))}</summary><div lang="en">${noteBodyMarkup(row.sourceText)}</div></details>`
         : '';
-      return `<details${index === 0 && !result.source.isFallback ? ' open' : ''}><summary><span>${escapeHtml(title)}</span><small>${range}</small></summary><div class="era-open-note-body" lang="${escapeHtml(result.source.locale)}">${originalLanguageLabel}${noteBodyMarkup(row.text)}</div></details>`;
+      return `<details${index === 0 && !result.source.isFallback ? ' open' : ''}><summary><span>${escapeHtml(title)}</span><small>${range}</small></summary><div class="era-open-note-body" lang="${escapeHtml(result.source.locale)}">${originalLanguageLabel}${noteBodyMarkup(row.text)}${sourceComparison}</div></details>`;
     }).join('')}</div>
       ${selected.rows.length > studyNotesLimit ? `<button type="button" class="era-open-notes-more" data-era-action="notes-more">${escapeHtml(ui('moreNotes', { shown: studyNotesLimit, count: selected.rows.length }))}</button>` : `<p class="era-open-notes-complete">${escapeHtml(ui('allNotes', { count: selected.rows.length }))}</p>`}`;
   } catch {
