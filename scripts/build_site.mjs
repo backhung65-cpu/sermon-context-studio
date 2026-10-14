@@ -10,6 +10,8 @@ await mkdir(output, { recursive: true });
 await mkdir(join(output, 'src'), { recursive: true });
 await copyFile(join(root, 'index.html'), join(output, 'index.html'));
 await copyFile(join(root, 'era.html'), join(output, 'era.html'));
+await copyFile(join(root, 'original.html'), join(output, 'original.html'));
+await copyFile(join(root, 'sources.html'), join(output, 'sources.html'));
 for (const file of (await readdir(join(root, 'src'))).filter((name) =>
   (name.endsWith('.js') && !name.endsWith('.test.js')) || name.endsWith('.css'))) {
   await copyFile(join(root, 'src', file), join(output, 'src', file));

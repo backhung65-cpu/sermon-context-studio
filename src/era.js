@@ -60,10 +60,12 @@ function applyStaticCopy() {
   setText('era-nav-places', ui('navPlaces'));
   setText('era-nav-journeys', ui('navJourneys'));
   setText('era-nav-current', ui('navEra'));
+  setText('era-nav-original', ({ ko: '원어의 시대', en: 'Original Languages', ja: '原語の時代', 'zh-CN': '原文时代', es: 'Lenguas bíblicas', th: 'ภาษาต้นฉบับ', hi: 'मूल भाषाएँ', fr: 'Langues bibliques', de: 'Biblische Ursprachen' })[locale] || 'Original Languages');
   document.querySelector('#era-primary-nav')?.setAttribute('aria-label', t(locale, 'edition'));
   document.querySelector('#era-nav-places').href = localUrl('/');
   document.querySelector('#era-nav-journeys').href = localUrl('/?view=journeys');
   document.querySelector('#era-nav-current').href = localUrl('/era.html');
+  document.querySelector('#era-nav-original').href = localUrl('/original.html');
   setText('era-title-one', ui('hero1'));
   setText('era-title-two', ui('hero2'));
   setText('era-lead', ui('lead'));

@@ -83,7 +83,7 @@ app.innerHTML = `
         <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" data-i18n-alt="logoAlt" alt="목회 AI 연구소 AI와 십자가 로고" /></span>
         <span class="brand-text"><strong data-i18n="brand">목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
       </a>
-      <nav class="primary-nav" aria-label="주 메뉴"><a href="/" data-view-link="places" aria-current="page">본문 속 지명</a><a href="/?view=journeys" data-view-link="journeys">성경여행</a><a id="era-nav" href="/era.html">본문의 시대</a></nav>
+      <nav class="primary-nav" aria-label="주 메뉴"><a href="/" data-view-link="places" aria-current="page">본문 속 지명</a><a href="/?view=journeys" data-view-link="journeys">성경여행</a><a id="era-nav" href="/era.html">본문의 시대</a><a id="original-nav" href="/original.html">원어의 시대</a></nav>
       <div class="header-tools"><label class="sr-only" for="language-select">Language</label><select id="language-select" aria-label="Language">${Object.entries(LOCALES).map(([code, name]) => `<option value="${code}">${name}</option>`).join('')}</select><span class="header-edition"><span data-i18n="edition">성경 배경 연구 도구</span> <span>01</span></span></div>
     </div>
   </header>
@@ -240,7 +240,7 @@ app.innerHTML = `
     <div class="memo-drawer-footer"><div class="memo-export-actions"><button id="memo-copy-all" type="button" disabled>모든 메모 복사</button><button id="memo-export-all" type="button" disabled>모든 메모 .md</button></div><div class="memo-backup-actions"><button id="memo-backup" type="button" disabled>JSON 백업</button><button id="memo-import" type="button">백업 불러오기</button></div><span id="memo-action-status" role="status"></span></div>
   </aside>
 
-  <footer class="site-footer"><div class="shell footer-inner"><span data-i18n="copyright">© 목회 AI 연구소</span><span><span data-i18n="footerData">지리 자료</span>: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info</a> · CC BY 4.0</span></div></footer>
+  <footer class="site-footer"><div class="shell footer-inner"><span data-i18n="copyright">© 목회 AI 연구소</span><span><a href="/sources.html">자료와 제작 방법</a> · <span data-i18n="footerData">지리 자료</span>: <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener noreferrer">OpenBible.info</a> · CC BY 4.0</span></div></footer>
 `;
 
 const input = document.querySelector('#reference-input');
@@ -487,12 +487,17 @@ const ERA_NAV_LABELS = {
   es: 'Época del pasaje', th: 'ยุคของพระคัมภีร์', hi: 'पाठ का काल',
   fr: 'Époque du passage', de: 'Zeit des Textes',
 };
+const ORIGINAL_NAV_LABELS = {
+  ko: '원어의 시대', en: 'Original Languages', ja: '原語の時代', 'zh-CN': '原文时代',
+  es: 'Lenguas bíblicas', th: 'ภาษาต้นฉบับ', hi: 'मूल भाषाएँ',
+  fr: 'Langues bibliques', de: 'Biblische Ursprachen',
+};
 const COMPACT_NAV_LABELS = {
-  ko: ['지명', '여행', '시대'], en: ['Places', 'Journeys', 'Era'],
-  ja: ['地名', '旅', '時代'], 'zh-CN': ['地名', '旅程', '时代'],
-  es: ['Lugares', 'Viajes', 'Época'], th: ['สถานที่', 'เส้นทาง', 'ยุค'],
-  hi: ['स्थान', 'यात्रा', 'काल'], fr: ['Lieux', 'Voyages', 'Époque'],
-  de: ['Orte', 'Reisen', 'Zeit'],
+  ko: ['지명', '여행', '시대', '원어'], en: ['Places', 'Journeys', 'Era', 'Original'],
+  ja: ['地名', '旅', '時代', '原語'], 'zh-CN': ['地名', '旅程', '时代', '原文'],
+  es: ['Lugares', 'Viajes', 'Época', 'Original'], th: ['สถานที่', 'เส้นทาง', 'ยุค', 'ภาษาต้นฉบับ'],
+  hi: ['स्थान', 'यात्रा', 'काल', 'मूल भाषा'], fr: ['Lieux', 'Voyages', 'Époque', 'Langues'],
+  de: ['Orte', 'Reisen', 'Zeit', 'Ursprachen'],
 };
 function updateEraNavigation(reference = currentReference) {
   const link = document.querySelector('#era-nav');
@@ -503,6 +508,13 @@ function updateEraNavigation(reference = currentReference) {
   if (reference?.code) params.set('ref', formatReference(reference));
   if (locale !== 'ko') params.set('lang', locale);
   link.href = `/era.html${params.size ? `?${params}` : ''}`;
+  const originalLink = document.querySelector('#original-nav');
+  if (originalLink) {
+    originalLink.textContent = ORIGINAL_NAV_LABELS[locale] || ORIGINAL_NAV_LABELS.en;
+    originalLink.dataset.shortLabel = (COMPACT_NAV_LABELS[locale] || COMPACT_NAV_LABELS.en)[3];
+    originalLink.setAttribute('aria-label', originalLink.textContent);
+    originalLink.href = `/original.html${reference?.code ? `#${encodeURIComponent(formatReference(reference))}` : ''}`;
+  }
 }
 
 function applyView(scroll = false) {

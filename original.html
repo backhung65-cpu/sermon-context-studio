@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="성경 66권의 히브리어·그리스어 원문, 음역, 표제어, 형태 분석과 성경 전체 사용 횟수를 함께 살펴보는 도구" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="목회 AI 연구소" />
+    <meta property="og:title" content="원어의 시대 | 목회 AI 연구소" />
+    <meta property="og:description" content="히브리어와 그리스어 단어를 누르면 파싱과 성경 전체 사용 횟수, 등장 구절을 확인할 수 있습니다." />
+    <meta property="og:image" content="https://raw.githubusercontent.com/backhung65-cpu/sermon-context-studio/main/public/assets/ministry-ai-lab-original.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>원어의 시대 | 목회 AI 연구소</title>
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&family=Noto+Serif:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/original.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/" aria-label="목회 AI 연구소 본문의 장소로 이동">
+          <span class="brand-mark"><img src="/public/assets/ministry-ai-lab-original.png" alt="목회 AI 연구소 로고" /></span>
+          <span class="brand-text"><strong>목회 AI 연구소</strong><small>MINISTRY AI LAB</small></span>
+        </a>
+        <nav class="primary-nav" aria-label="성경 배경 연구 도구">
+          <a href="/">본문 속 지명</a><a href="/?view=journeys">성경여행</a><a href="/era.html">본문의 시대</a><a href="/original.html" aria-current="page">원어의 시대</a>
+        </nav>
+        <div class="header-tools"><span class="header-edition"><span>성경 배경 연구 도구</span><span>03</span></span></div>
+      </div>
+    </header>
+
+    <main class="original-shell">
+      <section class="original-hero">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> ORIGINAL LANGUAGE · 03</div>
+          <h1>단어를 누르면,<br /><em>문법과 쓰임이 열립니다.</em></h1>
+          <p>구약 히브리어와 신약 그리스어를 절 단위로 읽고, 표제어·음역·형태 분석·성경 전체 출현 횟수와 등장 구절을 한 흐름에서 확인합니다.</p>
+          <form id="original-search" class="original-search" novalidate>
+            <label for="original-reference">성경 본문</label>
+            <div><input id="original-reference" value="출애굽기 3:1-6" autocomplete="off" spellcheck="false" /><button type="submit">원어 연구 시작 <span aria-hidden="true">↗</span></button></div>
+            <p id="original-error" role="alert" hidden></p>
+          </form>
+          <div class="original-examples"><span>빠른 시작</span><button data-reference="창세기 1:1-5">창 1:1–5</button><button data-reference="시편 23">시 23</button><button data-reference="요한복음 1:1-5">요 1:1–5</button><button data-reference="로마서 8:1-4">롬 8:1–4</button></div>
+        </div>
+        <aside class="original-hero-card">
+          <span>66권 원어 자료층</span>
+          <strong id="original-total-tokens">442,983</strong><small>원어 단어 행</small>
+          <ol><li><b>01</b> 원문과 음역</li><li><b>02</b> 표제어와 형태 분석</li><li><b>03</b> 전체 사용 횟수</li><li><b>04</b> 등장 구절 찾아가기</li></ol>
+          <a href="/sources.html">사용한 자료와 제작 방법 보기 ↗</a>
+        </aside>
+      </section>
+
+      <section id="original-workspace" class="original-workspace" aria-live="polite">
+        <header class="original-section-head"><div><span>본문 연구 · 원어</span><h2 id="original-passage-title">출애굽기 3:1–6</h2><p id="original-passage-meta">히브리어 단어를 눌러 분석을 시작하세요.</p></div><a id="original-open-era" href="/era.html?ref=출애굽기%203%3A1-6">02 본문의 시대에서 읽기 ↗</a></header>
+        <div class="original-grid">
+          <div id="original-verses" class="original-verses"><div class="original-loading">원어 자료를 불러오는 중입니다.</div></div>
+          <aside class="original-side">
+            <section id="word-detail" class="word-detail">
+              <div class="word-detail-empty"><span>단어 분석</span><strong>원어 단어를 눌러 보세요.</strong><p>표제어, 음역, 형태 분석, 전체 출현 횟수와 등장 구절이 이곳에 표시됩니다.</p></div>
+            </section>
+            <section class="original-memo">
+              <div><span>원어 연구 메모</span><button id="memo-toggle" type="button" aria-expanded="true">접기</button></div>
+              <div id="memo-body"><textarea id="original-memo" placeholder="단어의 의미, 문법, 설교 연결점을 기록하세요."></textarea><p id="memo-status">입력하면 이 브라우저에 자동 저장됩니다.</p><div class="memo-actions"><button id="memo-copy" type="button">메모 복사</button><button id="memo-download" type="button">MD 내보내기</button></div></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="original-policy">
+        <div><span>횟수를 읽는 기준</span><h2>“몇 번”의 범위를 먼저 밝힙니다.</h2></div>
+        <div><p><strong>구약</strong> TAHOT의 레닌그라드 히브리어 본문 단어를 확장 Strong 표제어별로 셉니다.</p><p><strong>신약</strong> TAGNT 가운데 Nestle–Aland 계열에 포함된 단어만 셉니다. TR 전용 단어와 기타 이문은 횟수에서 제외합니다.</p><p><strong>주의</strong> 표제어의 출현 횟수입니다. 화면에 보이는 특정 굴절형의 횟수와는 다를 수 있으며, 판본에 따라 수치가 달라질 수 있습니다.</p></div>
+      </section>
+    </main>
+    <footer class="era-site-footer"><div class="original-shell"><span>목회 AI 연구소 · 성경 배경 연구 도구 03</span><a href="/sources.html">자료·라이선스·제작 방법 ↗</a></div></footer>
+    <script type="module" src="/src/original.js"></script>
+  </body>
+</html>
